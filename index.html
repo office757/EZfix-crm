@@ -709,6 +709,30 @@ const KNOWN_COLUMNS = {
  auditLog:['id','action','summary','entity_type','entity_id','related_type','related_id','source','priority','read','created_by_team_id','created_at'], calls:['id','mode','outcome','summary','duration_sec','transcript','lead_id','customer_id','provider_call_id','direction','remote_number','local_number','status','started_at','ended_at','recording_url','provider_data','lead_extraction_status','lead_extraction','lead_extracted_at','created_at'], inventoryAdjustments:['id','product_id','product_name','qty_before','qty_after','delta','type','reason','source','created_by_team_id','created_at'], smsMessages:['id','provider','channel','provider_event_ids','provider_message_id','provider_conversation_id','direction','local_phone_number','remote_phone_number','normalized_remote_phone','message_text','message_type','provider_status','customer_id','lead_id','match_ambiguous','provider_created_at','received_at','sent_at','delivered_at','failed_at','failure_reason','created_at','updated_at','row_version']
 };
 const ASSET_BUCKET='crm-assets';
+// Writes and refreshes can be triggered by a form save, an audit entry and a
+// realtime notification at almost the same time. Keep per-record writes in
+// order and prevent an older, slower refresh from replacing newer state.
+const mutationQueues = new Map();
+const collectionRefreshVersions = new Map();
+const collectionAppliedVersions = new Map();
+let settingsRefreshVersion = 0;
+let settingsAppliedVersion = 0;
+function queueMutation(key, operation) {
+  const previous = mutationQueues.get(key) || Promise.resolve();
+  const current = previous.catch(()=>{}).then(operation);
+  mutationQueues.set(key, current);
+  current.finally(()=>{ if (mutationQueues.get(key) === current) mutationQueues.delete(key); }).catch(()=>{});
+  return current;
+}
+function replaceStoreRecord(col, row) {
+  const writeVersion=(collectionRefreshVersions.get(col)||0)+1;
+  collectionRefreshVersions.set(col,writeVersion); collectionAppliedVersions.set(col,writeVersion);
+  const record = fromDbRow(row);
+  const list = STORE[col] || (STORE[col] = []);
+  const index = list.findIndex(item=>String(item.id)===String(record.id));
+  if (index < 0) list.unshift(record); else list[index] = record;
+  return record;
+}
 async function uploadAsset(file, folder='misc') {
   const ext=(file.name?.split('.').pop()||'bin').replace(/[^a-zA-Z0-9]/g,'').toLowerCase()||'bin';
   const path=`${folder}/${crypto.randomUUID()}.${ext}`;
@@ -735,10 +759,15 @@ function newId(){ return uid(); }
 async function requireSession(){ const {data:{session},error}=await SB.auth.getSession(); if(error) throw error; return session; }
 async function refreshCollection(col){
   const table=TABLE_MAP[col]; if(!table) throw new Error('Unknown collection '+col);
+  const refreshVersion=(collectionRefreshVersions.get(col)||0)+1; collectionRefreshVersions.set(col,refreshVersion);
   let q=SB.from(table).select('*'); if(SOFT_DELETE.has(col)) q=q.is('deleted_at',null); q=q.order('created_at',{ascending:false}).limit(500);
-  const {data,error}=await q; if(error) throw error; STORE[col]=(data||[]).map(fromDbRow); if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner/Admin':x.role==='technician'?'Technician':x.role==='office'?'Office':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status;}); await Promise.all(STORE[col].map(refreshSignedAssetUrls)); return STORE[col];
+  const {data,error}=await q; if(error) throw error;
+  if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
+  const records=(data||[]).map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls));
+  if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
+  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner/Admin':x.role==='technician'?'Technician':x.role==='office'?'Office':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status;}); return STORE[col];
 }
-async function refreshSettings(){ const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(data){ const x=fromDbRow(data); SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (413) 961-3223',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } }
+async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (413) 961-3223',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
 function setSyncState(ok,labelText){ const dot=document.getElementById('syncDot'),label=document.getElementById('syncLabel'); if(dot) dot.classList.toggle('off',!ok); if(label) label.textContent=labelText; }
 async function showAuthGate(){
   let gate=document.getElementById('authGate'); if(gate) return;
@@ -766,6 +795,7 @@ const LS_KEY='ezfix_crm_store_v1';
 function loadLocalStore(){} // production: localStorage is never authoritative
 function saveLocalStore(){} // production: no business-data writes to localStorage
 async function dbAdd(col,data){
+ return queueMutation(`collection:${col}`,async()=>{
   if(!await requireSession()) throw markHandled(new Error('Sign in required'));
   if(col==='auditLog'){
     const auditId=newId(); const {data:rid,error}=await SB.rpc('log_audit_event',{p_id:auditId,p_action:data.action||'event',p_summary:data.summary||null,p_entity_type:data.entityType||null,p_entity_id:data.entityId||null,p_related_type:data.relatedType||null,p_related_id:data.relatedId||null}); if(error) throw markHandled(error); await refreshCollection(col); return rid;
@@ -775,9 +805,11 @@ async function dbAdd(col,data){
   }
   if(col==='calls' || col==='smsMessages') throw markHandled(new Error(`${col} is server-managed in production and cannot be created directly by the browser.`));
   const id=newId(), normalized={id,...data}; if(col==='team'){normalized.role=data.role==='Owner/Admin'?'owner':String(data.role||'technician').toLowerCase(); normalized.status=String(data.status||'active').toLowerCase();} const row=toDbRowForCollection(col,normalized); delete row.created_at; delete row.updated_at; delete row.row_version;
-  const {data:created,error}=await SB.from(TABLE_MAP[col]).insert(row).select('*').single(); if(error){toast("Couldn't save this. Please try again.",true);throw markHandled(error);} await refreshCollection(col); return created.id;
+  const {data:created,error}=await SB.from(TABLE_MAP[col]).insert(row).select('*').single(); if(error){toast("Couldn't save this. Please try again.",true);throw markHandled(error);} if(!created?.id) throw markHandled(new Error('Save completed without returning the record.')); replaceStoreRecord(col,created); return created.id;
+ });
 }
 async function dbSet(col,id,data){
+ return queueMutation(`record:${col}:${id}`,async()=>{
   if(!await requireSession()) throw markHandled(new Error('Sign in required'));
   if(col==='auditLog'){ const allowed={}; if(Object.prototype.hasOwnProperty.call(data,'read')) allowed.read=!!data.read; const {error}=await SB.from('audit_log').update(allowed).eq('id',id); if(error) throw markHandled(error); await refreshCollection(col); return; }
   if(col==='calls' || col==='inventoryAdjustments') throw markHandled(new Error(`${col} is append-only in production.`));
@@ -785,7 +817,8 @@ async function dbSet(col,id,data){
   // Never let a partial update erase legacy/compatibility fields. Merge app_data
   // against the authoritative database row, not the in-memory STORE cache.
   if(row.app_data){ const {data:currentRow,error:currentErr}=await SB.from(TABLE_MAP[col]).select('app_data').eq('id',id).maybeSingle(); if(currentErr) throw markHandled(currentErr); row.app_data={...((currentRow&&currentRow.app_data)||{}),...row.app_data}; }
-  const {data:updated,error}=await SB.from(TABLE_MAP[col]).update(row).eq('id',id).select('id').maybeSingle(); if(error){toast("Couldn't save this change. Please try again.",true);throw markHandled(error);} if(!updated) throw markHandled(new Error('Update was not permitted or record no longer exists.')); await refreshCollection(col);
+  const {data:updated,error}=await SB.from(TABLE_MAP[col]).update(row).eq('id',id).select('*').maybeSingle(); if(error){toast("Couldn't save this change. Please try again.",true);throw markHandled(error);} if(!updated){toast("Couldn't save this change because the record no longer exists or access was revoked.",true);throw markHandled(new Error('Update was not permitted or record no longer exists.'));} replaceStoreRecord(col,updated); return fromDbRow(updated);
+ });
 }
 async function dbDelete(col,id){
   if(!await requireSession()) throw markHandled(new Error('Sign in required'));
@@ -7030,13 +7063,18 @@ function renderAuditLog(content, actions) {
   `;
 }
 async function saveSettings(data) {
-  if (!await requireSession()) throw markHandled(new Error('Sign in required'));
-  const next = { ...SETTINGS, ...data };
-  const row = toDbRowForCollection('settings', { id:'main', ...next });
-  const { error } = await SB.from('settings').upsert(row, { onConflict:'id' });
-  if (error) { toast('Couldn\'t save settings. Please try again.', true); console.error('saveSettings failed', error); throw markHandled(error); }
-  SETTINGS = next;
-  await refreshSettings();
+  return queueMutation('settings:main', async()=>{
+    if (!await requireSession()) throw markHandled(new Error('Sign in required'));
+    const next = { ...SETTINGS, ...data };
+    const row = toDbRowForCollection('settings', { id:'main', ...next });
+    delete row.created_at; delete row.updated_at; delete row.row_version;
+    const { data:saved, error } = await SB.from('settings').upsert(row, { onConflict:'id' }).select('*').single();
+    if (error) { toast('Couldn\'t save settings. Please try again.', true); console.error('saveSettings failed', error); throw markHandled(error); }
+    if (!saved) throw markHandled(new Error('Settings save was not acknowledged.'));
+    settingsAppliedVersion=++settingsRefreshVersion;
+    SETTINGS = { ...next, ...fromDbRow(saved) };
+    return SETTINGS;
+  });
 }
 // Missing variables are never fabricated — they stay visibly marked so
 // nobody accidentally sends a message with an invented value.
@@ -7959,7 +7997,8 @@ function openInvoiceModal(id, presetCustomerId, presetJobId, presetItems) {
         discount: parseFloat(document.getElementById('f_discount').value)||0,
         depositRequired: parseFloat(document.getElementById('f_deposit').value)||0,
         dueTerm: document.getElementById('f_due').value.trim() || 'On Receipt', paymentLink, paymentProvider: paymentLink ? 'square' : null,
-        payments: inv?.payments || [],
+        // Payments are maintained by the payment workflow. Do not send a stale
+        // editor snapshot that could overwrite a payment recorded elsewhere.
       };
       if (inv) {
         await dbSet('invoices', inv.id, data);
