@@ -4948,9 +4948,9 @@ function renderPayments(content, actions) {
   rows.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
   const term = (searchTerms.paymentsSearch||'').toLowerCase();
   const filtered = term ? rows.filter(r=>[(r.customerName||''),(r.invoiceNumber||''),(r.method||'')].some(v=>v.toLowerCase().includes(term))) : rows;
-  const total = filtered.reduce((s,r)=>s+Number(r.amount||0),0);
+  const total = filtered.reduce((s,r)=>s+paymentChargedAmount(r),0);
   const byMethod = {};
-  filtered.forEach(r=>{ byMethod[r.method||'Other'] = (byMethod[r.method||'Other']||0) + Number(r.amount||0); });
+  filtered.forEach(r=>{ byMethod[r.method||'Other'] = (byMethod[r.method||'Other']||0) + paymentChargedAmount(r); });
   content.innerHTML = `
     <div class="panel no-print" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="font-size:13px">
@@ -4972,7 +4972,7 @@ function renderPayments(content, actions) {
           <div style="font-weight:700;font-size:13.5px">${esc(r.customerName||'—')}</div>
           <div class="muted" style="font-size:12px">${esc(r.invoiceNumber)} · ${fmtDate(r.date)} · ${esc(r.method||'—')}${r.type==='deposit'?' · Deposit':''}</div>
         </div>
-        <div style="font-weight:800;color:var(--good);flex:none">${money(r.amount)}</div>
+        <div style="font-weight:800;color:var(--good);flex:none;text-align:right">${money(paymentChargedAmount(r))}${paymentCardFee(r)>0?`<div class="muted" style="font-size:10.5px;font-weight:600">${money(paymentAppliedAmount(r))} payment + ${money(paymentCardFee(r))} fee</div>`:''}</div>
       </div>`).join('') : emptyState('💳','No payments recorded yet','Record a payment from any invoice, or set up a payment link in Settings so customers can pay online.')}
     </div></div>
   `;
@@ -8020,7 +8020,10 @@ function openJobModal(id, presetCustomerId) {
    INVOICES
    ============================================================ */
 function invoiceTotal(inv){ return computeTotals(inv).total; }
-function paidTotal(inv){ return (inv.payments||[]).reduce((s,p)=>s+Number(p.amount||0),0); }
+function paymentAppliedAmount(p){ return Number(p?.appliedAmount ?? p?.amount ?? 0); }
+function paymentCardFee(p){ return Number(p?.cardFee ?? 0); }
+function paymentChargedAmount(p){ return Number(p?.chargedAmount ?? p?.amount ?? 0); }
+function paidTotal(inv){ return (inv.payments||[]).reduce((s,p)=>s+paymentAppliedAmount(p),0); }
 function balanceDue(inv){ return Math.max(0, Math.round((invoiceTotal(inv) - paidTotal(inv)) * 100) / 100); }
 function ccSurchargeAmount(amount) { return Math.round(amount * ((SETTINGS.ccSurchargePercent||0)/100) * 100) / 100; }
 function amountWithCcSurcharge(amount) { return Math.round((amount + ccSurchargeAmount(amount)) * 100) / 100; }
@@ -8172,29 +8175,43 @@ function openPaymentModal(invId) {
       <div id="overpayWarning"></div>
     `,
     onSave: async () => {
-      const amount = parseFloat(document.getElementById('p_amount').value)||0;
-      if (amount<=0) return toast('Enter a valid amount');
+      const enteredAmount = parseFloat(document.getElementById('p_amount').value)||0;
+      if (enteredAmount<=0) return toast('Enter a valid amount');
+      const method = document.getElementById('p_method').value;
       const { data:latestRow, error:latestError } = await SB.from('invoices').select('*').eq('id', inv.id).is('deleted_at', null).maybeSingle();
       if (latestError) return toast("Couldn't load the latest invoice balance. Please try again.", true);
       if (!latestRow) return toast("Couldn't record payment because the invoice no longer exists.", true);
       const latestInv = fromDbRow(latestRow);
       const currentBalance = balanceDue(latestInv);
-      if (amount > currentBalance + 0.005 && !document.getElementById('overpayConfirmed')) {
+      const appliedAmount = method === 'Card' && SETTINGS.ccSurchargePercent
+        ? Math.round((enteredAmount / (1 + SETTINGS.ccSurchargePercent/100)) * 100) / 100
+        : enteredAmount;
+      const cardFee = method === 'Card' ? Math.round((enteredAmount - appliedAmount) * 100) / 100 : 0;
+      const chargedAmount = enteredAmount;
+      if (appliedAmount > currentBalance + 0.005 && !document.getElementById('overpayConfirmed')) {
         const wrap = document.getElementById('overpayWarning');
         if (wrap) wrap.innerHTML = `<div style="background:#fff3d6;color:#a3720b;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:8px">
-          ⚠️ This is ${money(amount - currentBalance)} more than the ${money(currentBalance)} balance due.
+          ⚠️ This is ${money(appliedAmount - currentBalance)} more than the ${money(currentBalance)} balance due.
           <label style="display:block;margin-top:6px"><input type="checkbox" id="overpayConfirmed" style="width:auto"> Record it anyway (e.g. tip, or paying ahead)</label>
         </div>`;
         return;
       }
       const typeEl = document.getElementById('p_type');
-      const paymentRecord = { amount, method: document.getElementById('p_method').value, date: document.getElementById('p_date').value, type: typeEl?typeEl.value:'payment' };
+      const paymentRecord = {
+        amount: appliedAmount,
+        appliedAmount,
+        cardFee,
+        chargedAmount,
+        method,
+        date: document.getElementById('p_date').value,
+        type: typeEl?typeEl.value:'payment'
+      };
       await PaymentProvider.recordPayment(inv.id, paymentRecord);
-      logAudit('payment_recorded', `${money(amount)} recorded on invoice ${inv.number} (${paymentRecord.method})`, 'invoices', inv.id);
+      logAudit('payment_recorded', `${money(chargedAmount)} charged (${money(appliedAmount)} applied${cardFee ? ` + ${money(cardFee)} card fee` : ''}) on invoice ${inv.number} (${paymentRecord.method})`, 'invoices', inv.id);
       if (inv.jobId) {
         const linkedJob = getOne('jobs', inv.jobId);
         if (linkedJob?.technician && techWantsNotification(linkedJob.technician, 'paymentReceived')) {
-          logWaNotification(linkedJob.technician, 'paymentReceived', 'invoices', inv.id, `${money(amount)} payment received on invoice ${inv.number}`);
+          logWaNotification(linkedJob.technician, 'paymentReceived', 'invoices', inv.id, `${money(appliedAmount)} payment received on invoice ${inv.number}`);
         }
       }
       toast('Payment recorded');
