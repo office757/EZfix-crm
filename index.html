@@ -534,6 +534,7 @@
     <div class="nav-foot">
       <span id="syncDot" class="sync-dot off"></span><span id="syncLabel">Connecting…</span>
       <div id="roleLabel" style="margin-top:4px"></div>
+      <button type="button" class="btn btn-sm" id="signOutBtn" onclick="signOutCrm()" style="margin-top:8px;width:100%;display:none">Sign Out</button>
       <div style="margin-top:10px">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#7a7a7a;margin-bottom:4px">Preview as Technician (owner testing only — not a security control)</div>
         <select id="viewAsSelect" onchange="setViewAs(this.value)" style="width:100%;background:#232427;color:#eee;border:1px solid #3a3b3e;border-radius:6px;padding:5px 6px;font-size:11.5px"></select>
@@ -9277,6 +9278,16 @@ function renderViewAsOptions() {
   sel.value = VIEW_AS;
 }
 function isTechnicianView() { return !IS_OWNER || !!VIEW_AS; }
+async function signOutCrm() {
+  try {
+    await SB.auth.signOut();
+    CURRENT_TEAM_MEMBER=null; IS_OWNER=false; CAN_EDIT=false; VIEW_AS='';
+    try { localStorage.removeItem('ezfix_view_as'); } catch(e) {}
+    dbReady=false; STORE.customers=[]; STORE.leads=[]; STORE.jobs=[]; STORE.estimates=[]; STORE.invoices=[]; STORE.team=[];
+    location.reload();
+  } catch(e) { toast('Unable to sign out. Please try again.', true); }
+}
+window.signOutCrm = signOutCrm;
 async function initUserRole() {
   try {
     const {data:{user}} = await SB.auth.getUser();
@@ -9289,6 +9300,7 @@ async function initUserRole() {
     const roleName=member?.role==='owner'?'Owner':member?.role==='admin'?'Admin':member?.role==='dispatcher'?'Dispatcher':member?.role==='technician'?'Technician':'Unassigned';
     if(!IS_OWNER){ VIEW_AS=''; try{localStorage.removeItem('ezfix_view_as');}catch(e){} }
     if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || 'User'} • ${roleName}` : 'Access not assigned';
+    const signOutBtn=document.getElementById('signOutBtn'); if(signOutBtn) signOutBtn.style.display=member?'block':'none';
     renderNav();
   } catch(e) { CAN_EDIT=false; IS_OWNER=false; console.error('Supabase role resolution failed',e); }
 }
