@@ -45,10 +45,9 @@ async function resolveParty(admin: any, remote: string) {
     ]);
     const cm = (cs || []).filter((x: any) => digits10(x.phone || "") === digits);
     const lm = (ls || []).filter((x: any) => digits10(x.phone || "") === digits);
-    if (cm.length === 1) customerId = cm[0].id;
-    else if (cm.length > 1) ambiguous = true;
-    else if (lm.length === 1) leadId = lm[0].id;
-    else if (lm.length > 1) ambiguous = true;
+    if (cm.length === 1 && lm.length === 0) customerId = cm[0].id;
+    else if (cm.length === 0 && lm.length === 1) leadId = lm[0].id;
+    else if (cm.length > 0 || lm.length > 0) ambiguous = true;
   } catch (e) {
     console.error("sms recipient linkage lookup failed", e);
   }
