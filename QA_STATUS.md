@@ -11,8 +11,8 @@ Working branch: `fix/card-surcharge-accounting-2026-09-23`
 4. Documents & Communications — **COMPLETE**
 5. Ashley + Phone — **COMPLETE (with documented provider limitation)**
 6. Operational QA — **COMPLETE (with one duplicate-review item)**
-7. Full E2E Production Test — **NEXT**
-8. Release — pending
+7. Full E2E Production Test — **COMPLETE**
+8. Release — **NEXT**
 
 ## Task 1 — Financial QA
 
@@ -123,6 +123,22 @@ Verified production operational integrity and the current preview deployment:
 - The Vercel preview project is automatically building this working branch; the latest branch deployment is READY, and Vercel reports no runtime-error clusters in the last 24 hours.
 - Operational AI tools remain permission-gated; data-integrity/read tools include pipeline audit, duplicate detection, low-stock detection, schedule-conflict detection, tasks, expenses, warranties, inspections, purchase orders, suppliers, and service-operations snapshots.
 
+## Task 7 — Full E2E Production Test
+
+Verified a complete isolated flow against production schema/policies in a rolled-back transaction under an authenticated Owner context:
+
+- Created a QA Customer and linked Lead and Job, then created an approved Estimate.
+- Converted the Estimate to an Invoice through the atomic `convert_estimate_to_invoice` RPC.
+- Recorded a Card payment through the atomic `append_invoice_payment` RPC.
+- The $750 tax-inclusive spring scenario reconciled to $502.99 taxable spring parts + $215.57 non-taxable labor + $31.44 MA sales tax = $750.00 invoice principal.
+- The 3.5% card surcharge remained separate: $26.25 fee and $776.25 charged, while only $750.00 was applied to the invoice.
+- Relationship and accounting assertions all passed: estimate conversion, invoice customer/job links, item count, tax rate, one payment, applied amount, separate fee, charged amount, lead conversion links, job-estimate link, and final total math.
+- The entire QA transaction was rolled back; follow-up checks confirmed that no QA customer, lead, job, estimate, or invoice remained in production.
+- The current working-branch Vercel preview deployment is READY and returned HTTP 200 through an authenticated Vercel fetch.
+- Vercel reported no runtime-error clusters in the previous 24 hours.
+
+No live customer communication was sent during the E2E test.
+
 ## Next verification target
 
-Task 7: Full E2E Production Test — run the complete Customer/Lead -> Job -> Estimate -> Invoice -> Payment/receipt flow using isolated test data and rollback/cleanup where possible, verify refresh/reload behavior and the preview deployment, then prepare the release candidate.
+Task 8: Release — perform final branch/main comparison and security/runtime checks, merge the verified release candidate to main, verify the resulting production deployment, run post-deploy smoke checks, and record the final production sign-off.
