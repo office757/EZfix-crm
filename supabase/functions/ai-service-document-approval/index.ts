@@ -21,6 +21,7 @@ type CatalogProduct = {
   name: string | null;
   category: string | null;
   category_id: string | null;
+  rate: number | string | null;
   taxable: boolean | null;
   active: boolean | null;
 };
@@ -38,7 +39,8 @@ function recompute(draft: any) {
     }
     const line = qty * rate;
     subtotal += line;
-    if (item?.taxable !== false) taxable += line;
+    if (item?.taxable === true) taxable += line;
+    else if (item?.taxable !== false) throw new Error("Draft line taxable classification must be boolean");
   }
   const rawTaxRate = Number(draft?.totals?.tax_rate ?? draft?.tax_rate);
   if (!Number.isFinite(rawTaxRate) || rawTaxRate < 0 || rawTaxRate > 25) {
@@ -56,37 +58,48 @@ function canonicalizeCatalogItems(items: any[], products: CatalogProduct[]) {
     const productId = text(item?.catalog_product_id);
     if (!productId) throw new Error(`Draft line ${index + 1} is missing catalog_product_id`);
     const product = byId.get(productId);
-    if (!product || product.active === false) {
-      throw new Error( `Draft line ${index + 1} references an inactive or unknown catalog item`);
+    if (!product || product.active !== true) {
+      throw new Error(`Draft line ${index + 1} references an inactive or unknown catalog item`);
     }
 
     const canonicalName = text(product.name);
     const canonicalCategory = text(product.category) || text(product.category_id);
-    if (typeof product.taxable !== "boolean") {
-      throw new Error( `Catalog item ${productId} has an invalid taxable classification`);
-    }
-    const canonicalTaxable = product.taxable;
+    const catalogRateRaw = Number(product.rate);
     if (!canonicalName) throw new Error(`Catalog item ${productId} is missing a name`);
     if (!canonicalCategory) throw new Error(`Catalog item ${productId} is missing a category`);
+    if (typeof product.taxable !== "boolean") throw new Error(`Catalog item ${productId} has an invalid taxable classification`);
+    if (!Number.isFinite(catalogRateRaw) || catalogRateRaw <= 0 || catalogRateRaw > 1000000) {
+      throw new Error(`Catalog item ${productId} has a missing or invalid rate`);
+    }
 
-    // Reject stale or caller-mutated financial/catalog identity instead of silently
-    // approving a different taxable classification or mislabeled service.
+    const qty = Number(item?.qty);
+    const draftRateRaw = Number(item?.rate);
+    if (!Number.isFinite(qty) || qty <= 0 || qty > 1000) throw new Error(`Draft line ${index + 1} has an invalid quantity`);
+    if (!Number.isFinite(draftRateRaw) || draftRateRaw < 0 || draftRateRaw > 1000000) throw new Error(`Draft line ${index + 1} has an invalid rate`);
+    const catalogRate = round2(catalogRateRaw);
+    const draftRate = round2(draftRateRaw);
+    if (Math.abs(catalogRate - draftRate) >= 0.01) {
+      throw new Error(`Draft line ${index + 1} rate does not match the active catalog; regenerate the draft`);
+    }
+
     if (text(item?.name) !== canonicalName) {
-      throw new Error( `Draft line ${index + 1} name does not match the active catalog; regenerate the draft`);
+      throw new Error(`Draft line ${index + 1} name does not match the active catalog; regenerate the draft`);
     }
-    if ((item?.taxable !== false) !== canonicalTaxable) {
-      throw new Error(`Draft line ${index + 1} taxable classification does not match the active catalog; regenerate the draft`);
-    }
-    if (text(item?.category) && canonicalCategory && text(item.category) !== canonicalCategory) {
+    if (text(item?.category) !== canonicalCategory) {
       throw new Error(`Draft line ${index + 1} category does not match the active catalog; regenerate the draft`);
+    }
+    if (typeof item?.taxable !== "boolean" || item.taxable !== product.taxable) {
+      throw new Error(`Draft line ${index + 1} taxable classification does not match the active catalog; regenerate the draft`);
     }
 
     return {
       ...item,
       catalog_product_id: productId,
       name: canonicalName,
-      category: canonicalCategory || text(item?.category),
-      taxable: canonicalTaxable,
+      category: canonicalCategory,
+      qty,
+      rate: catalogRate,
+      taxable: product.taxable,
     };
   });
 }
@@ -160,7 +173,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: products, error: productsError } = await db.from("products")
-      .select("id,name,category,category_id,taxable,active")
+      .select("id,name,category,category_id,rate,taxable,active")
       .in("id", productIds);
     if (productsError) throw productsError;
 
@@ -168,7 +181,7 @@ Deno.serve(async (req) => {
     try {
       canonicalItems = canonicalizeCatalogItems(rawItems, (products || []) as CatalogProduct[]);
     } catch (catalogError: any) {
-      return json({ ok: false, error: catalogError?.message || "Draft catalog validation failed" }, 400);
+      return json({ ok: false, error: catalogError?.message || "Draft catalog validation failed" }, 409);
     }
 
     const canonicalDraft = { ...draft, document_type: documentType, items: canonicalItems };
@@ -182,8 +195,14 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(declaredTotal)) {
       return json({ ok: false, error: "Draft declared total is invalid" }, 400);
     }
-    if (Math.abs(recomputed.total - declaredTotal) >= 0.01 || Math.abs(recomputed.total - targetTotal) >= 0.01) {
+    if (Math.abs(recomputed.total - declaredTotal) >= 0.01) {
       return json({ ok: false, error: "Draft totals failed server-side reconciliation" }, 400);
+    }
+    if (Math.abs(recomputed.total - targetTotal) >= 0.01) {
+      return json({ ok: false, error: "Requested total does not match verified Product Catalog pricing", catalog_total: recomputed.total, requested_total: round2(targetTotal) }, 409);
+    }
+    if (draft?.catalog_pricing_complete === false || draft?.target_matches_catalog === false || draft?.reconciled === false) {
+      return json({ ok: false, error: "Draft is explicitly marked as requiring pricing review and cannot be approved yet" }, 409);
     }
 
     const proposedValue = {
@@ -192,6 +211,9 @@ Deno.serve(async (req) => {
       items: canonicalItems,
       totals: recomputed,
       target_total: round2(targetTotal),
+      pricing_source: "active_product_catalog",
+      pricing_verified: true,
+      catalog_integrity_verified: true,
       job: job ? {
         id: job.id,
         customer_id: job.customer_id,
@@ -202,7 +224,6 @@ Deno.serve(async (req) => {
       requested_by: { team_id: member.id, name: member.name, role },
       submitted_at: new Date().toISOString(),
       approval_only: true,
-      catalog_integrity_verified: true,
     };
 
     const { data: approval, error: approvalError } = await db.from("ai_approvals")
@@ -217,6 +238,8 @@ Deno.serve(async (req) => {
           request: text(draft?.request),
           reconciled_total: recomputed.total,
           job_id: job?.id || null,
+          pricing_source: "active_product_catalog",
+          pricing_verified: true,
           catalog_integrity_verified: true,
           catalog_product_ids: productIds,
         }],
@@ -237,13 +260,14 @@ Deno.serve(async (req) => {
           approval_id: approval.id,
           job_id: job?.id || null,
           total: recomputed.total,
+          pricing_verified: true,
           catalog_integrity_verified: true,
         },
         status: "completed",
       });
     } catch {}
 
-    return json({ ok: true, approval, persisted_financial_document: false, catalog_integrity_verified: true });
+    return json({ ok: true, approval, persisted_financial_document: false, pricing_verified: true, catalog_integrity_verified: true });
   } catch (error: any) {
     console.error("ai-service-document-approval", error);
     return json({ ok: false, error: error?.message || "Approval request failed" }, 500);
