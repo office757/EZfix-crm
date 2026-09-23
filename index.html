@@ -1205,7 +1205,7 @@ function renderDashboard(content, actions) {
 
   const allPayments = [];
   STORE.invoices.forEach(inv => (inv.payments||[]).forEach(p => allPayments.push({...p, invoiceNumber:inv.number, customerName:inv.customerName})));
-  const paymentsToday = allPayments.filter(p=>p.date===today).reduce((s,p)=>s+Number(p.amount||0),0);
+  const paymentsToday = allPayments.filter(p=>p.date===today).reduce((s,p)=>s+paymentAppliedAmount(p),0);
   const recentPayments = [...allPayments].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
 
   const jobsToday = STORE.jobs.filter(j=>j.scheduledDate===today);
@@ -8155,7 +8155,7 @@ window.onPaymentMethodChange = onPaymentMethodChange;
 function openPaymentModal(invId) {
   const inv = getOne('invoices', invId);
   const t = computeTotals(inv);
-  const depositPaid = (inv.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+Number(p.amount||0),0);
+  const depositPaid = (inv.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+paymentAppliedAmount(p),0);
   const depositRemaining = Math.max(0, t.depositRequired - depositPaid);
   const baseAmount = depositRemaining>0 ? depositRemaining : balanceDue(inv);
   showModal({
@@ -8276,7 +8276,7 @@ function renderDocumentView(type, id) {
   const balance = isInvoice ? balanceDue(doc) : total;
   const docNo = doc.number;
   const label = isInvoice ? 'INVOICE' : 'ESTIMATE';
-  const depositPaid = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+Number(p.amount||0),0) : 0;
+  const depositPaid = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+paymentAppliedAmount(p),0) : 0;
   const depositRemaining = isInvoice ? Math.max(0, t.depositRequired - depositPaid) : 0;
 
   const docCust = getOne('customers', doc.customerId);
@@ -8829,7 +8829,7 @@ async function buildPdfDoc(type, doc) {
   // Totals
   const totalsX = pageW-margin-8;
   pdf.setFontSize(9.5);
-  const depositPaidPdf = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+Number(p.amount||0),0) : 0;
+  const depositPaidPdf = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+paymentAppliedAmount(p),0) : 0;
   const depositRemainingPdf = isInvoice ? Math.max(0, t.depositRequired - depositPaidPdf) : 0;
   if (t.discount > 0 || t.tax > 0) {
     pdf.setTextColor(110,110,110); pdf.text('Subtotal', totalsX-150, y, {align:'right'});
