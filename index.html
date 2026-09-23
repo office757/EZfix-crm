@@ -1205,7 +1205,7 @@ function renderDashboard(content, actions) {
 
   const allPayments = [];
   STORE.invoices.forEach(inv => (inv.payments||[]).forEach(p => allPayments.push({...p, invoiceNumber:inv.number, customerName:inv.customerName})));
-  const paymentsToday = allPayments.filter(p=>p.date===today).reduce((s,p)=>s+Number(p.amount||0),0);
+  const paymentsToday = allPayments.filter(p=>p.date===today).reduce((s,p)=>s+paymentAppliedAmount(p),0);
   const recentPayments = [...allPayments].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
 
   const jobsToday = STORE.jobs.filter(j=>j.scheduledDate===today);
@@ -1318,7 +1318,7 @@ function renderDashboard(content, actions) {
               <td class="name-cell">${esc(p.invoiceNumber)}<div class="muted" style="font-weight:400">${esc(p.customerName||'')}</div></td>
               <td class="muted">${esc(p.method||'—')}</td>
               <td class="muted">${fmtDate(p.date)}</td>
-              <td>${money(p.amount)}</td>
+              <td>${money(paymentAppliedAmount(p))}</td>
             </tr>`).join('')}
           </tbody></table>` : emptyState('💳','No payments recorded yet','Record a payment from any invoice.')}
         </div>
@@ -2258,7 +2258,7 @@ function renderCustomerDetail(content, id) {
   });
   cInvoices.forEach(inv => {
     timeline.push({ icon:'🧾', text:`Invoice ${inv.number} created (${money(invoiceTotal(inv))})`, at:inv.createdAt||0 });
-    (inv.payments||[]).forEach(p => timeline.push({ icon:'💳', text:`Payment ${money(p.amount)} (${p.method}) on ${inv.number}`, at: p.date ? new Date(p.date).getTime() : (inv.createdAt||0) }));
+    (inv.payments||[]).forEach(p => timeline.push({ icon:'💳', text:`Payment ${money(paymentAppliedAmount(p))} (${p.method}) on ${inv.number}`, at: p.date ? new Date(p.date).getTime() : (inv.createdAt||0) }));
   });
   cWarranties.forEach(w => timeline.push({ icon:'🛡️', text:`Warranty added: ${w.product||w.part||'—'}`, at:w.createdAt||0 }));
   const commEvents = buildCommunicationTimeline('customers', id);
@@ -4450,7 +4450,7 @@ function payrollTechCardData(name) {
     const t = inv ? computeTotals(inv) : null;
     const revenue = t ? t.discountedSubtotal : 0; // pre-tax — commission never includes sales tax
     const invoiceGrandTotal = t ? t.total : 0;
-    const paymentMethods = inv ? (inv.payments||[]).map(p=>`${p.method}: ${money(p.amount)}`).join(', ') : (j.paymentMethod ? `${j.paymentMethod}: ${money(revenue)}` : '');
+    const paymentMethods = inv ? (inv.payments||[]).map(p=>`${p.method}: ${money(paymentAppliedAmount(p))}`).join(', ') : (j.paymentMethod ? `${j.paymentMethod}: ${money(revenue)}` : '');
     const materialCost = Number(j.materialCost)||0;
     const jobProfit = revenue - materialCost;
     const jobCut = jobProfit * (commissionPct/100);
@@ -4869,37 +4869,31 @@ const PaymentProvider = {
   // Record a payment. Manual mode = what "Record Payment" already
   // does. Square version: this fires from a webhook handler on
   // your server, not from a button click in this UI.
-  async recordPayment(invoiceId, payment) {
+  async recordPayment(invoiceId, payment, expectedRowVersion) {
     return queueMutation(`record:invoices:${invoiceId}`, async()=>{
       if (!await requireSession()) throw markHandled(new Error('Sign in required'));
-      // Payments must append to the authoritative database state, not a STORE
-      // snapshot that may be stale after another tab/user recorded a payment.
-      const { data:current, error:readError } = await SB.from('invoices')
-        .select('id,payments,deleted_at')
-        .eq('id', invoiceId)
-        .is('deleted_at', null)
-        .maybeSingle();
-      if (readError) {
-        toast("Couldn't load the latest invoice before recording payment.", true);
-        throw markHandled(readError);
+      if (!Number.isFinite(Number(expectedRowVersion))) {
+        toast("Couldn't record payment because the invoice version is missing. Refresh and try again.", true);
+        throw markHandled(new Error('Expected invoice row version is required.'));
       }
-      if (!current) {
-        toast("Couldn't record payment because the invoice no longer exists or access was revoked.", true);
-        throw markHandled(new Error('Invoice not found or payment update not permitted.'));
-      }
-      const payments = [...(Array.isArray(current.payments) ? current.payments : []), payment];
-      const { data:updated, error:updateError } = await SB.from('invoices')
-        .update({ payments })
-        .eq('id', invoiceId)
-        .is('deleted_at', null)
-        .select('*')
-        .maybeSingle();
+      // Append atomically in Postgres. The expected row version makes concurrent
+      // payment attempts conflict instead of silently overwriting or double-paying.
+      // The payment id makes retries idempotent if the client repeats a request.
+      const { data:updatedRaw, error:updateError } = await SB.rpc('append_invoice_payment', {
+        p_invoice_id: invoiceId,
+        p_payment: payment,
+        p_expected_row_version: Number(expectedRowVersion)
+      });
       if (updateError) {
-        toast("Couldn't record payment. Please try again.", true);
+        const isConflict = updateError.code === '40001' || /changed while payment/i.test(updateError.message||'');
+        toast(isConflict
+          ? 'This invoice changed while the payment was being recorded. Refresh the balance and try again.'
+          : "Couldn't record payment. Please try again.", true);
         throw markHandled(updateError);
       }
-      if (!updated) {
-        toast("Couldn't record payment because the invoice changed or access was revoked.", true);
+      const updated = Array.isArray(updatedRaw) ? updatedRaw[0] : updatedRaw;
+      if (!updated?.id) {
+        toast("Couldn't record payment because the update was not acknowledged.", true);
         throw markHandled(new Error('Payment update was not acknowledged.'));
       }
       replaceStoreRecord('invoices', updated);
@@ -4948,9 +4942,9 @@ function renderPayments(content, actions) {
   rows.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
   const term = (searchTerms.paymentsSearch||'').toLowerCase();
   const filtered = term ? rows.filter(r=>[(r.customerName||''),(r.invoiceNumber||''),(r.method||'')].some(v=>v.toLowerCase().includes(term))) : rows;
-  const total = filtered.reduce((s,r)=>s+Number(r.amount||0),0);
+  const total = filtered.reduce((s,r)=>s+paymentChargedAmount(r),0);
   const byMethod = {};
-  filtered.forEach(r=>{ byMethod[r.method||'Other'] = (byMethod[r.method||'Other']||0) + Number(r.amount||0); });
+  filtered.forEach(r=>{ byMethod[r.method||'Other'] = (byMethod[r.method||'Other']||0) + paymentChargedAmount(r); });
   content.innerHTML = `
     <div class="panel no-print" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="font-size:13px">
@@ -4972,7 +4966,7 @@ function renderPayments(content, actions) {
           <div style="font-weight:700;font-size:13.5px">${esc(r.customerName||'—')}</div>
           <div class="muted" style="font-size:12px">${esc(r.invoiceNumber)} · ${fmtDate(r.date)} · ${esc(r.method||'—')}${r.type==='deposit'?' · Deposit':''}</div>
         </div>
-        <div style="font-weight:800;color:var(--good);flex:none">${money(r.amount)}</div>
+        <div style="font-weight:800;color:var(--good);flex:none;text-align:right">${money(paymentChargedAmount(r))}${paymentCardFee(r)>0?`<div class="muted" style="font-size:10.5px;font-weight:600">${money(paymentAppliedAmount(r))} payment + ${money(paymentCardFee(r))} fee</div>`:''}</div>
       </div>`).join('') : emptyState('💳','No payments recorded yet','Record a payment from any invoice, or set up a payment link in Settings so customers can pay online.')}
     </div></div>
   `;
@@ -7569,7 +7563,7 @@ function renderJobDetail(content, id) {
       <div class="panel-body pad">
         ${linkedInvoice ? `
           <div class="kv" style="cursor:pointer" onclick="go('invoices','${linkedInvoice.id}')"><div class="k">${esc(linkedInvoice.number)}</div><div>${money(invoiceTotal(linkedInvoice))} · <span class="badge badge-${invoiceStatus(linkedInvoice)}">${labelize(invoiceStatus(linkedInvoice))}</span></div></div>
-          ${(linkedInvoice.payments||[]).map(p=>`<div class="kv"><div class="k">${fmtDate(p.date)}</div><div>${money(p.amount)} via ${esc(p.method)}</div></div>`).join('')}
+          ${(linkedInvoice.payments||[]).map(p=>`<div class="kv"><div class="k">${fmtDate(p.date)}</div><div>${money(paymentAppliedAmount(p))} via ${esc(p.method)}</div></div>`).join('')}
         ` : `<div class="muted" style="font-size:13px">No invoice yet.${j.status==='completed'?` <a href="#" onclick="createInvoiceFromJob('${id}');return false;">Create one</a>`:''}</div>`}
       </div>
     </div>
@@ -8020,7 +8014,10 @@ function openJobModal(id, presetCustomerId) {
    INVOICES
    ============================================================ */
 function invoiceTotal(inv){ return computeTotals(inv).total; }
-function paidTotal(inv){ return (inv.payments||[]).reduce((s,p)=>s+Number(p.amount||0),0); }
+function paymentAppliedAmount(p){ return Number(p?.appliedAmount ?? p?.amount ?? 0); }
+function paymentCardFee(p){ return Number(p?.cardFee ?? 0); }
+function paymentChargedAmount(p){ return Number(p?.chargedAmount ?? p?.amount ?? 0); }
+function paidTotal(inv){ return (inv.payments||[]).reduce((s,p)=>s+paymentAppliedAmount(p),0); }
 function balanceDue(inv){ return Math.max(0, Math.round((invoiceTotal(inv) - paidTotal(inv)) * 100) / 100); }
 function ccSurchargeAmount(amount) { return Math.round(amount * ((SETTINGS.ccSurchargePercent||0)/100) * 100) / 100; }
 function amountWithCcSurcharge(amount) { return Math.round((amount + ccSurchargeAmount(amount)) * 100) / 100; }
@@ -8152,7 +8149,7 @@ window.onPaymentMethodChange = onPaymentMethodChange;
 function openPaymentModal(invId) {
   const inv = getOne('invoices', invId);
   const t = computeTotals(inv);
-  const depositPaid = (inv.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+Number(p.amount||0),0);
+  const depositPaid = (inv.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+paymentAppliedAmount(p),0);
   const depositRemaining = Math.max(0, t.depositRequired - depositPaid);
   const baseAmount = depositRemaining>0 ? depositRemaining : balanceDue(inv);
   showModal({
@@ -8172,29 +8169,51 @@ function openPaymentModal(invId) {
       <div id="overpayWarning"></div>
     `,
     onSave: async () => {
-      const amount = parseFloat(document.getElementById('p_amount').value)||0;
-      if (amount<=0) return toast('Enter a valid amount');
+      const enteredAmount = parseFloat(document.getElementById('p_amount').value)||0;
+      if (enteredAmount<=0) return toast('Enter a valid amount');
+      const method = document.getElementById('p_method').value;
       const { data:latestRow, error:latestError } = await SB.from('invoices').select('*').eq('id', inv.id).is('deleted_at', null).maybeSingle();
       if (latestError) return toast("Couldn't load the latest invoice balance. Please try again.", true);
       if (!latestRow) return toast("Couldn't record payment because the invoice no longer exists.", true);
       const latestInv = fromDbRow(latestRow);
       const currentBalance = balanceDue(latestInv);
-      if (amount > currentBalance + 0.005 && !document.getElementById('overpayConfirmed')) {
+      const surchargeRate = method === 'Card' ? Number(SETTINGS.ccSurchargePercent||0) : 0;
+      // The field is prefilled with the card-inclusive total, but users may edit it.
+      // Derive the invoice-applied principal from the charged amount, then reconcile
+      // to the authoritative balance when the entered total exactly matches the
+      // surcharge-calculated current balance. This avoids one-cent inverse-rounding drift.
+      let appliedAmount = surchargeRate
+        ? Math.round((enteredAmount / (1 + surchargeRate/100)) * 100) / 100
+        : enteredAmount;
+      const expectedFullCharge = surchargeRate ? amountWithCcSurcharge(currentBalance) : currentBalance;
+      if (surchargeRate && Math.abs(enteredAmount - expectedFullCharge) < 0.005) appliedAmount = currentBalance;
+      const cardFee = surchargeRate ? Math.round((enteredAmount - appliedAmount) * 100) / 100 : 0;
+      const chargedAmount = enteredAmount;
+      if (appliedAmount > currentBalance + 0.005 && !document.getElementById('overpayConfirmed')) {
         const wrap = document.getElementById('overpayWarning');
         if (wrap) wrap.innerHTML = `<div style="background:#fff3d6;color:#a3720b;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:8px">
-          ⚠️ This is ${money(amount - currentBalance)} more than the ${money(currentBalance)} balance due.
+          ⚠️ This is ${money(appliedAmount - currentBalance)} more than the ${money(currentBalance)} balance due.
           <label style="display:block;margin-top:6px"><input type="checkbox" id="overpayConfirmed" style="width:auto"> Record it anyway (e.g. tip, or paying ahead)</label>
         </div>`;
         return;
       }
       const typeEl = document.getElementById('p_type');
-      const paymentRecord = { amount, method: document.getElementById('p_method').value, date: document.getElementById('p_date').value, type: typeEl?typeEl.value:'payment' };
-      await PaymentProvider.recordPayment(inv.id, paymentRecord);
-      logAudit('payment_recorded', `${money(amount)} recorded on invoice ${inv.number} (${paymentRecord.method})`, 'invoices', inv.id);
+      const paymentRecord = {
+        id: newId(),
+        amount: appliedAmount,
+        appliedAmount,
+        cardFee,
+        chargedAmount,
+        method,
+        date: document.getElementById('p_date').value,
+        type: typeEl?typeEl.value:'payment'
+      };
+      await PaymentProvider.recordPayment(inv.id, paymentRecord, Number(latestRow.row_version));
+      logAudit('payment_recorded', `${money(chargedAmount)} charged (${money(appliedAmount)} applied${cardFee ? ` + ${money(cardFee)} card fee` : ''}) on invoice ${inv.number} (${paymentRecord.method})`, 'invoices', inv.id);
       if (inv.jobId) {
         const linkedJob = getOne('jobs', inv.jobId);
         if (linkedJob?.technician && techWantsNotification(linkedJob.technician, 'paymentReceived')) {
-          logWaNotification(linkedJob.technician, 'paymentReceived', 'invoices', inv.id, `${money(amount)} payment received on invoice ${inv.number}`);
+          logWaNotification(linkedJob.technician, 'paymentReceived', 'invoices', inv.id, `${money(appliedAmount)} payment received on invoice ${inv.number}`);
         }
       }
       toast('Payment recorded');
@@ -8259,7 +8278,7 @@ function renderDocumentView(type, id) {
   const balance = isInvoice ? balanceDue(doc) : total;
   const docNo = doc.number;
   const label = isInvoice ? 'INVOICE' : 'ESTIMATE';
-  const depositPaid = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+Number(p.amount||0),0) : 0;
+  const depositPaid = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+paymentAppliedAmount(p),0) : 0;
   const depositRemaining = isInvoice ? Math.max(0, t.depositRequired - depositPaid) : 0;
 
   const docCust = getOne('customers', doc.customerId);
@@ -8396,7 +8415,7 @@ function renderDocumentView(type, id) {
                 ${t.tax>0 ? `<tr><td class="l">Tax (${t.taxRate}%)</td><td class="r">${money(t.tax)}</td></tr>` : ''}
                 <tr class="total"><td class="l">TOTAL</td><td class="r">${money(total)}</td></tr>
                 ${isInvoice && t.depositRequired>0 ? `<tr><td class="l">Deposit required</td><td class="r">${money(t.depositRequired)}</td></tr>` : ''}
-                ${isInvoice && (doc.payments||[]).map(p=>`<tr><td class="l">${p.type==='deposit'?'Deposit':'Payment'}${p.method?' · '+esc(p.method):''}${p.date?' · '+fmtDate(p.date):''}</td><td class="r">-${money(p.amount)}</td></tr>`).join('') || ''}
+                ${isInvoice && (doc.payments||[]).map(p=>`<tr><td class="l">${p.type==='deposit'?'Deposit':'Payment'}${p.method?' · '+esc(p.method):''}${p.date?' · '+fmtDate(p.date):''}</td><td class="r">-${money(paymentAppliedAmount(p))}</td></tr>`).join('') || ''}
                 ${isInvoice && depositRemaining>0 ? `<tr class="balance"><td class="l">DEPOSIT DUE</td><td class="r">USD ${money(depositRemaining)}</td></tr>` : ''}
                 <tr class="balance"><td class="l">${isInvoice?'BALANCE DUE':'ESTIMATE TOTAL'}</td><td class="r">USD ${money(isInvoice?balance:total)}</td></tr>
                 
@@ -8633,7 +8652,7 @@ function buildDocSummaryText(type, doc) {
   }
   lines.push(`Total: ${money(t.total)}`);
   if (isInvoice) {
-    (doc.payments||[]).forEach(p => lines.push(`Payment (${p.method}${p.date?', '+fmtDate(p.date):''}): -${money(p.amount)}`));
+    (doc.payments||[]).forEach(p => lines.push(`Payment (${p.method}${p.date?', '+fmtDate(p.date):''}): -${money(paymentAppliedAmount(p))}`));
     lines.push(`Balance due: ${money(balance)}`);
     lines.push(`Due: ${doc.dueTerm||'On Receipt'}`);
     const payUrl = PaymentProvider.createPaymentRequest(doc);
@@ -8812,7 +8831,7 @@ async function buildPdfDoc(type, doc) {
   // Totals
   const totalsX = pageW-margin-8;
   pdf.setFontSize(9.5);
-  const depositPaidPdf = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+Number(p.amount||0),0) : 0;
+  const depositPaidPdf = isInvoice ? (doc.payments||[]).filter(p=>p.type==='deposit').reduce((s,p)=>s+paymentAppliedAmount(p),0) : 0;
   const depositRemainingPdf = isInvoice ? Math.max(0, t.depositRequired - depositPaidPdf) : 0;
   if (t.discount > 0 || t.tax > 0) {
     pdf.setTextColor(110,110,110); pdf.text('Subtotal', totalsX-150, y, {align:'right'});
@@ -8841,7 +8860,7 @@ async function buildPdfDoc(type, doc) {
   }
   if (isInvoice) (doc.payments||[]).forEach(p => {
     pdf.setTextColor(110,110,110); pdf.text(`${p.type==='deposit'?'Deposit':'Payment'}${p.method?' · '+p.method:''}`, totalsX-150, y, {align:'right'});
-    pdf.setTextColor(20,20,20); pdf.text('-'+money(p.amount), totalsX, y, {align:'right'});
+    pdf.setTextColor(20,20,20); pdf.text('-'+money(paymentAppliedAmount(p)), totalsX, y, {align:'right'});
     y += 15;
   });
   if (isInvoice && depositRemainingPdf > 0) {
