@@ -8183,10 +8183,17 @@ function openPaymentModal(invId) {
       if (!latestRow) return toast("Couldn't record payment because the invoice no longer exists.", true);
       const latestInv = fromDbRow(latestRow);
       const currentBalance = balanceDue(latestInv);
-      const appliedAmount = method === 'Card' && SETTINGS.ccSurchargePercent
-        ? Math.round((enteredAmount / (1 + SETTINGS.ccSurchargePercent/100)) * 100) / 100
+      const surchargeRate = method === 'Card' ? Number(SETTINGS.ccSurchargePercent||0) : 0;
+      // The field is prefilled with the card-inclusive total, but users may edit it.
+      // Derive the invoice-applied principal from the charged amount, then reconcile
+      // to the authoritative balance when the entered total exactly matches the
+      // surcharge-calculated current balance. This avoids one-cent inverse-rounding drift.
+      let appliedAmount = surchargeRate
+        ? Math.round((enteredAmount / (1 + surchargeRate/100)) * 100) / 100
         : enteredAmount;
-      const cardFee = method === 'Card' ? Math.round((enteredAmount - appliedAmount) * 100) / 100 : 0;
+      const expectedFullCharge = surchargeRate ? amountWithCcSurcharge(currentBalance) : currentBalance;
+      if (surchargeRate && Math.abs(enteredAmount - expectedFullCharge) < 0.005) appliedAmount = currentBalance;
+      const cardFee = surchargeRate ? Math.round((enteredAmount - appliedAmount) * 100) / 100 : 0;
       const chargedAmount = enteredAmount;
       if (appliedAmount > currentBalance + 0.005 && !document.getElementById('overpayConfirmed')) {
         const wrap = document.getElementById('overpayWarning');
