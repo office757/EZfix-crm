@@ -4214,14 +4214,26 @@ window.inviteTeamUser = inviteTeamUser;
    ============================================================ */
 async function logWaNotification(technicianName, eventType, relatedType, relatedId, message) {
   const tech = STORE.team.find(t=>t.name===technicianName);
-  const status = tech?.whatsappStatus === 'connected' ? 'pending' : 'not_connected';
-  const failureReason = status === 'not_connected' ? 'WhatsApp not connected for this technician' : null;
+  const status = tech ? 'pending' : 'failed';
+  const failureReason = tech ? null : 'Recipient technician could not be resolved';
   try {
-    await dbAdd('waNotifications', {
-      technicianName, eventType, relatedType: relatedType||null, relatedId: relatedId||null,
+    const notificationId = await dbAdd('waNotifications', {
+      technicianName, recipientTeamId: tech?.id||null, eventType, kind:eventType,
+      relatedType: relatedType||null, relatedId: relatedId||null,
       message, status, failureReason, providerMessageId: null,
     });
-  } catch(e) { console.error('waNotification log failed', e); }
+    if (!tech || !notificationId) return;
+    const {data:{session}} = await SB.auth.getSession();
+    if (!session?.access_token) return;
+    const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/send-whatsapp-notification`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({notification_id:notificationId})
+    });
+    const result = await response.json().catch(()=>({}));
+    await refreshCollection('waNotifications');
+    if (!response.ok) console.warn('WhatsApp notification failed', result);
+  } catch(e) { console.error('waNotification pipeline failed', e); }
 }
 function techWantsNotification(technicianName, eventKey) {
   const tech = STORE.team.find(t=>t.name===technicianName);
