@@ -3961,7 +3961,7 @@ function renderTeam(content, actions) {
 function renderTeamDetail(content, actions, id) {
   const m = getOne('team', id);
   if (!m) { content.innerHTML = emptyState('🔍','Team member not found',''); return; }
-  actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>`;
+  actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>${!m.authUserId && m.email ? `<button class="btn btn-sm btn-primary" onclick="inviteTeamUser('${m.id}')">Invite User</button>` : ''}`;
   const today = todayISO();
   const myJobs = STORE.jobs.filter(j => j.technicianId ? j.technicianId===m.id : j.technician===m.name);
   const todayJobs = myJobs.filter(j=>j.scheduledDate===today && j.status!=='cancelled');
@@ -4110,8 +4110,8 @@ function openTeamModal(id) {
         <select id="f_techstatus">${['Active','Inactive','On Leave'].map(s=>`<option value="${s}" ${(m?.status||'Active')===s?'selected':''}>${s}</option>`).join('')}</select>
       </label>
       <p class="muted" style="font-size:12px;margin-top:-8px">Inactive/On Leave technicians keep all their historical jobs, payroll, and performance data — they just won't show up when assigning NEW work.</p>
-      <label class="field"><span class="lbl">Linked user account ID <span class="muted" style="font-weight:400">(not functional yet)</span></span><input type="text" id="f_authuserid" value="${esc(m?.authUserId)}" placeholder="No real per-technician login exists in this environment yet"></label>
-      <p class="muted" style="font-size:12px;margin-top:-8px">This field is a placeholder for a future real backend with per-technician login. Nothing in this app currently checks it — this environment can only tell Owner from everyone else, never one technician from another. See Dev Checklist for the full finding.</p>
+      <div class="field"><span class="lbl">User account</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge ${m?.authUserId?'badge-won':'badge-draft'}">${m?.authUserId?'Linked':'Not invited'}</span>${m && !m.authUserId && m.email ? `<button type="button" class="btn btn-sm btn-primary" onclick="inviteTeamUser('${m.id}')">Invite User</button>` : ''}</div></div>
+      <p class="muted" style="font-size:12px;margin-top:-8px">${m?.authUserId?'This team member is linked to a secure Supabase Auth account.':'Save an email address, then use Invite User. The technician sets their own password from the secure invite email.'}</p>
       <label class="field"><span class="lbl">Default commission % <span class="muted" style="font-weight:400">(for payroll report — adjustable per report too)</span></span><input type="number" step="0.1" min="0" max="100" id="f_commission" value="${m?.commissionPercent ?? ''}" placeholder="e.g. 30"></label>
 
       ${m ? `
@@ -4144,7 +4144,6 @@ function openTeamModal(id) {
         phone: document.getElementById('f_phone').value.trim(),
         email: document.getElementById('f_email').value.trim(),
         status: document.getElementById('f_techstatus').value,
-        authUserId: document.getElementById('f_authuserid').value.trim() || null,
         commissionPercent: parseFloat(document.getElementById('f_commission').value)||0,
       };
       if (m) {
@@ -4161,6 +4160,33 @@ function openTeamModal(id) {
   });
 }
 window.openTeamModal = openTeamModal;
+
+async function inviteTeamUser(teamId) {
+  const member = getOne('team', teamId);
+  if (!member) return toast('Team member not found', true);
+  if (member.authUserId) return toast('User account is already linked');
+  if (!member.email) return toast('Add an email address first', true);
+  if (!confirm(`Send a secure login invite to ${member.email}?`)) return;
+  try {
+    const { data:{ session } } = await SB.auth.getSession();
+    if (!session?.access_token) throw new Error('Please sign in again');
+    const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/invite-team-user`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({ teamId, redirectTo: window.location.origin })
+    });
+    const result = await response.json().catch(()=>({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || `Invite failed (${response.status})`);
+    await loadCollection('team');
+    toast(result.alreadyLinked ? 'User account already linked' : `Invite sent to ${member.email}`);
+    closeModal();
+    render();
+  } catch (e) {
+    console.error('inviteTeamUser failed', e);
+    toast(e.message || 'Unable to invite user', true);
+  }
+}
+window.inviteTeamUser = inviteTeamUser;
 
 /* ============================================================
    WHATSAPP NOTIFICATION ARCHITECTURE
