@@ -15,6 +15,7 @@ const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
 const URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ALLOWED_DOCUMENT_TYPES = new Set(["invoice_draft", "estimate_draft", "receipt_draft"]);
 
 function recompute(draft: any) {
   const items = Array.isArray(draft?.items) ? draft.items : [];
@@ -22,14 +23,17 @@ function recompute(draft: any) {
   let subtotal = 0;
   let taxable = 0;
   for (const item of items) {
-    const qty = num(item?.qty);
-    const rate = num(item?.rate);
-    if (!(qty > 0) || qty > 1000 || rate < 0 || rate > 1000000) throw new Error("Invalid draft line item");
+    const qty = Number(item?.qty);
+    const rate = Number(item?.rate);
+    if (!Number.isFinite(qty) || !Number.isFinite(rate) || !(qty > 0) || qty > 1000 || rate < 0 || rate > 1000000) {
+      throw new Error("Invalid draft line item");
+    }
     const line = qty * rate;
     subtotal += line;
     if (item?.taxable !== false) taxable += line;
   }
-  const taxRate = Math.max(0, Math.min(25, num(draft?.totals?.tax_rate ?? draft?.tax_rate)));
+  const taxRate = Number(draft?.totals?.tax_rate ?? draft?.tax_rate);
+  if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 25) throw new Error("Invalid draft tax rate");
   const subtotalRounded = round2(subtotal);
   const tax = round2(taxable * taxRate / 100);
   const total = round2(subtotalRounded + tax);
@@ -56,6 +60,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const draft = body?.draft;
     if (!draft || draft?.draft_only !== true || draft?.needs_approval !== true) return json({ ok: false, error: "Only an approval-required AI draft can be submitted" }, 400);
+    const documentType = text(draft?.document_type);
+    if (!ALLOWED_DOCUMENT_TYPES.has(documentType)) return json({ ok: false, error: "Unsupported AI service document type" }, 400);
     const jobId = text(body?.job_id || draft?.job?.id);
     if (role === "technician" && !jobId) return json({ ok: false, error: "Technician approval requests require an assigned job" }, 400);
 
@@ -70,39 +76,89 @@ Deno.serve(async (req) => {
     }
 
     const items = Array.isArray(draft.items) ? draft.items : [];
-    const productIds = [...new Set(items.map((x: any) => text(x?.catalog_product_id)).filter(Boolean))];
-    if (productIds.length !== items.length) return json({ ok: false, error: "Every draft line item must reference exactly one active catalog product" }, 400);
+    if (!items.length || items.length > 20) return json({ ok: false, error: "Draft must contain 1-20 line items" }, 400);
+    if (items.some((item: any) => !text(item?.catalog_product_id))) {
+      return json({ ok: false, error: "Every draft line item must reference exactly one active catalog product" }, 400);
+    }
+    const productIds = [...new Set(items.map((x: any) => text(x?.catalog_product_id)))];
 
     const { data: products, error: productsError } = await db.from("products")
-      .select("id,name,rate,taxable,active")
+      .select("id,name,category,category_id,rate,taxable,active")
       .in("id", productIds);
     if (productsError) throw productsError;
     const productMap = new Map((products || []).map((p: any) => [String(p.id), p]));
     if (productMap.size !== productIds.length) return json({ ok: false, error: "Draft contains an unknown catalog item" }, 400);
 
     const pricingIssues: any[] = [];
-    for (const item of items) {
+    const verifiedItems = items.map((item: any) => {
       const id = text(item?.catalog_product_id);
       const product: any = productMap.get(id);
-      if (!product || product.active === false) {
+      if (!product || product.active !== true) {
         pricingIssues.push({ product_id: id, issue: "inactive_or_unknown" });
-        continue;
+        return item;
       }
-      const catalogRate = round2(num(product.rate));
-      const draftRate = round2(num(item.rate));
-      if (!(catalogRate > 0)) pricingIssues.push({ product_id: id, product_name: product.name, issue: "catalog_rate_missing_or_zero" });
-      if (Math.abs(catalogRate - draftRate) >= 0.01) pricingIssues.push({ product_id: id, product_name: product.name, issue: "draft_rate_differs_from_catalog", catalog_rate: catalogRate, draft_rate: draftRate });
-      const catalogTaxable = product.taxable !== false;
-      const draftTaxable = item?.taxable !== false;
-      if (catalogTaxable !== draftTaxable) pricingIssues.push({ product_id: id, product_name: product.name, issue: "taxable_flag_differs_from_catalog", catalog_taxable: catalogTaxable, draft_taxable: draftTaxable });
-    }
+
+      const canonicalName = text(product.name);
+      const canonicalCategory = text(product.category) || text(product.category_id);
+      if (!canonicalName) pricingIssues.push({ product_id: id, issue: "catalog_name_missing" });
+      if (!canonicalCategory) pricingIssues.push({ product_id: id, product_name: canonicalName || null, issue: "catalog_category_missing" });
+      if (typeof product.taxable !== "boolean") pricingIssues.push({ product_id: id, product_name: canonicalName || null, issue: "catalog_taxable_invalid" });
+
+      const catalogRateNumber = Number(product.rate);
+      const draftRateNumber = Number(item.rate);
+      const qtyNumber = Number(item.qty);
+      if (!Number.isFinite(catalogRateNumber) || !(catalogRateNumber > 0) || catalogRateNumber > 1000000) {
+        pricingIssues.push({ product_id: id, product_name: canonicalName || product.name, issue: "catalog_rate_missing_or_zero" });
+      }
+      if (!Number.isFinite(draftRateNumber) || draftRateNumber < 0 || draftRateNumber > 1000000) {
+        pricingIssues.push({ product_id: id, product_name: canonicalName || product.name, issue: "draft_rate_invalid" });
+      }
+      if (!Number.isFinite(qtyNumber) || !(qtyNumber > 0) || qtyNumber > 1000) {
+        pricingIssues.push({ product_id: id, product_name: canonicalName || product.name, issue: "draft_quantity_invalid" });
+      }
+
+      const catalogRate = round2(catalogRateNumber);
+      const draftRate = round2(draftRateNumber);
+      if (Number.isFinite(catalogRateNumber) && Number.isFinite(draftRateNumber) && Math.abs(catalogRate - draftRate) >= 0.01) {
+        pricingIssues.push({ product_id: id, product_name: canonicalName || product.name, issue: "draft_rate_differs_from_catalog", catalog_rate: catalogRate, draft_rate: draftRate });
+      }
+      if (typeof product.taxable === "boolean") {
+        if (typeof item?.taxable !== "boolean") {
+          pricingIssues.push({ product_id: id, product_name: canonicalName || product.name, issue: "draft_taxable_missing" });
+        } else if (product.taxable !== item.taxable) {
+          pricingIssues.push({ product_id: id, product_name: canonicalName || product.name, issue: "taxable_flag_differs_from_catalog", catalog_taxable: product.taxable, draft_taxable: item.taxable });
+        }
+      }
+      if (text(item?.name) && canonicalName && text(item.name) !== canonicalName) {
+        pricingIssues.push({ product_id: id, product_name: canonicalName, issue: "draft_name_differs_from_catalog", draft_name: text(item.name) });
+      }
+      if (text(item?.category) && canonicalCategory && text(item.category) !== canonicalCategory) {
+        pricingIssues.push({ product_id: id, product_name: canonicalName || product.name, issue: "draft_category_differs_from_catalog", catalog_category: canonicalCategory, draft_category: text(item.category) });
+      }
+
+      return {
+        ...item,
+        catalog_product_id: id,
+        name: canonicalName || text(item?.name),
+        category: canonicalCategory || text(item?.category),
+        taxable: typeof product.taxable === "boolean" ? product.taxable : item?.taxable,
+        qty: qtyNumber,
+        rate: draftRateNumber,
+      };
+    });
     if (pricingIssues.length) return json({ ok: false, error: "Draft pricing failed catalog verification", pricing_issues: pricingIssues }, 409);
 
-    const recomputed = recompute(draft);
-    const declaredTotal = num(draft?.totals?.total);
-    const targetTotal = num(draft?.target_total);
+    let recomputed;
+    try {
+      recomputed = recompute({ ...draft, document_type: documentType, items: verifiedItems });
+    } catch (validationError: any) {
+      return json({ ok: false, error: validationError?.message || "Draft validation failed" }, 400);
+    }
+    const declaredTotal = Number(draft?.totals?.total);
+    const targetTotal = Number(draft?.target_total);
+    if (!Number.isFinite(declaredTotal)) return json({ ok: false, error: "Draft declared total is invalid" }, 400);
+    if (!Number.isFinite(targetTotal) || !(targetTotal > 0) || targetTotal > 1000000) return json({ ok: false, error: "A positive requested total no greater than 1000000 is required" }, 400);
     if (Math.abs(recomputed.total - declaredTotal) >= 0.01) return json({ ok: false, error: "Draft totals failed server-side reconciliation" }, 400);
-    if (!(targetTotal > 0)) return json({ ok: false, error: "A positive requested total is required" }, 400);
     if (Math.abs(recomputed.total - targetTotal) >= 0.01) {
       return json({ ok: false, error: "Requested total does not match verified Product Catalog pricing", catalog_total: recomputed.total, requested_total: round2(targetTotal) }, 409);
     }
@@ -112,9 +168,12 @@ Deno.serve(async (req) => {
 
     const proposedValue = {
       ...draft,
+      document_type: documentType,
+      items: verifiedItems,
       totals: recomputed,
       pricing_source: "active_product_catalog",
       pricing_verified: true,
+      catalog_identity_verified: true,
       job: job ? { id: job.id, customer_id: job.customer_id, customer_name: job.customer_name, title: job.title, status: job.status } : null,
       requested_by: { team_id: member.id, name: member.name, role },
       submitted_at: new Date().toISOString(),
@@ -127,17 +186,17 @@ Deno.serve(async (req) => {
       reason: `AI service document draft submitted by ${member.name || member.id}`,
       current_value: null,
       proposed_value: proposedValue,
-      evidence: [{ source: "ai-technician-assistant", request: text(draft?.request), reconciled_total: recomputed.total, job_id: job?.id || null, pricing_source: "active_product_catalog", pricing_verified: true }],
+      evidence: [{ source: "ai-technician-assistant", request: text(draft?.request), reconciled_total: recomputed.total, job_id: job?.id || null, pricing_source: "active_product_catalog", pricing_verified: true, catalog_identity_verified: true }],
       risk_level: "medium",
       status: "pending",
     }).select("id,created_at,status,domain,action,risk_level").single();
     if (approvalError) throw approvalError;
 
     try {
-      await db.from("ai_command_log").insert({ user_id: user.id, command: text(draft?.request), classified_intent: "submit_service_document_for_approval", action_type: "approval_requested", result: { approval_id: approval.id, job_id: job?.id || null, total: recomputed.total, pricing_verified: true }, status: "completed" });
+      await db.from("ai_command_log").insert({ user_id: user.id, command: text(draft?.request), classified_intent: "submit_service_document_for_approval", action_type: "approval_requested", result: { approval_id: approval.id, job_id: job?.id || null, total: recomputed.total, pricing_verified: true, catalog_identity_verified: true }, status: "completed" });
     } catch {}
 
-    return json({ ok: true, approval, persisted_financial_document: false, pricing_verified: true });
+    return json({ ok: true, approval, persisted_financial_document: false, pricing_verified: true, catalog_identity_verified: true });
   } catch (error: any) {
     console.error("ai-service-document-approval", error);
     return json({ ok: false, error: error?.message || "Approval request failed" }, 500);
