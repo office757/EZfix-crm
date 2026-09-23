@@ -118,6 +118,12 @@ requirePattern(
   'Payment amount validation must use the current database balance, not the invoice snapshot captured when the modal opened.'
 );
 
+requirePattern(
+  'Job editor only writes checklist after an explicit checklist change',
+  /let\s+jobChecklistDirty\s*=\s*false[\s\S]{0,14000}?onchange=["']jobChecklistDirty=true["'][\s\S]{0,14000}?\.\.\.\(jobChecklistDirty\s*\|\|\s*!j\s*\?\s*\{\s*checklist:/,
+  'Existing job edits must not overwrite checklist state from a stale editor snapshot unless the user explicitly changed the checklist.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);
