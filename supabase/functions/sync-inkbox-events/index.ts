@@ -64,10 +64,9 @@ async function resolveParty(admin: any, remote: string | null) {
     ]);
     const cm = (cs ?? []).filter((x: any) => normPhone(x.phone) === remote);
     const lm = (ls ?? []).filter((x: any) => normPhone(x.phone) === remote);
-    if (cm.length === 1) customerId = cm[0].id;
-    else if (cm.length > 1) amb = true;
-    else if (lm.length === 1) leadId = lm[0].id;
-    else if (lm.length > 1) amb = true;
+    if (cm.length === 1 && lm.length === 0) customerId = cm[0].id;
+    else if (cm.length === 0 && lm.length === 1) leadId = lm[0].id;
+    else if (cm.length > 0 || lm.length > 0) amb = true;
   }
   return { customerId, leadId, amb };
 }
