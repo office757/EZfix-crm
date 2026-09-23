@@ -88,6 +88,12 @@ requirePattern(
   'Existing job edits must preserve authoritative status history; status changes must use the history-aware helper.'
 );
 
+requirePattern(
+  'Document editors only write photos after an explicit photo change',
+  /let\s+docPhotosDirty\s*=\s*false[\s\S]{0,12000}?docPhotosDirty\s*=\s*true[\s\S]{0,12000}?\.\.\.\(docPhotosDirty\s*\|\|\s*!e\s*\?\s*\{\s*photos:/,
+  'Existing lead/estimate/invoice edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);

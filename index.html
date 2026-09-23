@@ -2658,6 +2658,7 @@ window.convertLead = convertLead;
 function openLeadModal(id) {
   const l = id ? getOne('leads', id) : null;
   docPhotosDraft = l?.photos ? JSON.parse(JSON.stringify(l.photos)) : [];
+  docPhotosDirty = false;
   const relatedCall = l?.sourceCallId ? STORE.calls.find(c=>c.providerCallId===l.sourceCallId) : null;
   showModal({
     title: l ? 'Edit lead' : 'New lead',
@@ -2730,7 +2731,7 @@ function openLeadModal(id) {
         nextFollowUp: document.getElementById('f_nextfollowup').value,
         status: document.getElementById('f_status').value,
         notes: document.getElementById('f_notes').value.trim(),
-        photos: docPhotosDraft.filter(p=>!p.uploading),
+        ...(docPhotosDirty || !l ? { photos: docPhotosDraft.filter(p=>!p.uploading) } : {}),
       };
       if (l) await dbSet('leads', l.id, data);
       else await dbAdd('leads', { ...data, status: data.status||'new' });
@@ -2750,6 +2751,7 @@ function openLeadModal(id) {
    ============================================================ */
 let lineItemsDraft = [];
 let docPhotosDraft = [];
+let docPhotosDirty = false;
 let jobPhotosDraft = [];
 const JOB_PHOTO_CATEGORIES = ['Before','Diagnosis','During Work','After','Damage','Parts','Other'];
 function jobPhotoUploaderHtml() {
@@ -2831,6 +2833,7 @@ async function handleDocPhotoInput() {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
   input.value = '';
+  docPhotosDirty = true;
   const tempUrl = URL.createObjectURL(file);
   const idx = docPhotosDraft.length;
   docPhotosDraft.push({ id:null, url: tempUrl, uploading:true });
@@ -2845,7 +2848,7 @@ async function handleDocPhotoInput() {
   }
   refreshPhotoThumbs();
 }
-function removeDocPhoto(idx) { docPhotosDraft.splice(idx,1); refreshPhotoThumbs(); }
+function removeDocPhoto(idx) { docPhotosDirty = true; docPhotosDraft.splice(idx,1); refreshPhotoThumbs(); }
 function refreshPhotoThumbs() {
   const wrap = document.getElementById('photoThumbs');
   if (!wrap) return;
@@ -3175,6 +3178,7 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
   docDiscountDraft = e?.discount ?? 0;
   docDepositDraft = e?.depositRequired ?? 0;
   docPhotosDraft = e?.photos ? JSON.parse(JSON.stringify(e.photos)) : [];
+  docPhotosDirty = false;
   showModal({
     title: e ? 'Edit estimate' : 'New estimate',
     wide: true,
@@ -3209,7 +3213,7 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
       const data = {
         number: (e && e.number) || await nextProductionNumber('estimate'),
         customerId, customerName: cust.name, customerPhone: cust.phone||'', customerAddress: cust.address||'', customerEmail: cust.email||'',
-        photos: docPhotosDraft.filter(p=>!p.uploading),
+        ...(docPhotosDirty || !e ? { photos: docPhotosDraft.filter(p=>!p.uploading) } : {}),
         date: document.getElementById('f_date').value,
         items,
         taxRate: parseFloat(document.getElementById('f_taxrate').value)||0,
@@ -8023,6 +8027,7 @@ function openInvoiceModal(id, presetCustomerId, presetJobId, presetItems) {
   docDiscountDraft = inv?.discount ?? 0;
   docDepositDraft = inv?.depositRequired ?? 0;
   docPhotosDraft = inv?.photos ? JSON.parse(JSON.stringify(inv.photos)) : [];
+  docPhotosDirty = false;
   const jobsForCustomer = (custId) => STORE.jobs.filter(j=>j.customerId===custId);
   showModal({
     title: inv ? 'Edit invoice' : 'New invoice',
@@ -8055,7 +8060,7 @@ function openInvoiceModal(id, presetCustomerId, presetJobId, presetItems) {
       const data = {
         number: (inv && inv.number) || await nextProductionNumber('invoice'),
         customerId, customerName: cust.name, customerPhone: cust.phone||'', customerAddress: cust.address||'', customerEmail: cust.email||'',
-        photos: docPhotosDraft.filter(p=>!p.uploading),
+        ...(docPhotosDirty || !inv ? { photos: docPhotosDraft.filter(p=>!p.uploading) } : {}),
         date: document.getElementById('f_date').value,
         jobId: jobId||null,
         items,
