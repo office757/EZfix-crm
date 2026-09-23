@@ -10,8 +10,8 @@ Working branch: `fix/card-surcharge-accounting-2026-09-23`
 3. Security QA — **COMPLETE (with documented platform warning)**
 4. Documents & Communications — **COMPLETE**
 5. Ashley + Phone — **COMPLETE (with documented provider limitation)**
-6. Operational QA — **NEXT**
-7. Full E2E Production Test — pending
+6. Operational QA — **COMPLETE (with one duplicate-review item)**
+7. Full E2E Production Test — **NEXT**
 8. Release — pending
 
 ## Task 1 — Financial QA
@@ -107,6 +107,22 @@ Verified the production Ashley / phone / technician-assistant stack:
 
 The phone provider currently supports hosted-agent inbound handling and forwarding modes, but a verified dynamic hosted-agent mid-call transfer tool is not exposed in the connected production integration. EZfix therefore uses a safe fallback: preserve the caller/callback context and create a high-priority human callback task rather than claiming a transfer succeeded.
 
+## Task 6 — Operational QA
+
+Verified production operational integrity and the current preview deployment:
+
+- Customers, Leads, Jobs, Estimates, and Invoices have no orphaned customer/job conversion references in the live dataset.
+- The current live dataset contains 3 customers, 7 leads, 2 jobs, 1 estimate, and 6 invoices; referential-integrity checks returned zero orphaned job customers, estimate customers, invoice customers/jobs, and converted lead customer/job links.
+- Schedule conflict detection found no duplicate technician/date/appointment-window conflicts in the current jobs dataset.
+- Inventory has one active stock-tracked product, no negative stock, and no orphan inventory adjustments.
+- Tasks currently contain no orphan customer references, invalid technician assignments, or overdue open records. The AI receptionist human-callback path was separately verified with rolled-back test data in Task 5.
+- Warranties, inspections, and purchase orders currently contain no orphan references; the tables are presently empty, so feature integrity is schema/path verified rather than based on existing live records.
+- Expense data currently has no negative or zero-value live records; the table is presently empty.
+- Audit logging is active with actioned records covering email, SMS, invoices, technician mapping, and repair/normalization events. Older legacy audit rows without action/actor metadata were left intact rather than rewritten with invented history.
+- Duplicate detection found one live cross-entity customer/lead match by both email and phone. It is flagged for human review rather than auto-merged because merging customer/lead records is destructive and can change attribution/history.
+- The Vercel preview project is automatically building this working branch; the latest branch deployment is READY, and Vercel reports no runtime-error clusters in the last 24 hours.
+- Operational AI tools remain permission-gated; data-integrity/read tools include pipeline audit, duplicate detection, low-stock detection, schedule-conflict detection, tasks, expenses, warranties, inspections, purchase orders, suppliers, and service-operations snapshots.
+
 ## Next verification target
 
-Task 6: Operational QA — verify Customers, Leads, Jobs, Schedule, Inventory, Tasks, operational data integrity, audit coverage, and production failure handling before the full end-to-end release test.
+Task 7: Full E2E Production Test — run the complete Customer/Lead -> Job -> Estimate -> Invoice -> Payment/receipt flow using isolated test data and rollback/cleanup where possible, verify refresh/reload behavior and the preview deployment, then prepare the release candidate.
