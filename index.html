@@ -728,6 +728,12 @@ function replaceStoreRecord(col, row) {
   const writeVersion=(collectionRefreshVersions.get(col)||0)+1;
   collectionRefreshVersions.set(col,writeVersion); collectionAppliedVersions.set(col,writeVersion);
   const record = fromDbRow(row);
+  // Keep the immediate post-save cache in the same display shape produced by
+  // refreshCollection(), otherwise Team saves briefly expose raw DB values.
+  if(col==='team'){
+    record.role=record.role==='owner'?'Owner/Admin':record.role==='technician'?'Technician':record.role==='office'?'Office':record.role;
+    record.status=record.status==='active'?'Active':record.status==='inactive'?'Inactive':record.status;
+  }
   const list = STORE[col] || (STORE[col] = []);
   const index = list.findIndex(item=>String(item.id)===String(record.id));
   if (index < 0) list.unshift(record); else list[index] = record;
