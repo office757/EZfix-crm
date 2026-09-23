@@ -33,6 +33,7 @@ function scoreProduct(p:any,svc:any,q:string){
   if(svc.pair&&/pair|both/.test(hay))score+=12;
   if(!svc.pair&&/pair|both/.test(hay))score-=4;
   for(const w of req.split(/[^a-z0-9]+/).filter((x:string)=>x.length>4))if(hay.includes(w))score+=1;
+  if(n(p.rate)>0)score+=4;
   if(lower(p.category_id)==="labor"||lower(p.category)==="labor")score-=15;
   return score;
 }
@@ -50,28 +51,69 @@ function buildDraft(catalog:any[],request:string,targetTotal:number,taxRate:numb
   const laborItem=labor.find(p=>/garage door repair labor/i.test(text(p.name)))||labor.find(p=>/labor/i.test(text(p.name)))||null;
   if(!targetTotal)throw new Error("A positive total is required (for example: $750 including tax).");
   if(!part)throw new Error("No matching active catalog part/service item was found.");
+
   const partTaxable=part.taxable!==false, laborTaxable=laborItem?laborItem.taxable!==false:false;
   const partCatalog=n(part.rate), laborCatalog=n(laborItem?.rate);
-  let partAmount=0,laborAmount=0,allocation="catalog";
-  if(partCatalog>0||laborCatalog>0){
-    const weightPart=partCatalog>0?partCatalog:0, weightLabor=laborCatalog>0?laborCatalog:0, w=Math.max(1,weightPart+weightLabor);
+  const partTaxFactor=1+(partTaxable?taxRate/100:0), laborTaxFactor=1+(laborTaxable?taxRate/100:0);
+  let partAmount=0,laborAmount=0,allocation="catalog",warnings:string[]=[];
+
+  if(partCatalog>0&&laborItem&&laborCatalog<=0){
+    const residual=targetTotal-partCatalog*partTaxFactor;
+    if(residual>=0){
+      partAmount=round2(partCatalog);
+      laborAmount=round2(residual/laborTaxFactor);
+      allocation="catalog_part_plus_balancing_labor";
+      warnings.push("The parts rate comes from the active catalog. Labor is the balancing draft amount required to match the technician-supplied tax-inclusive total and must be reviewed before approval.");
+    }else{
+      partAmount=round2(targetTotal/partTaxFactor);
+      laborAmount=0;
+      allocation="target_below_catalog_part_draft";
+      warnings.push("The requested total is below the selected catalog part price after tax. The draft was reconciled to the requested total, but pricing requires office/owner review.");
+    }
+  }else if(partCatalog<=0&&laborItem&&laborCatalog>0){
+    const residual=targetTotal-laborCatalog*laborTaxFactor;
+    if(residual>=0){
+      laborAmount=round2(laborCatalog);
+      partAmount=round2(residual/partTaxFactor);
+      allocation="catalog_labor_plus_balancing_part";
+      warnings.push("The labor rate comes from the active catalog. The parts amount is the balancing draft amount required to match the technician-supplied tax-inclusive total and must be reviewed before approval.");
+    }else{
+      laborAmount=round2(targetTotal/laborTaxFactor);
+      partAmount=0;
+      allocation="target_below_catalog_labor_draft";
+      warnings.push("The requested total is below the selected catalog labor price after tax. The draft was reconciled to the requested total, but pricing requires office/owner review.");
+    }
+  }else if(partCatalog>0&&laborCatalog>0){
+    const weightPart=partCatalog,weightLabor=laborCatalog,w=weightPart+weightLabor;
     const effectiveTax=(weightPart*(partTaxable?taxRate:0)+weightLabor*(laborTaxable?taxRate:0))/w;
     const pretax=targetTotal/(1+effectiveTax/100);
-    partAmount=round2(pretax*(weightPart/w)); laborAmount=round2(pretax-partAmount);
+    partAmount=round2(pretax*(weightPart/w));
+    laborAmount=round2(pretax-partAmount);
+    allocation="scaled_catalog_proportions";
+    warnings.push("Both catalog rates were used as allocation weights and proportionally scaled to the technician-supplied tax-inclusive total. Review the adjusted draft rates before approval.");
   }else{
     allocation="editable_70_30_draft";
-    const partShare=.70, laborShare=.30;
-    const taxFactor=1+(partShare*(partTaxable?taxRate:0)+laborShare*(laborTaxable?taxRate:0))/100;
+    const partShare=.70,laborShare=laborItem?.id?.length?.30:0;
+    const effectivePartShare=laborShare>0?partShare:1;
+    const taxFactor=1+(effectivePartShare*(partTaxable?taxRate:0)+laborShare*(laborTaxable?taxRate:0))/100;
     const pretax=targetTotal/taxFactor;
-    partAmount=round2(pretax*partShare); laborAmount=round2(pretax-partAmount);
+    partAmount=round2(pretax*effectivePartShare);
+    laborAmount=laborShare>0?round2(pretax-partAmount):0;
+    warnings.push("Catalog rates for the selected service/labor are $0, so the parts/labor split is an editable draft allocation. The exact customer total and tax math are reconciled; review the split before approval.");
   }
+
+  if(svc.kind==="spring")warnings.push("Spring type was not specified. Verify torsion versus extension spring and quantity before approving the document.");
+
   let items=[{catalog_product_id:part.id,name:part.name,description:part.details||`Garage door ${svc.kind} service`,qty:1,rate:partAmount,taxable:partTaxable,category:part.category||part.category_id||"Parts"}];
   if(laborItem&&laborAmount>0)items.push({catalog_product_id:laborItem.id,name:laborItem.name,description:laborItem.details||"Labor for diagnosed garage door repair work performed.",qty:1,rate:laborAmount,taxable:laborTaxable,category:laborItem.category||"Labor"});
   let totals=compute(items,taxRate),delta=round2(targetTotal-totals.total),guard=0;
   while(Math.abs(delta)>=0.009&&guard++<6){
-    const idx=items.length>1?items.length-1:0; items[idx].rate=round2(items[idx].rate+delta/(1+(items[idx].taxable===false?0:taxRate/100))); totals=compute(items,taxRate); delta=round2(targetTotal-totals.total);
+    const idx=items.length>1?items.length-1:0;
+    items[idx].rate=round2(items[idx].rate+delta/(1+(items[idx].taxable===false?0:taxRate/100)));
+    totals=compute(items,taxRate);
+    delta=round2(targetTotal-totals.total);
   }
-  return {document_type:/receipt/i.test(request)?"receipt_draft":/estimate|quote/i.test(request)?"estimate_draft":"invoice_draft",request,service:svc,items,totals,target_total:targetTotal,reconciled:Math.abs(round2(targetTotal-totals.total))<0.01,allocation_method:allocation,warnings:allocation==="editable_70_30_draft"?["Catalog rates for the selected service/labor are $0, so the parts/labor split is an editable draft allocation. The exact customer total and tax math are reconciled; review the split before approval."]:[],draft_only:true,needs_approval:true};
+  return {document_type:/receipt/i.test(request)?"receipt_draft":/estimate|quote/i.test(request)?"estimate_draft":"invoice_draft",request,service:svc,items,totals,target_total:targetTotal,reconciled:Math.abs(round2(targetTotal-totals.total))<0.01,allocation_method:allocation,warnings,draft_only:true,needs_approval:true};
 }
 
 Deno.serve(async(req)=>{
