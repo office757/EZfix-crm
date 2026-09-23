@@ -48,108 +48,96 @@ Deno.serve(async (req) => {
     if (!user) return json({ ok: false, error: "Unauthorized" }, 401);
 
     const db = createClient(URL, SERVICE);
-    const { data: member } = await db.from("team")
-      .select("id,name,role,status")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+    const { data: member } = await db.from("team").select("id,name,role,status").eq("auth_user_id", user.id).maybeSingle();
     if (!member || lower(member.status) !== "active") return json({ ok: false, error: "Forbidden" }, 403);
     const role = lower(member.role);
-    if (!["owner", "admin", "office", "dispatcher", "technician"].includes(role)) {
-      return json({ ok: false, error: "Role not permitted" }, 403);
-    }
+    if (!["owner", "admin", "office", "dispatcher", "technician"].includes(role)) return json({ ok: false, error: "Role not permitted" }, 403);
 
     const body = await req.json().catch(() => ({}));
     const draft = body?.draft;
-    if (!draft || draft?.draft_only !== true || draft?.needs_approval !== true) {
-      return json({ ok: false, error: "Only an approval-required AI draft can be submitted" }, 400);
-    }
+    if (!draft || draft?.draft_only !== true || draft?.needs_approval !== true) return json({ ok: false, error: "Only an approval-required AI draft can be submitted" }, 400);
     const jobId = text(body?.job_id || draft?.job?.id);
-    if (role === "technician" && !jobId) {
-      return json({ ok: false, error: "Technician approval requests require an assigned job" }, 400);
-    }
+    if (role === "technician" && !jobId) return json({ ok: false, error: "Technician approval requests require an assigned job" }, 400);
 
     let job: any = null;
     if (jobId) {
-      const { data, error } = await db.from("jobs")
-        .select("id,customer_id,customer_name,technician_id,technician,title,status,deleted_at")
-        .eq("id", jobId)
-        .is("deleted_at", null)
-        .maybeSingle();
+      const { data, error } = await db.from("jobs").select("id,customer_id,customer_name,technician_id,technician,title,status,deleted_at").eq("id", jobId).is("deleted_at", null).maybeSingle();
       if (error) throw error;
       if (!data) return json({ ok: false, error: "Job not found" }, 404);
       job = data;
-      if (role === "technician" && String(job.technician_id || "") !== String(member.id)) {
-        return json({ ok: false, error: "Technician may submit drafts only for an assigned job" }, 403);
-      }
-      if (draft?.job?.id && String(draft.job.id) !== String(job.id)) {
-        return json({ ok: false, error: "Draft job context does not match approval request" }, 400);
-      }
+      if (role === "technician" && String(job.technician_id || "") !== String(member.id)) return json({ ok: false, error: "Technician may submit drafts only for an assigned job" }, 403);
+      if (draft?.job?.id && String(draft.job.id) !== String(job.id)) return json({ ok: false, error: "Draft job context does not match approval request" }, 400);
     }
+
+    const items = Array.isArray(draft.items) ? draft.items : [];
+    const productIds = [...new Set(items.map((x: any) => text(x?.catalog_product_id)).filter(Boolean))];
+    if (productIds.length !== items.length) return json({ ok: false, error: "Every draft line item must reference exactly one active catalog product" }, 400);
+
+    const { data: products, error: productsError } = await db.from("products")
+      .select("id,name,rate,taxable,active")
+      .in("id", productIds);
+    if (productsError) throw productsError;
+    const productMap = new Map((products || []).map((p: any) => [String(p.id), p]));
+    if (productMap.size !== productIds.length) return json({ ok: false, error: "Draft contains an unknown catalog item" }, 400);
+
+    const pricingIssues: any[] = [];
+    for (const item of items) {
+      const id = text(item?.catalog_product_id);
+      const product: any = productMap.get(id);
+      if (!product || product.active === false) {
+        pricingIssues.push({ product_id: id, issue: "inactive_or_unknown" });
+        continue;
+      }
+      const catalogRate = round2(num(product.rate));
+      const draftRate = round2(num(item.rate));
+      if (!(catalogRate > 0)) pricingIssues.push({ product_id: id, product_name: product.name, issue: "catalog_rate_missing_or_zero" });
+      if (Math.abs(catalogRate - draftRate) >= 0.01) pricingIssues.push({ product_id: id, product_name: product.name, issue: "draft_rate_differs_from_catalog", catalog_rate: catalogRate, draft_rate: draftRate });
+      const catalogTaxable = product.taxable !== false;
+      const draftTaxable = item?.taxable !== false;
+      if (catalogTaxable !== draftTaxable) pricingIssues.push({ product_id: id, product_name: product.name, issue: "taxable_flag_differs_from_catalog", catalog_taxable: catalogTaxable, draft_taxable: draftTaxable });
+    }
+    if (pricingIssues.length) return json({ ok: false, error: "Draft pricing failed catalog verification", pricing_issues: pricingIssues }, 409);
 
     const recomputed = recompute(draft);
     const declaredTotal = num(draft?.totals?.total);
     const targetTotal = num(draft?.target_total);
-    if (Math.abs(recomputed.total - declaredTotal) >= 0.01 || Math.abs(recomputed.total - targetTotal) >= 0.01) {
-      return json({ ok: false, error: "Draft totals failed server-side reconciliation" }, 400);
+    if (Math.abs(recomputed.total - declaredTotal) >= 0.01) return json({ ok: false, error: "Draft totals failed server-side reconciliation" }, 400);
+    if (!(targetTotal > 0)) return json({ ok: false, error: "A positive requested total is required" }, 400);
+    if (Math.abs(recomputed.total - targetTotal) >= 0.01) {
+      return json({ ok: false, error: "Requested total does not match verified Product Catalog pricing", catalog_total: recomputed.total, requested_total: round2(targetTotal) }, 409);
     }
-
-    const productIds = [...new Set((draft.items || []).map((x: any) => text(x?.catalog_product_id)).filter(Boolean))];
-    if (productIds.length) {
-      const { data: products, error } = await db.from("products").select("id,active").in("id", productIds);
-      if (error) throw error;
-      const active = new Set((products || []).filter((x: any) => x.active !== false).map((x: any) => String(x.id)));
-      if (productIds.some((id: string) => !active.has(id))) {
-        return json({ ok: false, error: "Draft contains an inactive or unknown catalog item" }, 400);
-      }
+    if (draft?.catalog_pricing_complete === false || draft?.target_matches_catalog === false || draft?.reconciled === false) {
+      return json({ ok: false, error: "Draft is explicitly marked as requiring pricing review and cannot be approved yet" }, 409);
     }
 
     const proposedValue = {
       ...draft,
       totals: recomputed,
-      job: job ? {
-        id: job.id,
-        customer_id: job.customer_id,
-        customer_name: job.customer_name,
-        title: job.title,
-        status: job.status,
-      } : null,
+      pricing_source: "active_product_catalog",
+      pricing_verified: true,
+      job: job ? { id: job.id, customer_id: job.customer_id, customer_name: job.customer_name, title: job.title, status: job.status } : null,
       requested_by: { team_id: member.id, name: member.name, role },
       submitted_at: new Date().toISOString(),
       approval_only: true,
     };
 
-    const { data: approval, error: approvalError } = await db.from("ai_approvals")
-      .insert({
-        domain: "invoices",
-        action: "create_service_document",
-        reason: `AI service document draft submitted by ${member.name || member.id}`,
-        current_value: null,
-        proposed_value: proposedValue,
-        evidence: [{
-          source: "ai-technician-assistant",
-          request: text(draft?.request),
-          reconciled_total: recomputed.total,
-          job_id: job?.id || null,
-        }],
-        risk_level: "medium",
-        status: "pending",
-      })
-      .select("id,created_at,status,domain,action,risk_level")
-      .single();
+    const { data: approval, error: approvalError } = await db.from("ai_approvals").insert({
+      domain: "invoices",
+      action: "create_service_document",
+      reason: `AI service document draft submitted by ${member.name || member.id}`,
+      current_value: null,
+      proposed_value: proposedValue,
+      evidence: [{ source: "ai-technician-assistant", request: text(draft?.request), reconciled_total: recomputed.total, job_id: job?.id || null, pricing_source: "active_product_catalog", pricing_verified: true }],
+      risk_level: "medium",
+      status: "pending",
+    }).select("id,created_at,status,domain,action,risk_level").single();
     if (approvalError) throw approvalError;
 
     try {
-      await db.from("ai_command_log").insert({
-        user_id: user.id,
-        command: text(draft?.request),
-        classified_intent: "submit_service_document_for_approval",
-        action_type: "approval_requested",
-        result: { approval_id: approval.id, job_id: job?.id || null, total: recomputed.total },
-        status: "completed",
-      });
+      await db.from("ai_command_log").insert({ user_id: user.id, command: text(draft?.request), classified_intent: "submit_service_document_for_approval", action_type: "approval_requested", result: { approval_id: approval.id, job_id: job?.id || null, total: recomputed.total, pricing_verified: true }, status: "completed" });
     } catch {}
 
-    return json({ ok: true, approval, persisted_financial_document: false });
+    return json({ ok: true, approval, persisted_financial_document: false, pricing_verified: true });
   } catch (error: any) {
     console.error("ai-service-document-approval", error);
     return json({ ok: false, error: error?.message || "Approval request failed" }, 500);

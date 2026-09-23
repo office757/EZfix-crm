@@ -19,7 +19,6 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 function parseMoney(request: string, explicit: any) {
   const supplied = Number(explicit);
   if (Number.isFinite(supplied) && supplied > 0) return round2(supplied);
-
   const patterns = [
     /[$₪]\s*([0-9][0-9,]*(?:\.\d{1,2})?)/,
     /\b([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:dollars?|total|including\s+tax|incl\.?\s*tax)\b/i,
@@ -45,17 +44,16 @@ function inferService(request: string) {
   if (/opener|liftmaster|motor|פותחן|מנוע|ליפטמאסטר/.test(value)) return { category: "openers", kind: "opener", pair: false };
   if (/cable|כבל|כבלים/.test(value)) return { category: "cables", kind: "cable", pair: false };
   if (/roller|רולר|רולרים/.test(value)) return { category: "rollers", kind: "roller", pair: false };
-  if (/weather|seal|אטם|גומי/.test(value)) return { category: "weather", kind: "weather seal", pair: false };
-  return { category: "repair", kind: "garage door repair", pair: false };
+  if (/weather|seal|אטם|גומי/.test(value)) return { category: "weather_seal", kind: "weather seal", pair: false };
+  return { category: "repairs", kind: "garage door repair", pair: false };
 }
 
 function scoreProduct(product: any, service: any, request: string) {
   const haystack = lower(`${product.name} ${product.category} ${product.category_id} ${product.details}`);
   const requested = lower(request);
   const categoryId = lower(product.category_id);
-  const category = lower(product.category);
+  const category = lower(product.category).replaceAll(" ", "_");
   let score = 0;
-
   if (categoryId === service.category || category === service.category) score += 35;
   if (service.category === "springs" && haystack.includes("spring")) score += 20;
   if (service.kind !== "spring" && haystack.includes(service.kind)) score += 20;
@@ -63,7 +61,6 @@ function scoreProduct(product: any, service: any, request: string) {
   if (!service.pair && /pair|both/.test(haystack)) score -= 4;
   if (service.category === "springs" && /replacement|replace/.test(haystack)) score += 10;
   if (service.category === "springs" && /safety cable|inspection|adjustment/.test(haystack) && !/safety|inspection|adjust/.test(requested)) score -= 15;
-
   for (const word of requested.split(/[^a-z0-9א-ת]+/).filter((x: string) => x.length > 3)) {
     if (haystack.includes(word)) score += 1;
   }
@@ -84,113 +81,39 @@ function documentType(request: string) {
   if (/estimate|quote|הצעת\s*מחיר/i.test(request)) return "estimate_draft";
   return "invoice_draft";
 }
-
-function requestLanguage(request: string) {
-  return /[א-ת]/.test(request) ? "he" : "en";
-}
+function requestLanguage(request: string) { return /[א-ת]/.test(request) ? "he" : "en"; }
 
 function buildDraft(catalog: any[], request: string, targetTotal: number, taxRate: number) {
-  if (!targetTotal) throw new Error("A positive total is required (for example: $750 including tax / 750 כולל מס).");
-
+  if (!targetTotal) throw new Error("A positive requested total is required (for example: $750 including tax / 750 כולל מס).");
   const service = inferService(request);
   const parts = catalog
     .filter((product) => lower(product.category_id) !== "labor" && lower(product.category) !== "labor")
     .sort((a, b) => scoreProduct(b, service, request) - scoreProduct(a, service, request));
-  const laborProducts = catalog.filter((product) => lower(product.category_id) === "labor" || lower(product.category) === "labor");
   const part = parts[0] || null;
-  const laborItem = laborProducts.find((product) => /garage door repair labor/i.test(text(product.name))) ||
-    laborProducts.find((product) => /labor/i.test(text(product.name))) || null;
-  if (!part) throw new Error("No matching active catalog part/service item was found.");
+  if (!part) throw new Error("No matching active catalog item was found.");
 
-  const partTaxable = part.taxable !== false;
-  const laborTaxable = laborItem ? laborItem.taxable !== false : false;
-  const partCatalog = num(part.rate);
-  const laborCatalog = num(laborItem?.rate);
-  const partTaxFactor = 1 + (partTaxable ? taxRate / 100 : 0);
-  const laborTaxFactor = 1 + (laborTaxable ? taxRate / 100 : 0);
-
-  let partAmount = 0;
-  let laborAmount = 0;
-  let allocationMethod = "catalog";
-  const warnings: string[] = [];
-
-  if (partCatalog > 0 && laborItem && laborCatalog <= 0) {
-    const residual = targetTotal - partCatalog * partTaxFactor;
-    if (residual >= 0) {
-      partAmount = round2(partCatalog);
-      laborAmount = round2(residual / laborTaxFactor);
-      allocationMethod = "catalog_part_plus_balancing_labor";
-      warnings.push("The parts rate comes from the active catalog. Labor is the balancing draft amount required to match the technician-supplied tax-inclusive total and must be reviewed before approval.");
-    } else {
-      partAmount = round2(targetTotal / partTaxFactor);
-      allocationMethod = "target_below_catalog_part_draft";
-      warnings.push("The requested total is below the selected catalog part price after tax. The draft is reconciled to the requested total, but pricing requires office/owner review.");
-    }
-  } else if (partCatalog <= 0 && laborItem && laborCatalog > 0) {
-    const residual = targetTotal - laborCatalog * laborTaxFactor;
-    if (residual >= 0) {
-      laborAmount = round2(laborCatalog);
-      partAmount = round2(residual / partTaxFactor);
-      allocationMethod = "catalog_labor_plus_balancing_part";
-      warnings.push("The labor rate comes from the active catalog. Parts are the balancing draft amount required to match the technician-supplied tax-inclusive total and must be reviewed before approval.");
-    } else {
-      laborAmount = round2(targetTotal / laborTaxFactor);
-      allocationMethod = "target_below_catalog_labor_draft";
-      warnings.push("The requested total is below the selected catalog labor price after tax. The draft is reconciled to the requested total, but pricing requires office/owner review.");
-    }
-  } else if (partCatalog > 0 && laborCatalog > 0) {
-    const totalWeight = partCatalog + laborCatalog;
-    const effectiveTaxRate = (partCatalog * (partTaxable ? taxRate : 0) + laborCatalog * (laborTaxable ? taxRate : 0)) / totalWeight;
-    const pretaxTarget = targetTotal / (1 + effectiveTaxRate / 100);
-    partAmount = round2(pretaxTarget * partCatalog / totalWeight);
-    laborAmount = round2(pretaxTarget - partAmount);
-    allocationMethod = "scaled_catalog_proportions";
-    warnings.push("Catalog rates were used as allocation weights and proportionally scaled to the technician-supplied tax-inclusive total. Review the adjusted draft rates before approval.");
-  } else {
-    const partShare = laborItem ? 0.70 : 1;
-    const laborShare = laborItem ? 0.30 : 0;
-    const effectiveTaxRate = partShare * (partTaxable ? taxRate : 0) + laborShare * (laborTaxable ? taxRate : 0);
-    const pretaxTarget = targetTotal / (1 + effectiveTaxRate / 100);
-    partAmount = round2(pretaxTarget * partShare);
-    laborAmount = laborItem ? round2(pretaxTarget - partAmount) : 0;
-    allocationMethod = "editable_70_30_draft";
-    warnings.push("Catalog rates for the selected service/labor are $0, so the parts/labor split is an editable draft allocation. The exact customer total and tax math are reconciled; review the split before approval.");
-  }
-
-  if (service.kind === "spring") {
-    warnings.push("Spring type was not specified. Verify torsion versus extension spring and quantity before approving the document.");
-  }
-
-  const items: any[] = [{
+  const items = [{
     catalog_product_id: part.id,
     name: part.name,
     description: part.details || `Garage door ${service.kind} service`,
-    qty: 1,
-    rate: partAmount,
-    taxable: partTaxable,
+    qty: Number(part.default_qty) > 0 ? Number(part.default_qty) : 1,
+    rate: round2(num(part.rate)),
+    taxable: part.taxable !== false,
     category: part.category || part.category_id || "Parts",
   }];
-  if (laborItem && laborAmount > 0) {
-    items.push({
-      catalog_product_id: laborItem.id,
-      name: laborItem.name,
-      description: laborItem.details || "Labor for diagnosed garage door repair work performed.",
-      qty: 1,
-      rate: laborAmount,
-      taxable: laborTaxable,
-      category: laborItem.category || "Labor",
-    });
-  }
+  const totals = compute(items, taxRate);
+  const catalogPricingComplete = items.every((item) => num(item.rate) > 0);
+  const targetMatchesCatalog = catalogPricingComplete && Math.abs(round2(targetTotal - totals.total)) < 0.01;
+  const warnings: string[] = [];
 
-  let totals = compute(items, taxRate);
-  let delta = round2(targetTotal - totals.total);
-  let guard = 0;
-  while (Math.abs(delta) >= 0.009 && guard++ < 6) {
-    const index = items.length > 1 ? items.length - 1 : 0;
-    const factor = 1 + (items[index].taxable === false ? 0 : taxRate / 100);
-    items[index].rate = round2(items[index].rate + delta / factor);
-    totals = compute(items, taxRate);
-    delta = round2(targetTotal - totals.total);
+  if (!catalogPricingComplete) {
+    warnings.push("The selected catalog item has no configured price. No price was invented; office/owner pricing is required before approval.");
+  }
+  if (catalogPricingComplete && !targetMatchesCatalog) {
+    warnings.push(`The technician-supplied total (${targetTotal.toFixed(2)}) does not match the catalog-calculated total (${totals.total.toFixed(2)}). Catalog pricing was preserved and the mismatch requires review.`);
+  }
+  if (service.kind === "spring") {
+    warnings.push("Spring type was not specified. Verify torsion versus extension spring and quantity before approval.");
   }
 
   return {
@@ -201,8 +124,11 @@ function buildDraft(catalog: any[], request: string, targetTotal: number, taxRat
     items,
     totals,
     target_total: targetTotal,
-    reconciled: Math.abs(round2(targetTotal - totals.total)) < 0.01,
-    allocation_method: allocationMethod,
+    reconciled: targetMatchesCatalog,
+    catalog_pricing_complete: catalogPricingComplete,
+    target_matches_catalog: targetMatchesCatalog,
+    pricing_source: "active_product_catalog",
+    allocation_method: "catalog_rates_only",
     warnings,
     draft_only: true,
     needs_approval: true,
@@ -228,17 +154,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = text(body?.action || "prepare_service_document");
     if (action === "capabilities") {
-      return reply({
-        ok: true,
-        role,
-        capabilities: {
-          prepare_service_document: true,
-          supports_hebrew_requests: true,
-          persists_financial_document: false,
-          requires_approval: true,
-          technician_scope: "assigned jobs only when job_id/customer_id is supplied",
-        },
-      });
+      return reply({ ok: true, role, capabilities: { prepare_service_document: true, supports_hebrew_requests: true, persists_financial_document: false, requires_approval: true, pricing_policy: "active catalog rates only; never balance or scale to a requested total", technician_scope: "assigned jobs only when job_id/customer_id is supplied" } });
     }
     if (action !== "prepare_service_document") return reply({ ok: false, error: "Unsupported action" }, 400);
 
@@ -249,28 +165,17 @@ Deno.serve(async (req) => {
     let job: any = null;
 
     if (jobId) {
-      const { data, error } = await db.from("jobs")
-        .select("id,customer_id,customer_name,technician_id,technician,title,status,deleted_at")
-        .eq("id", jobId).is("deleted_at", null).maybeSingle();
+      const { data, error } = await db.from("jobs").select("id,customer_id,customer_name,technician_id,technician,title,status,deleted_at").eq("id", jobId).is("deleted_at", null).maybeSingle();
       if (error) throw error;
       if (!data) return reply({ ok: false, error: "Job not found" }, 404);
       job = data;
-      if (role === "technician" && String(job.technician_id || "") !== String(member.id)) {
-        return reply({ ok: false, error: "Technician may prepare documents only for an assigned job" }, 403);
-      }
+      if (role === "technician" && String(job.technician_id || "") !== String(member.id)) return reply({ ok: false, error: "Technician may prepare documents only for an assigned job" }, 403);
     }
-    if (role === "technician" && customerId && !job) {
-      return reply({ ok: false, error: "Technician customer context requires an assigned job_id" }, 403);
-    }
-    if (job && customerId && String(job.customer_id || "") !== customerId) {
-      return reply({ ok: false, error: "customer_id does not match the assigned job" }, 400);
-    }
+    if (role === "technician" && customerId && !job) return reply({ ok: false, error: "Technician customer context requires an assigned job_id" }, 403);
+    if (job && customerId && String(job.customer_id || "") !== customerId) return reply({ ok: false, error: "customer_id does not match the assigned job" }, 400);
 
-    const { data: catalog, error: catalogError } = await db.from("products")
-      .select("id,name,category,category_id,details,rate,default_qty,taxable,active")
-      .eq("active", true);
+    const { data: catalog, error: catalogError } = await db.from("products").select("id,name,category,category_id,details,rate,default_qty,taxable,active").eq("active", true);
     if (catalogError) throw catalogError;
-
     const hasTaxRate = body?.tax_rate !== undefined && body?.tax_rate !== null && body?.tax_rate !== "";
     const taxRate = Math.max(0, Math.min(25, hasTaxRate ? num(body.tax_rate) : 6.25));
     const total = parseMoney(request, body?.total_with_tax ?? body?.total);
@@ -280,23 +185,15 @@ Deno.serve(async (req) => {
       job: job ? { id: job.id, customer_id: job.customer_id, customer_name: job.customer_name, title: job.title, status: job.status } : null,
       requested_by: { team_id: member.id, name: member.name, role },
       can_persist: false,
-      approval_required_by: role === "technician" ? ["owner", "admin", "office"] : ["owner", "admin", "office"],
-      next_step: role === "technician"
-        ? "Review the draft, then submit it for office/owner approval before creating or sending a financial document."
-        : "Review and explicitly approve before creating or sending the financial document.",
+      approval_required_by: ["owner", "admin", "office"],
+      next_step: draft.catalog_pricing_complete && draft.target_matches_catalog
+        ? "Review the catalog-priced draft, then submit it for approval before creating or sending a financial document."
+        : "Pricing review is required. Update the real Product Catalog or correct the requested total before submitting for approval; this assistant will not invent balancing prices.",
     };
 
     try {
-      await db.from("ai_command_log").insert({
-        user_id: user.id,
-        command: request,
-        classified_intent: "prepare_service_document",
-        action_type: "draft_only",
-        result,
-        status: "completed",
-      });
+      await db.from("ai_command_log").insert({ user_id: user.id, command: request, classified_intent: "prepare_service_document", action_type: "draft_only", result, status: "completed" });
     } catch {}
-
     return reply({ ok: true, result });
   } catch (error: any) {
     console.error("ai-technician-assistant", error);
