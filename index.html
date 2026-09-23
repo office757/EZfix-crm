@@ -942,7 +942,21 @@ function renderNav() {
 }
 function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('scrim').style.display='block'; }
 function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('scrim').style.display='none'; }
+function technicianAllowedPage(page) {
+  return ['dashboard','calendar','jobs','customers','leads','estimates','invoices','more'].includes(page);
+}
 function go(page, id) {
+  if (isTechnicianView()) {
+    if (page === 'team' || !technicianAllowedPage(page)) {
+      toast('This section is not available for technician accounts.', true);
+      page = 'dashboard'; id = null;
+    }
+    if (page === 'jobs' && id) {
+      const job = getOne('jobs', id);
+      const techId = IS_OWNER ? (STORE.team.find(t=>t.name===VIEW_AS)?.id||null) : CURRENT_TEAM_MEMBER?.id;
+      if (!canViewJob(techId, job)) { toast('You can only open jobs assigned to you.', true); page='jobs'; id=null; }
+    }
+  }
   route = { page, id: id||null };
   closeSidebar();
   window.scrollTo(0,0);
@@ -3962,6 +3976,7 @@ function technicianPickerHtml(selectedId, selectedName, inputIdPrefix) {
   return teamMemberPickerHtml(selectedId, selectedName, inputIdPrefix, 'Technician');
 }
 function renderTeam(content, actions) {
+  if (isTechnicianView()) { go('dashboard'); return; }
   if (route.id) return renderTeamDetail(content, actions, route.id);
   actions.innerHTML = `<button class="btn btn-primary" onclick="openTeamModal()">+ Add team member</button>`;
   const list = [...STORE.team].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
@@ -3994,6 +4009,7 @@ function renderTeam(content, actions) {
   `;
 }
 function renderTeamDetail(content, actions, id) {
+  if (isTechnicianView()) { go('dashboard'); return; }
   const m = getOne('team', id);
   if (!m) { content.innerHTML = emptyState('🔍','Team member not found',''); return; }
   actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>${IS_OWNER && m.role==='Technician' ? `<button class="btn btn-sm btn-primary" onclick="openTeamLoginAccess('${m.id}')">🔐 Login Access</button>` : ''}`;
