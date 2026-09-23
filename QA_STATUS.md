@@ -8,8 +8,8 @@ Working branch: `fix/card-surcharge-accounting-2026-09-23`
 1. Financial QA — **COMPLETE**
 2. Payment Integrity — **COMPLETE**
 3. Security QA — **COMPLETE (with documented platform warning)**
-4. Documents & Communications — **NEXT**
-5. Ashley + Phone — pending
+4. Documents & Communications — **COMPLETE**
+5. Ashley + Phone — **NEXT**
 6. Operational QA — pending
 7. Full E2E Production Test — pending
 8. Release — pending
@@ -68,6 +68,24 @@ No critical app-authorization finding remains. The advisor currently reports:
 - Seven warnings for intentionally exposed SECURITY DEFINER helper/RPC functions. These are retained because they are used by RLS / controlled RPC flows and have fixed search paths plus authorization guards where needed.
 - Supabase Auth leaked-password protection is disabled. This is an external Auth project setting rather than an application/database-policy defect; enable it in Supabase Auth settings when management access for that setting is available.
 
+## Task 4 — Documents & Communications
+
+Verified the document and outbound-communication paths without sending unintended customer messages:
+
+- Estimate/Invoice totals use the same discount/tax calculation model as the financial layer.
+- PDF/receipt/deposit rendering uses `paymentAppliedAmount(...)`, so card surcharge is not shown as invoice principal.
+- Text/document exports use invoice-applied payment amounts and the authoritative remaining balance.
+- Direct Square Pay Now links are validated as HTTPS `checkout.square.site` links tied to the exact invoice number through `client_reference_id`.
+- Card fee disclosure is shown separately from the invoice balance when Pay Now is available.
+- `send-crm-email` requires authenticated active staff, and non-owner sends require a fresh matching communication approval; approvals are consumed atomically and attachment/recipient/body hashes are verified.
+- `send-inkbox-sms` requires authenticated authorized staff, enforces consent/STOP rules, validates message size/recipient, and suppresses duplicate service sends.
+- `send-whatsapp-notification` requires authenticated authorized staff, validates recipient/message, suppresses duplicates, and logs successful sends.
+- Provider failures are surfaced rather than silently reporting success, and successful communication attempts are logged/audited.
+- Production `invoice-email-preview` was upgraded to version 8 so paid/balance calculations explicitly prefer `appliedAmount` and fall back to legacy `amount`; this preserves legacy compatibility while preventing card fees from reducing invoice balance.
+- The deployed `invoice-email-preview` remains JWT-protected and the exact production source is now tracked at `supabase/functions/invoice-email-preview/index.ts`.
+
+No live customer email/SMS/WhatsApp was sent during this QA pass.
+
 ## Next verification target
 
-Task 4: verify Estimates/Invoices/PDF/Receipt rendering plus Email/SMS/WhatsApp communication paths, provider-result handling, approval/idempotency behavior, and card-fee presentation end to end without sending unintended customer communications.
+Task 5: Ashley + Phone — verify AI Receptionist / AI Manager tool permissions, caller intake, lead/job creation, human transfer, call-history behavior, and the requested natural-language technician workflow for preparing professional invoice/receipt drafts with correct parts, labor, tax, and approval controls.
