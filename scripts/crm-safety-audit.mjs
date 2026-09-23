@@ -94,6 +94,12 @@ requirePattern(
   'Existing lead/estimate/invoice edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.'
 );
 
+requirePattern(
+  'Settings saves merge onto authoritative database state',
+  /async function saveSettings\s*\([^)]*\)[\s\S]{0,1800}?SB\.from\(\s*['"]settings['"]\s*\)\.select\(\s*['"]\*['"]\s*\)\.eq\(\s*['"]id['"]\s*,\s*['"]main['"]\s*\)\.maybeSingle\(\)[\s\S]{0,1200}?const next\s*=\s*\{\s*\.\.\.current\s*,\s*\.\.\.data\s*\}/,
+  'Partial settings changes must merge onto the latest database row instead of potentially stale local SETTINGS.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);

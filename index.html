@@ -7135,14 +7135,19 @@ function renderAuditLog(content, actions) {
 async function saveSettings(data) {
   return queueMutation('settings:main', async()=>{
     if (!await requireSession()) throw markHandled(new Error('Sign in required'));
-    const next = { ...SETTINGS, ...data };
+    // SETTINGS can be stale if another tab/user saved a different preference.
+    // Merge this partial change onto the latest authoritative row first.
+    const { data:currentRow, error:readError } = await SB.from('settings').select('*').eq('id','main').maybeSingle();
+    if (readError) { toast('Couldn\'t load the latest settings before saving.', true); console.error('saveSettings read failed', readError); throw markHandled(readError); }
+    const current = currentRow ? fromDbRow(currentRow) : {};
+    const next = { ...current, ...data };
     const row = toDbRowForCollection('settings', { id:'main', ...next });
     delete row.created_at; delete row.updated_at; delete row.row_version;
     const { data:saved, error } = await SB.from('settings').upsert(row, { onConflict:'id' }).select('*').single();
     if (error) { toast('Couldn\'t save settings. Please try again.', true); console.error('saveSettings failed', error); throw markHandled(error); }
     if (!saved) throw markHandled(new Error('Settings save was not acknowledged.'));
     settingsAppliedVersion=++settingsRefreshVersion;
-    SETTINGS = { ...next, ...fromDbRow(saved) };
+    SETTINGS = fromDbRow(saved);
     return SETTINGS;
   });
 }
