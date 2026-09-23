@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>EZfix CRM — Sign in</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{font-family:Manrope,Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17181a;background:#f4f4f2}*{box-sizing:border-box}html,body{margin:0;height:100%;min-height:100%;background:#f4f4f2}button,input{font:inherit}.gate{min-height:100%;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#fff 0,#f4f4f2 48%,#ecebe7 100%)}.card{width:min(430px,100%);background:#fff;border:1px solid #e4e1da;border-radius:18px;box-shadow:0 18px 55px rgba(20,18,14,.10);padding:30px}.brand{display:flex;align-items:center;gap:12px;margin-bottom:24px}.mark{width:44px;height:44px;border-radius:12px;background:#17181a;color:#f7941d;display:grid;place-items:center;font-weight:900;font-size:20px}.brand strong{font-size:20px}.brand small{display:block;color:#77736d;margin-top:2px}.title{font-size:24px;line-height:1.15;margin:0 0 7px}.sub{color:#6c6861;font-size:14px;margin:0 0 22px;line-height:1.5}.field{display:block;margin:0 0 14px}.field span{display:block;font-size:12px;font-weight:800;margin-bottom:6px;color:#4d4a45}.field input{width:100%;height:46px;border:1px solid #d8d5cf;border-radius:10px;padding:0 12px;background:#fff;outline:none}.field input:focus{border-color:#f7941d;box-shadow:0 0 0 3px rgba(247,148,29,.14)}.btn{width:100%;height:46px;border:0;border-radius:10px;background:#f7941d;color:#17181a;font-weight:900;cursor:pointer}.btn:disabled{opacity:.55;cursor:wait}.msg{min-height:20px;margin-top:12px;font-size:13px;color:#b3261e}.fine{font-size:11px;color:#8a8680;margin-top:18px;line-height:1.45}.loading{display:grid;place-items:center;min-height:100%;font-weight:800}.app-shell{height:100dvh;display:flex;flex-direction:column;background:#17181a}.authbar{height:42px;min-height:42px;padding:0 max(10px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));display:flex;align-items:center;gap:10px;background:#17181a;color:#fff;border-bottom:1px solid rgba(255,255,255,.12);font-size:12px}.authbar .who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}.authbar strong{color:#f7941d}.logout{border:1px solid rgba(255,255,255,.24);background:#26272a;color:#fff;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer}.crm-frame{display:block;width:100%;height:calc(100dvh - 42px);border:0;background:#fff}@media(max-width:600px){.gate{padding:14px}.card{padding:24px 20px;border-radius:14px}.authbar{height:38px;min-height:38px}.crm-frame{height:calc(100dvh - 38px)}}
+</style>
+</head>
+<body>
+<div id="root" class="loading">Checking secure session…</div>
+<script>
+(() => {
+  'use strict';
+  const SUPABASE_URL = 'https://fylbalenuqpovwncwbah.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Z7x_Vq2PDHAdxwpPElxE-A_qCv3iusF';
+  const root = document.getElementById('root');
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+  let rendering = false;
+
+  function esc(value){return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+  function renderLogin(message=''){
+    document.title = 'EZfix CRM — Sign in';
+    root.className = 'gate';
+    root.innerHTML = `<main class="card" aria-labelledby="loginTitle">
+      <div class="brand"><div class="mark">EZ</div><div><strong>EZfix CRM</strong><small>Secure staff access</small></div></div>
+      <h1 class="title" id="loginTitle">Sign in</h1>
+      <p class="sub">Use the staff account connected to your EZfix team profile.</p>
+      <form id="loginForm" autocomplete="on">
+        <label class="field"><span>Email</span><input id="email" name="email" type="email" inputmode="email" autocomplete="username" required></label>
+        <label class="field"><span>Password</span><input id="password" name="password" type="password" autocomplete="current-password" required></label>
+        <button class="btn" id="loginBtn" type="submit">Sign in securely</button>
+        <div class="msg" id="loginMsg" role="alert">${esc(message)}</div>
+      </form>
+      <div class="fine">Sessions are handled by Supabase Auth. Passwords are never stored in the CRM page.</div>
+    </main>`;
+    const form = document.getElementById('loginForm');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('loginBtn');
+      const msg = document.getElementById('loginMsg');
+      btn.disabled = true; msg.textContent = '';
+      try {
+        const { error } = await client.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        await boot();
+      } catch (err) {
+        msg.textContent = 'Sign-in failed. Check your email and password and try again.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  async function loadTeamMember(userId){
+    const { data, error } = await client.from('team')
+      .select('id,name,email,role,status,auth_user_id')
+      .eq('auth_user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  }
+
+  function renderApp(member){
+    document.title = 'EZfix CRM';
+    root.className = 'app-shell';
+    root.innerHTML = `<div class="authbar">
+      <div class="who"><strong>${esc(member.name || 'EZfix')}</strong> · ${esc(member.role || 'staff')} · Secure session</div>
+      <button id="logoutBtn" class="logout" type="button">Log out</button>
+    </div><iframe class="crm-frame" title="EZfix CRM" src="/crm"></iframe>`;
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('logoutBtn');
+      btn.disabled = true;
+      try { await client.auth.signOut(); } finally { renderLogin(); }
+    });
+  }
+
+  async function boot(){
+    if (rendering) return;
+    rendering = true;
+    try {
+      root.className = 'loading';
+      root.textContent = 'Checking secure session…';
+      const { data, error } = await client.auth.getSession();
+      if (error) throw error;
+      const session = data?.session;
+      if (!session?.user) { renderLogin(); return; }
+      const member = await loadTeamMember(session.user.id);
+      if (!member) {
+        await client.auth.signOut();
+        renderLogin('This account is not linked to an active EZfix team profile.');
+        return;
+      }
+      renderApp(member);
+    } catch (err) {
+      console.error('Auth bootstrap failed');
+      renderLogin('Unable to verify your secure session. Please sign in again.');
+    } finally {
+      rendering = false;
+    }
+  }
+
+  client.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') renderLogin();
+    if (event === 'SIGNED_IN' || event === 'USER_UPDATED') setTimeout(boot, 0);
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>
