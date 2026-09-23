@@ -7935,6 +7935,26 @@ async function sendReviewRequest(jobId) {
   toast('Review request prepared — opened in your messaging app (delivery not confirmed by EZfix)');
 }
 window.sendReviewRequest = sendReviewRequest;
+async function syncJobAssignment(jobId, technicianId, technicianName) {
+  const job = getOne('jobs', jobId);
+  if (!job || !technicianId) return;
+  const linkedLead = STORE.leads.find(l => l.convertedJobId === jobId || l.id === job?.leadId || l.id === job?.appData?.lead_id);
+  if (linkedLead && linkedLead.assignedTechnicianId !== technicianId) {
+    await dbSet('leads', linkedLead.id, { assignedTechnicianId: technicianId, assignedTechnician: technicianName, assignmentStatus:'assigned' });
+  }
+  try {
+    const {data:{session}} = await SB.auth.getSession();
+    if (!session?.access_token) throw new Error('Please sign in again');
+    const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/send-technician-assignment-sms`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({job_id:jobId,technician_id:technicianId})
+    });
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok || !result.ok) console.warn('Technician assignment SMS not accepted', result);
+  } catch(e) { console.warn('Technician assignment SMS failed without blocking assignment', e); }
+}
+window.syncJobAssignment = syncJobAssignment;
 function openJobModal(id, presetCustomerId) {
   const j = id ? getOne('jobs', id) : null;
   jobPhotosDraft = j?.photos ? JSON.parse(JSON.stringify(j.photos)) : [];
@@ -8061,9 +8081,9 @@ function openJobModal(id, presetCustomerId) {
           logAudit('status_changed', `Status → ${labelize(newStatus)}`, 'jobs', j.id);
           if (newStatus==='cancelled' && j.technician && techWantsNotification(j.technician, 'jobCancelled')) logWaNotification(j.technician, 'jobCancelled', 'jobs', j.id, `Job cancelled: ${title}`);
         }
-        if (techChanged && newTech) {
+        if (techChanged && newTech && newTechId) {
           logAudit('technician_assigned', `Assigned to ${newTech}`, 'jobs', j.id);
-          if (techWantsNotification(newTech, 'newJob')) logWaNotification(newTech, 'newJob', 'jobs', j.id, `New job assigned: ${title}${cust.name?' — '+cust.name:''}`);
+          await syncJobAssignment(j.id, newTechId, newTech);
         }
         if (dateChanged && newDate) {
           logAudit('appointment_scheduled', `Scheduled for ${fmtDate(newDate)}`, 'jobs', j.id);
@@ -8078,9 +8098,9 @@ function openJobModal(id, presetCustomerId) {
         const initialStatus = data.status||'new';
         const newJobId = await dbAdd('jobs', { ...data, status: initialStatus, statusHistory: [{ status: initialStatus, at: Date.now() }] });
         logAudit('job_created', `Job "${title}" created for ${cust.name}`, 'jobs', newJobId);
-        if (newTech) {
+        if (newTech && newTechId) {
           logAudit('technician_assigned', `Assigned to ${newTech}`, 'jobs', newJobId);
-          if (techWantsNotification(newTech, 'newJob')) logWaNotification(newTech, 'newJob', 'jobs', newJobId, `New job assigned: ${title}${cust.name?' — '+cust.name:''}`);
+          await syncJobAssignment(newJobId, newTechId, newTech);
         }
       }
       toast(j ? 'Job updated' : 'Job scheduled');
