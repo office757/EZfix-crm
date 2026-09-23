@@ -1,7 +1,8 @@
 {
   "cleanUrls": true,
   "redirects": [
-    { "source": "/index.html", "destination": "/", "permanent": false }
+    { "source": "/index.html", "destination": "/", "permanent": false },
+    { "source": "/whatsapp", "destination": "https://wa.me/message/BFINI2OHZQWUE1", "permanent": false }
   ],
   "rewrites": [
     { "source": "/", "destination": "/auth-shell" },
