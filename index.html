@@ -2242,6 +2242,41 @@ function renderCommunications(content, actions) {
     </div>
   `;
 }
+function openCustomerSmsComposer(customerId) {
+  const customer = getOne('customers', customerId);
+  if (!customer?.phone) return toast('This customer does not have a phone number.', true);
+  const normalized = normalizeToE164(customer.phone);
+  if (!normalized) return toast('Please save a valid customer phone number before sending SMS.', true);
+  showModal({
+    title: 'Text ' + (customer.name || normalized),
+    body: `<div class="muted" style="margin-bottom:8px">Sending from Ashley +1 (413) 961-3223 to <b>${esc(normalized)}</b></div>
+      <textarea id="customerSmsComposerInput" rows="5" placeholder="Type your message…"></textarea>
+      <div class="muted" style="font-size:11.5px;margin-top:6px">The recipient must have opted in to SMS. Delivery is only shown as successful when Inkbox accepts the message.</div>`,
+    onSave: async () => {
+      const message = document.getElementById('customerSmsComposerInput')?.value?.trim();
+      if (!message) return toast('Enter a message first', true);
+      const chunks = splitSmsForCarrier(message, 150);
+      let lastResult = null;
+      try {
+        for (const chunk of chunks) lastResult = await SupabaseCommunicationBridge.sendInkboxSMS(normalized, chunk);
+        await refreshCollection('smsMessages');
+        await logAudit('sms_queued', `SMS sent to ${normalized}${chunks.length>1?` in ${chunks.length} parts`:''}`, 'customers', customer.id, 'smsMessages', lastResult?.smsId||null, 'inkbox', 'normal');
+        closeModal();
+        toast(chunks.length>1 ? `${chunks.length} SMS parts submitted to Inkbox` : 'Submitted to Inkbox — awaiting carrier delivery receipt');
+        render();
+      } catch (e) {
+        if (e.status === 409 && e.data?.code === 'SMS_OPT_IN_REQUIRED') toast('This customer must text START to +1 (413) 961-3223 before EZfix can text them.', true);
+        else if (e.status === 409 && e.data?.code === 'SMS_OPTED_OUT') toast('This customer has opted out of SMS.', true);
+        else toast('Send failed: ' + (e.message || 'unknown error'), true);
+        throw markHandled(e);
+      }
+    }
+  });
+  const save = document.getElementById('modalSaveBtn');
+  if (save) save.textContent = 'Send SMS';
+}
+window.openCustomerSmsComposer = openCustomerSmsComposer;
+
 function renderCustomerDetail(content, id) {
   const c = getOne('customers', id);
   if (!c) { content.innerHTML = emptyState('🔍','Customer not found',''); return; }
@@ -2272,7 +2307,7 @@ function renderCustomerDetail(content, id) {
     <div class="panel no-print" style="margin-bottom:16px">
       <div class="panel-body pad" style="display:flex;gap:8px;flex-wrap:wrap">
         ${c.phone ? `<a class="btn btn-primary" href="tel:${c.phone}">📞 Call</a>` : ''}
-        ${c.phone ? `<a class="btn" href="sms:${c.phone}">💬 Text</a>` : ''}
+        ${c.phone ? `<button class="btn" onclick="openCustomerSmsComposer('${c.id}')">💬 Text</button>` : ''}
         ${c.email ? `<a class="btn" href="mailto:${c.email}">✉️ Email</a>` : ''}
         <button class="btn" onclick="openJobModal(null,'${c.id}')">+ Job</button>
         <button class="btn" onclick="openEstimateModal(null,'${c.id}')">+ Estimate</button>
