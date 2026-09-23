@@ -694,7 +694,7 @@ const TABLE_MAP = {
 };
 const SOFT_DELETE = new Set(['customers','leads','estimates','jobs','invoices','purchaseOrders']);
 const KNOWN_COLUMNS = {
- settings:['id','created_at','updated_at','row_version','app_data'],
+ settings:['id','stripe_link','google_review_link','email_logo_url','cc_surcharge_percent','templates','ai_receptionist','inkbox_phone','created_at','updated_at','row_version','app_data'],
  customers:['id','name','email','phone','address','notes','created_at','updated_at','row_version','deleted_at','app_data'],
  leads:['id','name','email','phone','address','notes','service_requested','source','source_email_id','source_provider','source_channel','source_call_id','status','decline_reason','next_follow_up','last_contact','assignment_status','converted_customer_id','converted_job_id','assigned_technician_id','created_at','updated_at','row_version','deleted_at','app_data'],
  estimates:['id','number','customer_id','converted_job_id','converted_invoice_id','option_group_id','customer_name','customer_phone','customer_address','customer_email','notes','status','decline_reason','option_label','due_term','date','tax_rate','discount','deposit_required','items','signature','photos','created_at','updated_at','row_version','deleted_at','app_data'],
