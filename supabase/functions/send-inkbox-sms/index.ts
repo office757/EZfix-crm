@@ -33,6 +33,63 @@ const normalizeE164 = (p: string) => {
 };
 const hex = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))).map(b => b.toString(16).padStart(2, "0")).join("");
 
+async function resolveParty(admin: any, remote: string) {
+  const digits = digits10(remote);
+  let customerId: string | null = null;
+  let leadId: string | null = null;
+  let ambiguous = false;
+  try {
+    const [{ data: cs }, { data: ls }] = await Promise.all([
+      admin.from("customers").select("id,phone").is("deleted_at", null),
+      admin.from("leads").select("id,phone").is("deleted_at", null),
+    ]);
+    const cm = (cs || []).filter((x: any) => digits10(x.phone || "") === digits);
+    const lm = (ls || []).filter((x: any) => digits10(x.phone || "") === digits);
+    if (cm.length === 1) customerId = cm[0].id;
+    else if (cm.length > 1) ambiguous = true;
+    else if (lm.length === 1) leadId = lm[0].id;
+    else if (lm.length > 1) ambiguous = true;
+  } catch (e) {
+    console.error("sms recipient linkage lookup failed", e);
+  }
+  return { customerId, leadId, ambiguous };
+}
+
+async function persistExplicitRejection(admin: any, to: string, message: string, providerCode: string, providerMessage: string) {
+  const now = new Date().toISOString();
+  const { customerId, leadId, ambiguous } = await resolveParty(admin, to);
+  const smsId = "sms_" + crypto.randomUUID();
+  const reason = `${providerCode}: ${providerMessage}`.slice(0, 1500);
+  const { error } = await admin.from("sms_messages").insert({
+    id: smsId,
+    provider: "inkbox",
+    channel: "sms",
+    provider_event_ids: [],
+    provider_message_id: null,
+    provider_conversation_id: null,
+    direction: "outbound",
+    local_phone_number: LOCAL_PHONE,
+    remote_phone_number: to,
+    normalized_remote_phone: to,
+    message_text: message,
+    message_type: "sms",
+    provider_status: "failed",
+    customer_id: customerId,
+    lead_id: leadId,
+    match_ambiguous: ambiguous,
+    provider_created_at: now,
+    sent_at: null,
+    delivered_at: null,
+    failed_at: now,
+    failure_reason: reason,
+  });
+  if (error) {
+    console.error("explicit SMS rejection persistence failed", error);
+    return { recorded: false, smsId: null };
+  }
+  return { recorded: true, smsId };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -92,23 +149,9 @@ Deno.serve(async (req) => {
     const sent: any = await identity.sendText({ to, text: message });
     const remote = normalizeE164(String(sent.remotePhoneNumber || to).trim() || to);
     const now = new Date().toISOString();
-    const digits = digits10(remote);
     const providerStatus = String(sent.deliveryStatus || "queued").toLowerCase();
     const failedImmediately = FAILED_STATUSES.has(providerStatus);
-
-    let customerId: string | null = null;
-    let leadId: string | null = null;
-    let ambiguous = false;
-    const [{ data: cs }, { data: ls }] = await Promise.all([
-      admin.from("customers").select("id,phone").is("deleted_at", null),
-      admin.from("leads").select("id,phone").is("deleted_at", null),
-    ]);
-    const cm = (cs || []).filter((x: any) => digits10(x.phone || "") === digits);
-    const lm = (ls || []).filter((x: any) => digits10(x.phone || "") === digits);
-    if (cm.length === 1) customerId = cm[0].id;
-    else if (cm.length > 1) ambiguous = true;
-    else if (lm.length === 1) leadId = lm[0].id;
-    else if (lm.length > 1) ambiguous = true;
+    const { customerId, leadId, ambiguous } = await resolveParty(admin, remote);
 
     const smsId = "sms_" + crypto.randomUUID();
     const failureReason = failedImmediately ? String(sent.failureReason || sent.error || providerStatus) : null;
@@ -154,15 +197,20 @@ Deno.serve(async (req) => {
     return json({ success: true, accepted: true, delivered: providerStatus === "delivered", smsId, providerMessageId: sent.id ?? null, providerConversationId: sent.conversationId ?? null, status: providerStatus, approvalId: approvalId || null, directOwner: !approvalId });
   } catch (e: any) {
     const status = Number(e?.status || e?.statusCode || 502);
-    const providerCode = String(e?.code || e?.errorCode || e?.name || "INKBOX_ERROR");
-    const providerMessage = String(e?.message || "SMS submission failed.");
+    const providerCode = String(e?.detail?.error || e?.code || e?.errorCode || e?.name || "INKBOX_ERROR");
+    const providerMessage = String(e?.detail?.message || e?.message || "SMS submission failed.");
     const explicitReject = status >= 400 && status < 500 && ![408, 409, 425, 429].includes(status);
+    let rejectionRecorded = false;
+    let rejectedSmsId: string | null = null;
     if (explicitReject) {
+      const recorded = await persistExplicitRejection(admin, to, message, providerCode, providerMessage);
+      rejectionRecorded = recorded.recorded;
+      rejectedSmsId = recorded.smsId;
       if (approvalId && claimToken) await admin.from("outbound_communication_approvals").update({ status: "approved", claimed_at: null, claim_token: null, last_error: `${providerCode}: ${providerMessage}`.slice(0, 500) }).eq("id", approvalId).eq("status", "sending").eq("claim_token", claimToken).is("sent_at", null);
     } else {
       if (approvalId && claimToken) await admin.from("outbound_communication_approvals").update({ last_error: `Provider outcome unknown (${providerCode}): ${providerMessage}`.slice(0, 500) }).eq("id", approvalId).eq("status", "sending").eq("claim_token", claimToken).is("sent_at", null);
     }
-    console.error("send-inkbox-sms failed", e);
-    return json({ success: false, accepted: false, delivered: false, error: providerMessage, providerCode, code: explicitReject ? "SMS_PROVIDER_REJECTED" : "SMS_PROVIDER_OUTCOME_UNKNOWN", retrySafe: explicitReject, approvalStatus: explicitReject ? "approved" : "sending" }, status >= 400 && status < 600 ? status : 502);
+    console.error("send-inkbox-sms failed", { status, providerCode, providerMessage, explicitReject, rejectionRecorded });
+    return json({ success: false, accepted: false, delivered: false, error: providerMessage, providerCode, code: explicitReject ? "SMS_PROVIDER_REJECTED" : "SMS_PROVIDER_OUTCOME_UNKNOWN", retrySafe: explicitReject, approvalStatus: explicitReject ? "approved" : "sending", rejectionRecorded, smsId: rejectedSmsId }, status >= 400 && status < 600 ? status : 502);
   }
 });
