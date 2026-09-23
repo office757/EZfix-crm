@@ -2753,6 +2753,7 @@ let lineItemsDraft = [];
 let docPhotosDraft = [];
 let docPhotosDirty = false;
 let jobPhotosDraft = [];
+let jobPhotosDirty = false;
 const JOB_PHOTO_CATEGORIES = ['Before','Diagnosis','During Work','After','Damage','Parts','Other'];
 function jobPhotoUploaderHtml() {
   const grouped = {};
@@ -2785,6 +2786,7 @@ async function handleJobPhotoInput() {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
   const category = document.getElementById('f_jobphotocat').value;
+  jobPhotosDirty = true;
   input.value = '';
   const tempUrl = URL.createObjectURL(file);
   const idx = jobPhotosDraft.length;
@@ -2801,7 +2803,7 @@ async function handleJobPhotoInput() {
   refreshJobPhotoThumbs();
 }
 window.handleJobPhotoInput = handleJobPhotoInput;
-function removeJobPhoto(idx) { jobPhotosDraft.splice(idx,1); refreshJobPhotoThumbs(); }
+function removeJobPhoto(idx) { jobPhotosDirty = true; jobPhotosDraft.splice(idx,1); refreshJobPhotoThumbs(); }
 window.removeJobPhoto = removeJobPhoto;
 function refreshJobPhotoThumbs() {
   const wrap = document.getElementById('jobPhotoThumbs');
@@ -7823,6 +7825,7 @@ window.sendReviewRequest = sendReviewRequest;
 function openJobModal(id, presetCustomerId) {
   const j = id ? getOne('jobs', id) : null;
   jobPhotosDraft = j?.photos ? JSON.parse(JSON.stringify(j.photos)) : [];
+  jobPhotosDirty = false;
   showModal({
     title: j ? 'Edit job' : 'New job',
     wide: true,
@@ -7926,7 +7929,7 @@ function openJobModal(id, presetCustomerId) {
         recommendedRepair: document.getElementById('f_recommended').value.trim(),
         description: document.getElementById('f_desc').value.trim(),
         internalNotes: document.getElementById('f_internalnotes').value.trim(),
-        photos: jobPhotosDraft.filter(p=>!p.uploading),
+        ...(jobPhotosDirty || !j ? { photos: jobPhotosDraft.filter(p=>!p.uploading) } : {}),
         checklist: (() => {
           const boxes = document.querySelectorAll('.checklistItem');
           if (!boxes.length) return j?.checklist || {};
@@ -7952,8 +7955,10 @@ function openJobModal(id, presetCustomerId) {
           logAudit('appointment_scheduled', `Scheduled for ${fmtDate(newDate)}`, 'jobs', j.id);
           if (!techChanged && newTech && techWantsNotification(newTech, 'scheduleChange')) logWaNotification(newTech, 'scheduleChange', 'jobs', j.id, `Schedule changed for "${title}": now ${fmtDate(newDate)}`);
         }
-        const newPhotoCount = data.photos.length - (j.photos||[]).length;
-        if (newPhotoCount > 0) logAudit('photo_added', `${newPhotoCount} photo(s) added`, 'jobs', j.id);
+        if (jobPhotosDirty) {
+          const newPhotoCount = jobPhotosDraft.filter(p=>!p.uploading).length - (j.photos||[]).length;
+          if (newPhotoCount > 0) logAudit('photo_added', `${newPhotoCount} photo(s) added`, 'jobs', j.id);
+        }
         if (data.internalNotes && data.internalNotes !== (j.internalNotes||'')) logAudit('note_added', `Note updated`, 'jobs', j.id);
       } else {
         const initialStatus = data.status||'new';

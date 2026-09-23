@@ -106,6 +106,12 @@ warnPattern(
   'Lead and estimate conversion can still create duplicate customer/job/invoice records across tabs or users; closing this safely requires an atomic database claim/RPC, transaction, or uniqueness constraint.'
 );
 
+requirePattern(
+  'Job editor only writes photos after an explicit photo change',
+  /let\s+jobPhotosDirty\s*=\s*false[\s\S]{0,10000}?jobPhotosDirty\s*=\s*true[\s\S]{0,12000}?\.\.\.\(jobPhotosDirty\s*\|\|\s*!j\s*\?\s*\{\s*photos:/,
+  'Existing job edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);
