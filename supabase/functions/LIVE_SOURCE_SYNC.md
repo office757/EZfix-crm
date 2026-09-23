@@ -12,6 +12,7 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-23.
 | `send-inkbox-sms` | 15 | `cd0dfd30e47c5f88ab5a9c4494a7af63644b6ebec6c5af829f7096a55b28b49e` |
 | `sync-inkbox-calls` | 7 | `466f08617598205c7e698b70bf85f8567f244c917bdcfd066a6315734e7f8de8` |
 | `inkbox-webhook` | 11 | `dc21fc3cdd4115ad0f2d60a85410e36105b6089e44125669f6564daf19fae4f0` |
+| `process-inkbox-call-leads` | 9 | `09a64fdd7743ff069ca92daba11a5bacab6432755bf77f9e18d286da0ecfd8d5` |
 
 ## Already tracked on `main`
 
@@ -23,7 +24,6 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-23.
 
 The following live functions remain outside this source-sync change and should be copied from the active Supabase deployment in a later isolated change rather than reconstructed from memory:
 
-- `process-inkbox-call-leads` v9
 - `ai-manager-tools` v18
 - `record-website-sms-consent` v1
 - `sync-inkbox-events` v3
