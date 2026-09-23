@@ -100,6 +100,12 @@ requirePattern(
   'Partial settings changes must merge onto the latest database row instead of potentially stale local SETTINGS.'
 );
 
+warnPattern(
+  'Conversion flows still rely on browser-local duplicate guards',
+  /const\s+_converting(?:Leads|Estimates(?:ToJob)?)\s*=\s*new\s+Set\(\)/,
+  'Lead and estimate conversion can still create duplicate customer/job/invoice records across tabs or users; closing this safely requires an atomic database claim/RPC, transaction, or uniqueness constraint.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);
