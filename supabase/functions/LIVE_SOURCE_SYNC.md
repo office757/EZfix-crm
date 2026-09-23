@@ -14,6 +14,7 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-23.
 | `inkbox-webhook` | 11 | `dc21fc3cdd4115ad0f2d60a85410e36105b6089e44125669f6564daf19fae4f0` |
 | `process-inkbox-call-leads` | 9 | `09a64fdd7743ff069ca92daba11a5bacab6432755bf77f9e18d286da0ecfd8d5` |
 | `ai-manager-tools` | 18 | `d6cf8177bfaf5413c947a35e2338bc03e93301e2a41347d52c21d087e128effa` |
+| `record-website-sms-consent` | 1 | `db553e68a475a909d8b21dda793b1bfc9fd17a8f0ac66b04acb467c6409cee66` |
 
 ## Already tracked on `main`
 
@@ -25,7 +26,6 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-23.
 
 The following live functions remain outside this source-sync change and should be copied from the active Supabase deployment in a later isolated change rather than reconstructed from memory:
 
-- `record-website-sms-consent` v1
 - `sync-inkbox-events` v3
 - `list-inkbox-events` v4
 - `ack-inkbox-event` v4
