@@ -10,11 +10,20 @@ const CORS = {
 const json = (body: any, status = 200) => new Response(JSON.stringify(body), { status, headers: CORS });
 const text = (v: any) => String(v ?? "").trim();
 const lower = (v: any) => text(v).toLowerCase();
-const num = (v: any) => Number(v) || 0;
 const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
 const URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ALLOWED_DOCUMENT_TYPES = new Set(["invoice_draft", "estimate_draft", "receipt_draft"]);
+
+type CatalogProduct = {
+  id: string;
+  name: string | null;
+  category: string | null;
+  category_id: string | null;
+  taxable: boolean | null;
+  active: boolean | null;
+};
 
 function recompute(draft: any) {
   const items = Array.isArray(draft?.items) ? draft.items : [];
@@ -22,18 +31,64 @@ function recompute(draft: any) {
   let subtotal = 0;
   let taxable = 0;
   for (const item of items) {
-    const qty = num(item?.qty);
-    const rate = num(item?.rate);
-    if (!(qty > 0) || qty > 1000 || rate < 0 || rate > 1000000) throw new Error("Invalid draft line item");
+    const qty = Number(item?.qty);
+    const rate = Number(item?.rate);
+    if (!Number.isFinite(qty) || !Number.isFinite(rate) || !(qty > 0) || qty > 1000 || rate < 0 || rate > 1000000) {
+      throw new Error("Invalid draft line item");
+    }
     const line = qty * rate;
     subtotal += line;
     if (item?.taxable !== false) taxable += line;
   }
-  const taxRate = Math.max(0, Math.min(25, num(draft?.totals?.tax_rate ?? draft?.tax_rate)));
+  const rawTaxRate = Number(draft?.totals?.tax_rate ?? draft?.tax_rate);
+  if (!Number.isFinite(rawTaxRate) || rawTaxRate < 0 || rawTaxRate > 25) {
+    throw new Error("Invalid draft tax rate");
+  }
   const subtotalRounded = round2(subtotal);
-  const tax = round2(taxable * taxRate / 100);
+  const tax = round2(taxable * rawTaxRate / 100);
   const total = round2(subtotalRounded + tax);
-  return { subtotal: subtotalRounded, tax_rate: taxRate, tax, total };
+  return { subtotal: subtotalRounded, tax_rate: rawTaxRate, tax, total };
+}
+
+function canonicalizeCatalogItems(items: any[], products: CatalogProduct[]) {
+  const byId = new Map(products.map((product) => [String(product.id), product]));
+  return items.map((item, index) => {
+    const productId = text(item?.catalog_product_id);
+    if (!productId) throw new Error(`Draft line ${index + 1} is missing catalog_product_id`);
+    const product = byId.get(productId);
+    if (!product || product.active === false) {
+      throw new Error( `Draft line ${index + 1} references an inactive or unknown catalog item`);
+    }
+
+    const canonicalName = text(product.name);
+    const canonicalCategory = text(product.category) || text(product.category_id);
+    if (typeof product.taxable !== "boolean") {
+      throw new Error( `Catalog item ${productId} has an invalid taxable classification`);
+    }
+    const canonicalTaxable = product.taxable;
+    if (!canonicalName) throw new Error(`Catalog item ${productId} is missing a name`);
+    if (!canonicalCategory) throw new Error(`Catalog item ${productId} is missing a category`);
+
+    // Reject stale or caller-mutated financial/catalog identity instead of silently
+    // approving a different taxable classification or mislabeled service.
+    if (text(item?.name) !== canonicalName) {
+      throw new Error( `Draft line ${index + 1} name does not match the active catalog; regenerate the draft`);
+    }
+    if ((item?.taxable !== false) !== canonicalTaxable) {
+      throw new Error(`Draft line ${index + 1} taxable classification does not match the active catalog; regenerate the draft`);
+    }
+    if (text(item?.category) && canonicalCategory && text(item.category) !== canonicalCategory) {
+      throw new Error(`Draft line ${index + 1} category does not match the active catalog; regenerate the draft`);
+    }
+
+    return {
+      ...item,
+      catalog_product_id: productId,
+      name: canonicalName,
+      category: canonicalCategory || text(item?.category),
+      taxable: canonicalTaxable,
+    };
+  });
 }
 
 Deno.serve(async (req) => {
@@ -63,6 +118,15 @@ Deno.serve(async (req) => {
     if (!draft || draft?.draft_only !== true || draft?.needs_approval !== true) {
       return json({ ok: false, error: "Only an approval-required AI draft can be submitted" }, 400);
     }
+    const documentType = text(draft?.document_type);
+    if (!ALLOWED_DOCUMENT_TYPES.has(documentType)) {
+      return json({ ok: false, error: "Unsupported AI service document type" }, 400);
+    }
+    const targetTotal = Number(draft?.target_total);
+    if (!Number.isFinite(targetTotal) || targetTotal <= 0 || targetTotal > 1000000) {
+      return json({ ok: false, error: "Draft target_total must be a positive amount no greater than 1000000" }, 400);
+    }
+
     const jobId = text(body?.job_id || draft?.job?.id);
     if (role === "technician" && !jobId) {
       return json({ ok: false, error: "Technician approval requests require an assigned job" }, 400);
@@ -86,26 +150,48 @@ Deno.serve(async (req) => {
       }
     }
 
-    const recomputed = recompute(draft);
-    const declaredTotal = num(draft?.totals?.total);
-    const targetTotal = num(draft?.target_total);
+    const rawItems = Array.isArray(draft?.items) ? draft.items : [];
+    if (!rawItems.length || rawItems.length > 20) {
+      return json({ ok: false, error: "Draft must contain 1-20 line items" }, 400);
+    }
+    const productIds = [...new Set(rawItems.map((item: any) => text(item?.catalog_product_id)).filter(Boolean))];
+    if (productIds.length === 0 || rawItems.some((item: any) => !text(item?.catalog_product_id))) {
+      return json({ ok: false, error: "Every draft line must reference an active catalog item" }, 400);
+    }
+
+    const { data: products, error: productsError } = await db.from("products")
+      .select("id,name,category,category_id,taxable,active")
+      .in("id", productIds);
+    if (productsError) throw productsError;
+
+    let canonicalItems: any[];
+    try {
+      canonicalItems = canonicalizeCatalogItems(rawItems, (products || []) as CatalogProduct[]);
+    } catch (catalogError: any) {
+      return json({ ok: false, error: catalogError?.message || "Draft catalog validation failed" }, 400);
+    }
+
+    const canonicalDraft = { ...draft, document_type: documentType, items: canonicalItems };
+    let recomputed;
+    try {
+      recomputed = recompute(canonicalDraft);
+    } catch (validationError: any) {
+      return json({ ok: false, error: validationError?.message || "Draft validation failed" }, 400);
+    }
+    const declaredTotal = Number(draft?.totals?.total);
+    if (!Number.isFinite(declaredTotal)) {
+      return json({ ok: false, error: "Draft declared total is invalid" }, 400);
+    }
     if (Math.abs(recomputed.total - declaredTotal) >= 0.01 || Math.abs(recomputed.total - targetTotal) >= 0.01) {
       return json({ ok: false, error: "Draft totals failed server-side reconciliation" }, 400);
     }
 
-    const productIds = [...new Set((draft.items || []).map((x: any) => text(x?.catalog_product_id)).filter(Boolean))];
-    if (productIds.length) {
-      const { data: products, error } = await db.from("products").select("id,active").in("id", productIds);
-      if (error) throw error;
-      const active = new Set((products || []).filter((x: any) => x.active !== false).map((x: any) => String(x.id)));
-      if (productIds.some((id: string) => !active.has(id))) {
-        return json({ ok: false, error: "Draft contains an inactive or unknown catalog item" }, 400);
-      }
-    }
-
     const proposedValue = {
       ...draft,
+      document_type: documentType,
+      items: canonicalItems,
       totals: recomputed,
+      target_total: round2(targetTotal),
       job: job ? {
         id: job.id,
         customer_id: job.customer_id,
@@ -116,6 +202,7 @@ Deno.serve(async (req) => {
       requested_by: { team_id: member.id, name: member.name, role },
       submitted_at: new Date().toISOString(),
       approval_only: true,
+      catalog_integrity_verified: true,
     };
 
     const { data: approval, error: approvalError } = await db.from("ai_approvals")
@@ -130,6 +217,8 @@ Deno.serve(async (req) => {
           request: text(draft?.request),
           reconciled_total: recomputed.total,
           job_id: job?.id || null,
+          catalog_integrity_verified: true,
+          catalog_product_ids: productIds,
         }],
         risk_level: "medium",
         status: "pending",
@@ -144,12 +233,17 @@ Deno.serve(async (req) => {
         command: text(draft?.request),
         classified_intent: "submit_service_document_for_approval",
         action_type: "approval_requested",
-        result: { approval_id: approval.id, job_id: job?.id || null, total: recomputed.total },
+        result: {
+          approval_id: approval.id,
+          job_id: job?.id || null,
+          total: recomputed.total,
+          catalog_integrity_verified: true,
+        },
         status: "completed",
       });
     } catch {}
 
-    return json({ ok: true, approval, persisted_financial_document: false });
+    return json({ ok: true, approval, persisted_financial_document: false, catalog_integrity_verified: true });
   } catch (error: any) {
     console.error("ai-service-document-approval", error);
     return json({ ok: false, error: error?.message || "Approval request failed" }, 500);
