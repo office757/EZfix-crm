@@ -6,6 +6,11 @@ const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TYPES = ["text.received", "text.sent", "text.delivered", "text.delivery_failed", "text.delivery_unconfirmed"];
 const STOP_WORDS = new Set(["STOP", "END", "CANCEL", "UNSUBSCRIBE", "QUIT"]);
 const rank: Record<string, number> = { queued: 0, sent: 1, delivery_unconfirmed: 2, delivered: 3, failed: 3 };
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 function normPhone(v: any) {
   const s = String(v ?? "").trim();
@@ -64,21 +69,21 @@ async function resolveParty(admin: any, remote: string | null) {
     ]);
     const cm = (cs ?? []).filter((x: any) => normPhone(x.phone) === remote);
     const lm = (ls ?? []).filter((x: any) => normPhone(x.phone) === remote);
-    if (cm.length === 1) customerId = cm[0].id;
-    else if (cm.length > 1) amb = true;
-    else if (lm.length === 1) leadId = lm[0].id;
-    else if (lm.length > 1) amb = true;
+    if (cm.length === 1 && lm.length === 0) customerId = cm[0].id;
+    else if (cm.length === 0 && lm.length === 1) leadId = lm[0].id;
+    else if (cm.length > 0 || lm.length > 0) amb = true;
   }
   return { customerId, leadId, amb };
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405 });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405, headers: cors });
   const ctx = await auth(req);
-  if (!ctx) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ctx) return Response.json({ error: "Unauthorized" }, { status: 401, headers: cors });
 
   const { data: events, error } = await ctx.admin.from("inkbox_events").select("*").eq("processing_status", "unprocessed").in("event_type", TYPES).order("received_at", { ascending: true }).limit(100);
-  if (error) return Response.json({ error: "Query failed" }, { status: 500 });
+  if (error) return Response.json({ error: "Query failed" }, { status: 500, headers: cors });
 
   let processed = 0, failed = 0;
   for (const e of events ?? []) {
@@ -157,5 +162,5 @@ Deno.serve(async (req) => {
       failed++;
     }
   }
-  return Response.json({ ok: true, processed, failed });
+  return Response.json({ ok: true, processed, failed }, { headers: cors });
 });
