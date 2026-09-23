@@ -9,8 +9,8 @@ Working branch: `fix/card-surcharge-accounting-2026-09-23`
 2. Payment Integrity — **COMPLETE**
 3. Security QA — **COMPLETE (with documented platform warning)**
 4. Documents & Communications — **COMPLETE**
-5. Ashley + Phone — **NEXT**
-6. Operational QA — pending
+5. Ashley + Phone — **COMPLETE (with documented provider limitation)**
+6. Operational QA — **NEXT**
 7. Full E2E Production Test — pending
 8. Release — pending
 
@@ -86,6 +86,27 @@ Verified the document and outbound-communication paths without sending unintende
 
 No live customer email/SMS/WhatsApp was sent during this QA pass.
 
+## Task 5 — Ashley + Phone
+
+Verified the production Ashley / phone / technician-assistant stack:
+
+- `sync-inkbox-calls`, `process-inkbox-call-leads`, and `inkbox-webhook` are active and preserve call/transcript history in production.
+- Ashley hosted-agent guardrails are managed server-side: collect caller details, never invent pricing, treat requested appointment windows as preferences until confirmed, and never claim booking/assignment/payment/transfer success without provider confirmation.
+- Call processing links known callers to customers, creates or links leads when appropriate, records missing caller fields, and flags guardrail violations for review.
+- Technician assignment is permission-controlled and is currently disabled for Ashley; a caller preference is not treated as an assignment.
+- The human-transfer target is `+1 774-244-5533`. The current hosted-agent provider surface does not expose a verified dynamic mid-call transfer action, so the system does not pretend a transfer occurred. When a human is requested and provider forwarding is not confirmed, the database trigger `enqueue_ai_receptionist_human_followup` creates an idempotent high-priority callback task.
+- The human-callback trigger was verified in a rolled-back production transaction: an unfulfilled human request created the expected high-priority task with call ID, callback phone, transfer status, and transfer target; rollback left no test data behind.
+- `ai-technician-assistant` is active, JWT-protected, role-aware, supports Hebrew requests, uses the live product catalog, and returns draft-only financial documents that require approval rather than persisting them directly.
+- `ai-service-document-approval` is active and independently recomputes totals, validates catalog product IDs and job context, and queues a pending approval instead of directly creating/sending a financial document.
+- Technician document preparation is restricted to the technician's assigned job context. Owner/admin/office approval remains required before a financial document can be created/sent.
+- The requested Hebrew workflow is supported: a request such as `תעשה לי קבלה על קפיצים כולל מיסים ב750` is parsed as a receipt draft for spring work with a $750 tax-inclusive target, professional catalog descriptions, parts/labor lines, tax reconciliation, and approval controls.
+- During QA, the product catalog was found to mark all labor items taxable. This was corrected in production: all 9 Labor-category items are now non-taxable, and the validated `products_labor_non_taxable` database constraint prevents that classification from regressing. The matching migration is tracked in GitHub.
+- With the current zero-rate generic spring/labor catalog draft allocation, the $750 example reconciles to $502.99 parts + $215.57 labor + $31.44 MA sales tax = $750.00; spring type/quantity remains explicitly flagged for review when the technician did not specify it.
+
+### Provider limitation
+
+The phone provider currently supports hosted-agent inbound handling and forwarding modes, but a verified dynamic hosted-agent mid-call transfer tool is not exposed in the connected production integration. EZfix therefore uses a safe fallback: preserve the caller/callback context and create a high-priority human callback task rather than claiming a transfer succeeded.
+
 ## Next verification target
 
-Task 5: Ashley + Phone — verify AI Receptionist / AI Manager tool permissions, caller intake, lead/job creation, human transfer, call-history behavior, and the requested natural-language technician workflow for preparing professional invoice/receipt drafts with correct parts, labor, tax, and approval controls.
+Task 6: Operational QA — verify Customers, Leads, Jobs, Schedule, Inventory, Tasks, operational data integrity, audit coverage, and production failure handling before the full end-to-end release test.
