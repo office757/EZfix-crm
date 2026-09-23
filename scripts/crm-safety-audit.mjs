@@ -112,6 +112,12 @@ requirePattern(
   'Existing job edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.'
 );
 
+requirePattern(
+  'Payment overpay validation uses latest invoice state',
+  /openPaymentModal[\s\S]{0,5000}?SB\.from\(\s*['"]invoices['"]\s*\)\.select\(\s*['"]\*['"]\s*\)\.eq\(\s*['"]id['"]\s*,\s*inv\.id\s*\)[\s\S]{0,800}?const currentBalance\s*=\s*balanceDue\(\s*latestInv\s*\)/,
+  'Payment amount validation must use the current database balance, not the invoice snapshot captured when the modal opened.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);

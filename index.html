@@ -8134,7 +8134,11 @@ function openPaymentModal(invId) {
     onSave: async () => {
       const amount = parseFloat(document.getElementById('p_amount').value)||0;
       if (amount<=0) return toast('Enter a valid amount');
-      const currentBalance = balanceDue(inv);
+      const { data:latestRow, error:latestError } = await SB.from('invoices').select('*').eq('id', inv.id).is('deleted_at', null).maybeSingle();
+      if (latestError) return toast("Couldn't load the latest invoice balance. Please try again.", true);
+      if (!latestRow) return toast("Couldn't record payment because the invoice no longer exists.", true);
+      const latestInv = fromDbRow(latestRow);
+      const currentBalance = balanceDue(latestInv);
       if (amount > currentBalance + 0.005 && !document.getElementById('overpayConfirmed')) {
         const wrap = document.getElementById('overpayWarning');
         if (wrap) wrap.innerHTML = `<div style="background:#fff3d6;color:#a3720b;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:8px">
