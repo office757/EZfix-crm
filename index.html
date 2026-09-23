@@ -694,6 +694,7 @@ const TABLE_MAP = {
 };
 const SOFT_DELETE = new Set(['customers','leads','estimates','jobs','invoices','purchaseOrders']);
 const KNOWN_COLUMNS = {
+ settings:['id','created_at','updated_at','row_version','app_data'],
  customers:['id','name','email','phone','address','notes','created_at','updated_at','row_version','deleted_at','app_data'],
  leads:['id','name','email','phone','address','notes','service_requested','source','source_email_id','source_provider','source_channel','source_call_id','status','decline_reason','next_follow_up','last_contact','assignment_status','converted_customer_id','converted_job_id','assigned_technician_id','created_at','updated_at','row_version','deleted_at','app_data'],
  estimates:['id','number','customer_id','converted_job_id','converted_invoice_id','option_group_id','customer_name','customer_phone','customer_address','customer_email','notes','status','decline_reason','option_label','due_term','date','tax_rate','discount','deposit_required','items','signature','photos','created_at','updated_at','row_version','deleted_at','app_data'],
@@ -827,10 +828,15 @@ async function dbSet(col,id,data){
  });
 }
 async function dbDelete(col,id){
+ return queueMutation(`record:${col}:${id}`,async()=>{
   if(!await requireSession()) throw markHandled(new Error('Sign in required'));
   if(col==='auditLog'||col==='calls'||col==='inventoryAdjustments'||col==='smsMessages') throw markHandled(new Error(`${col} cannot be deleted from the browser.`));
   let q; if(col==='team') q=SB.from('team').update({status:'inactive'}).eq('id',id); else if(SOFT_DELETE.has(col)) q=SB.from(TABLE_MAP[col]).update({deleted_at:new Date().toISOString()}).eq('id',id); else q=SB.from(TABLE_MAP[col]).delete().eq('id',id);
-  const {error}=await q; if(error){toast("Couldn't delete this. Please try again.",true);throw markHandled(error);} await refreshCollection(col);
+  const {data:deleted,error}=await q.select('id').maybeSingle();
+  if(error){console.error('dbDelete failed',{collection:col,id,error});toast("Couldn't delete this. Please try again.",true);throw markHandled(error);}
+  if(!deleted){const missing=new Error('Delete was not permitted or record no longer exists.');console.error('dbDelete affected no record',{collection:col,id});toast("Couldn't delete this. The record may already be gone or access was denied.",true);throw markHandled(missing);}
+  await refreshCollection(col);
+ });
 }
 function getOne(col,id){ return STORE[col].find(x=>x.id===id); }
 
