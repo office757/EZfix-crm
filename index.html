@@ -4801,11 +4801,41 @@ const PaymentProvider = {
   // does. Square version: this fires from a webhook handler on
   // your server, not from a button click in this UI.
   async recordPayment(invoiceId, payment) {
-    const inv = getOne('invoices', invoiceId);
-    if (!inv) return null;
-    const payments = [...(inv.payments||[]), payment];
-    await dbSet('invoices', invoiceId, { payments });
-    return payment;
+    return queueMutation(`record:invoices:${invoiceId}`, async()=>{
+      if (!await requireSession()) throw markHandled(new Error('Sign in required'));
+      // Payments must append to the authoritative database state, not a STORE
+      // snapshot that may be stale after another tab/user recorded a payment.
+      const { data:current, error:readError } = await SB.from('invoices')
+        .select('id,payments,deleted_at')
+        .eq('id', invoiceId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (readError) {
+        toast("Couldn't load the latest invoice before recording payment.", true);
+        throw markHandled(readError);
+      }
+      if (!current) {
+        toast("Couldn't record payment because the invoice no longer exists or access was revoked.", true);
+        throw markHandled(new Error('Invoice not found or payment update not permitted.'));
+      }
+      const payments = [...(Array.isArray(current.payments) ? current.payments : []), payment];
+      const { data:updated, error:updateError } = await SB.from('invoices')
+        .update({ payments })
+        .eq('id', invoiceId)
+        .is('deleted_at', null)
+        .select('*')
+        .maybeSingle();
+      if (updateError) {
+        toast("Couldn't record payment. Please try again.", true);
+        throw markHandled(updateError);
+      }
+      if (!updated) {
+        toast("Couldn't record payment because the invoice changed or access was revoked.", true);
+        throw markHandled(new Error('Payment update was not acknowledged.'));
+      }
+      replaceStoreRecord('invoices', updated);
+      return payment;
+    });
   },
 
   // Refund — NOT implemented. Real refunds require calling

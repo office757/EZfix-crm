@@ -65,10 +65,10 @@ warnPattern(
   /payments\s*:\s*inv\?\.payments\s*\|\|\s*\[\]/,
   'Editing an invoice opened before a newer payment can overwrite payment history. Existing invoice edits should omit payments entirely.'
 );
-warnPattern(
-  'Payment recording can append from cached STORE state',
-  /async\s+recordPayment\s*\([^)]*\)\s*\{[\s\S]{0,900}?getOne\(\s*['"]invoices['"]/,
-  'Appending to inv.payments from the client cache can lose a newer payment. Re-read authoritative payment state inside the invoice mutation boundary.'
+requirePattern(
+  'Payment recording re-reads authoritative invoice state inside its mutation queue',
+  /async\s+recordPayment\s*\([^)]*\)\s*\{[\s\S]{0,1800}?queueMutation\s*\(\s*`record:invoices:\$\{invoiceId\}`[\s\S]{0,1800}?SB\.from\(\s*['"]invoices['"]\s*\)[\s\S]{0,400}?select\(\s*['"]id,payments,deleted_at['"]\s*\)/,
+  'Payment append must derive from the latest database payments inside the same invoice mutation boundary, not from STORE.'
 );
 warnPattern(
   'Collection queries still use a silent 500-row ceiling',
