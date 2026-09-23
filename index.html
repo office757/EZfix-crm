@@ -847,6 +847,24 @@ async function dbDelete(col,id){
 }
 function getOne(col,id){ return STORE[col].find(x=>x.id===id); }
 
+async function updateJobStatusWithHistory(jobId, status, extraUpdates={}) {
+  return queueMutation(`record:jobs:${jobId}`, async()=>{
+    if(!await requireSession()) throw markHandled(new Error('Sign in required'));
+    const {data:current,error:readError}=await SB.from('jobs').select('id,status_history,deleted_at').eq('id',jobId).is('deleted_at',null).maybeSingle();
+    if(readError){toast("Couldn't load the latest job before changing status.",true);throw markHandled(readError);}
+    if(!current){toast("Couldn't update job because it no longer exists or access was revoked.",true);throw markHandled(new Error('Job not found or update not permitted.'));}
+    const history=[...(Array.isArray(current.status_history)?current.status_history:[]),{status,at:Date.now()}];
+    const normalized={...extraUpdates,status,statusHistory:history};
+    const row=toDbRowForCollection('jobs',normalized); delete row.id; delete row.created_at; delete row.updated_at; delete row.row_version;
+    if(row.app_data){const {data:currentApp,error:appError}=await SB.from('jobs').select('app_data').eq('id',jobId).maybeSingle();if(appError)throw markHandled(appError);row.app_data={...((currentApp&&currentApp.app_data)||{}),...row.app_data};}
+    const {data:updated,error:updateError}=await SB.from('jobs').update(row).eq('id',jobId).is('deleted_at',null).select('*').maybeSingle();
+    if(updateError){toast("Couldn't update job status. Please try again.",true);throw markHandled(updateError);}
+    if(!updated){toast("Couldn't update job status because the job changed or access was revoked.",true);throw markHandled(new Error('Job status update was not acknowledged.'));}
+    replaceStoreRecord('jobs',updated);
+    return fromDbRow(updated);
+  });
+}
+
 /* ---------- Audit log ---------- */
 async function logAudit(action, summary, entityType, entityId, relatedType, relatedId, source, priority) {
   try { await dbAdd('auditLog', { action, summary, entityType: entityType||null, entityId: entityId||null, relatedType: relatedType||null, relatedId: relatedId||null, source: source||'manual', priority: priority||'normal', read: false }); }
@@ -1669,8 +1687,7 @@ function signJobCompletion(jobId) {
   const j = getOne('jobs', jobId);
   if (!j) return;
   openSignatureModal('Job completion — customer signature', j.customerName, async (dataUrl, name) => {
-    const history = [...(j.statusHistory||[]), { status:'completed', at: Date.now() }];
-    await dbSet('jobs', jobId, { status:'completed', statusHistory: history, completionSignature: { dataUrl, name, at: Date.now() } });
+    await updateJobStatusWithHistory(jobId, 'completed', { completionSignature: { dataUrl, name, at: Date.now() } });
     logAudit('job_completed', `Job "${j.title}" completed for ${j.customerName}`, 'jobs', jobId);
     toast('Job completed and signed');
     closeModal();
@@ -7771,8 +7788,7 @@ window.startOfWeek = startOfWeek; window.addDays = addDays;
 async function setJobStatus(jobId, status) {
   const j = getOne('jobs', jobId);
   if (!j) return;
-  const history = [...(j.statusHistory||[]), { status, at: Date.now() }];
-  await dbSet('jobs', jobId, { status, statusHistory: history });
+  await updateJobStatusWithHistory(jobId, status);
   logAudit('status_changed', `Status → ${labelize(status)}`, 'jobs', jobId);
   toast('Status: ' + labelize(status));
 }

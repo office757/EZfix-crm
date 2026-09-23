@@ -76,6 +76,12 @@ requirePattern(
   'Collection refreshes must page through the full result set instead of silently truncating at 500 rows.'
 );
 
+requirePattern(
+  'Job status history appends from authoritative database state',
+  /async function updateJobStatusWithHistory\s*\([^)]*\)[\s\S]{0,2200}?queueMutation\s*\(\s*`record:jobs:\$\{jobId\}`[\s\S]{0,1600}?select\(\s*['"]id,status_history,deleted_at['"]\s*\)[\s\S]{0,1600}?status_history/,
+  'Status changes must append to the latest stored job history instead of a potentially stale STORE snapshot.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);
