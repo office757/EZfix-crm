@@ -3996,7 +3996,7 @@ function renderTeam(content, actions) {
 function renderTeamDetail(content, actions, id) {
   const m = getOne('team', id);
   if (!m) { content.innerHTML = emptyState('🔍','Team member not found',''); return; }
-  actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>${!m.authUserId && m.email ? `<button class="btn btn-sm btn-primary" onclick="inviteTeamUser('${m.id}')">Invite User</button>` : ''}`;
+  actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>${IS_OWNER && m.role==='Technician' ? `<button class="btn btn-sm btn-primary" onclick="openTeamLoginAccess('${m.id}')">🔐 Login Access</button>` : ''}`;
   const today = todayISO();
   const myJobs = STORE.jobs.filter(j => j.technicianId ? j.technicianId===m.id : j.technician===m.name);
   const todayJobs = myJobs.filter(j=>j.scheduledDate===today && j.status!=='cancelled');
@@ -4195,6 +4195,59 @@ function openTeamModal(id) {
   });
 }
 window.openTeamModal = openTeamModal;
+
+async function callTeamLoginManager(payload) {
+  const { data:{ session } } = await SB.auth.getSession();
+  if (!session?.access_token) throw new Error('Please sign in again');
+  const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/manage-team-login`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`},
+    body:JSON.stringify(payload)
+  });
+  const result = await response.json().catch(()=>({}));
+  if (!response.ok || !result.ok) throw new Error(result.error || `Login action failed (${response.status})`);
+  return result;
+}
+async function openTeamLoginAccess(teamId) {
+  if (!IS_OWNER) return toast('Owner access required', true);
+  const member = getOne('team', teamId);
+  if (!member || member.role!=='Technician') return toast('Technician not found', true);
+  let status = { linked: !!member.authUserId, loginEmail: member.email||'', disabled:false, lastSignInAt:null };
+  try { status = await callTeamLoginManager({action:'status',teamId}); } catch(e) { return toast(e.message,true); }
+  showModal({
+    title: 'Login Access — ' + member.name,
+    body: `
+      <div class="panel" style="margin-bottom:14px"><div class="panel-body pad">
+        <div class="kv"><div class="k">Account</div><div>${status.linked?'Linked':'Not created'}</div></div>
+        <div class="kv"><div class="k">Access</div><div>${status.disabled?'Disabled':'Enabled'}</div></div>
+        <div class="kv"><div class="k">Last sign in</div><div>${status.lastSignInAt?fmtDate(status.lastSignInAt):'Never'}</div></div>
+      </div></div>
+      <label class="field"><span class="lbl">Login / Username (email)</span><input type="email" id="teamLoginEmail" value="${esc(status.loginEmail||member.email||'')}"></label>
+      <label class="field"><span class="lbl">${status.linked?'New password':'Password'}</span><input type="password" id="teamLoginPassword" autocomplete="new-password" placeholder="Minimum 10 characters"></label>
+      <p class="muted" style="font-size:12px">Only the Owner can manage these credentials. Existing passwords are never displayed.</p>
+      ${status.linked?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button type="button" class="btn btn-sm" id="changeLoginEmailBtn">Change login email</button>
+        <button type="button" class="btn btn-sm" id="setLoginPasswordBtn">Set new password</button>
+        <button type="button" class="btn btn-sm ${status.disabled?'btn-primary':'btn-danger'}" id="toggleLoginAccessBtn">${status.disabled?'Enable login':'Disable login'}</button>
+      </div>`:''}
+    `,
+    onSave: async () => {
+      if (status.linked) { closeModal(); return; }
+      const email=document.getElementById('teamLoginEmail').value.trim();
+      const password=document.getElementById('teamLoginPassword').value;
+      await callTeamLoginManager({action:'create',teamId,email,password});
+      await refreshCollection('team'); closeModal(); toast('Technician login created'); render();
+    }
+  });
+  const save=document.getElementById('modalSaveBtn');
+  if(save) save.textContent=status.linked?'Close':'Create Login';
+  if(status.linked){
+    document.getElementById('changeLoginEmailBtn').onclick=async()=>{try{const email=document.getElementById('teamLoginEmail').value.trim();await callTeamLoginManager({action:'update_email',teamId,email});await refreshCollection('team');toast('Login email updated');closeModal();render();}catch(e){toast(e.message,true)}};
+    document.getElementById('setLoginPasswordBtn').onclick=async()=>{try{const password=document.getElementById('teamLoginPassword').value;await callTeamLoginManager({action:'set_password',teamId,password});toast('Password updated');document.getElementById('teamLoginPassword').value='';}catch(e){toast(e.message,true)}};
+    document.getElementById('toggleLoginAccessBtn').onclick=async()=>{try{await callTeamLoginManager({action:status.disabled?'enable':'disable',teamId});toast(status.disabled?'Login enabled':'Login disabled');closeModal();render();}catch(e){toast(e.message,true)}};
+  }
+}
+window.openTeamLoginAccess = openTeamLoginAccess;
 
 async function inviteTeamUser(teamId) {
   const member = getOne('team', teamId);
