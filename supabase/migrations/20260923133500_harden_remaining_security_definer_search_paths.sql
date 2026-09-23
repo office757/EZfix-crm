@@ -64,3 +64,10 @@ alter function public.adjust_product_stock(text, text, numeric, text, text) set 
 alter function public.current_app_role() set search_path = '';
 alter function public.current_team_id() set search_path = '';
 alter function public.current_team_id_any_status() set search_path = '';
+
+
+-- current_team_id_any_status() is not called by the browser, RLS policies, triggers,
+-- or other public helper functions in the verified production dependency graph.
+-- Keep it available to privileged server/database roles but remove it from the Data API
+-- surface for ordinary signed-in users.
+revoke execute on function public.current_team_id_any_status() from authenticated;
