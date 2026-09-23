@@ -7508,7 +7508,7 @@ function renderJobDetail(content, id) {
       </div>
     </div>
 
-    ${smartAction ? `
+    ${window.EZfixTechAI ? window.EZfixTechAI.render(id) : ''}\n\n    ${smartAction ? `
     <div class="panel" style="margin-bottom:14px;border-color:var(--orange);background:#fff8ee">
       <div class="panel-body pad" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
         <div><b>Next step:</b> ${esc(smartAction.text)}</div>
