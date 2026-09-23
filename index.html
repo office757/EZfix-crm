@@ -4869,37 +4869,31 @@ const PaymentProvider = {
   // Record a payment. Manual mode = what "Record Payment" already
   // does. Square version: this fires from a webhook handler on
   // your server, not from a button click in this UI.
-  async recordPayment(invoiceId, payment) {
+  async recordPayment(invoiceId, payment, expectedRowVersion) {
     return queueMutation(`record:invoices:${invoiceId}`, async()=>{
       if (!await requireSession()) throw markHandled(new Error('Sign in required'));
-      // Payments must append to the authoritative database state, not a STORE
-      // snapshot that may be stale after another tab/user recorded a payment.
-      const { data:current, error:readError } = await SB.from('invoices')
-        .select('id,payments,deleted_at')
-        .eq('id', invoiceId)
-        .is('deleted_at', null)
-        .maybeSingle();
-      if (readError) {
-        toast("Couldn't load the latest invoice before recording payment.", true);
-        throw markHandled(readError);
+      if (!Number.isFinite(Number(expectedRowVersion))) {
+        toast("Couldn't record payment because the invoice version is missing. Refresh and try again.", true);
+        throw markHandled(new Error('Expected invoice row version is required.'));
       }
-      if (!current) {
-        toast("Couldn't record payment because the invoice no longer exists or access was revoked.", true);
-        throw markHandled(new Error('Invoice not found or payment update not permitted.'));
-      }
-      const payments = [...(Array.isArray(current.payments) ? current.payments : []), payment];
-      const { data:updated, error:updateError } = await SB.from('invoices')
-        .update({ payments })
-        .eq('id', invoiceId)
-        .is('deleted_at', null)
-        .select('*')
-        .maybeSingle();
+      // Append atomically in Postgres. The expected row version makes concurrent
+      // payment attempts conflict instead of silently overwriting or double-paying.
+      // The payment id makes retries idempotent if the client repeats a request.
+      const { data:updatedRaw, error:updateError } = await SB.rpc('append_invoice_payment', {
+        p_invoice_id: invoiceId,
+        p_payment: payment,
+        p_expected_row_version: Number(expectedRowVersion)
+      });
       if (updateError) {
-        toast("Couldn't record payment. Please try again.", true);
+        const isConflict = updateError.code === '40001' || /changed while payment/i.test(updateError.message||'');
+        toast(isConflict
+          ? 'This invoice changed while the payment was being recorded. Refresh the balance and try again.'
+          : "Couldn't record payment. Please try again.", true);
         throw markHandled(updateError);
       }
-      if (!updated) {
-        toast("Couldn't record payment because the invoice changed or access was revoked.", true);
+      const updated = Array.isArray(updatedRaw) ? updatedRaw[0] : updatedRaw;
+      if (!updated?.id) {
+        toast("Couldn't record payment because the update was not acknowledged.", true);
         throw markHandled(new Error('Payment update was not acknowledged.'));
       }
       replaceStoreRecord('invoices', updated);
@@ -8205,6 +8199,7 @@ function openPaymentModal(invId) {
       }
       const typeEl = document.getElementById('p_type');
       const paymentRecord = {
+        id: newId(),
         amount: appliedAmount,
         appliedAmount,
         cardFee,
@@ -8213,7 +8208,7 @@ function openPaymentModal(invId) {
         date: document.getElementById('p_date').value,
         type: typeEl?typeEl.value:'payment'
       };
-      await PaymentProvider.recordPayment(inv.id, paymentRecord);
+      await PaymentProvider.recordPayment(inv.id, paymentRecord, Number(latestRow.row_version));
       logAudit('payment_recorded', `${money(chargedAmount)} charged (${money(appliedAmount)} applied${cardFee ? ` + ${money(cardFee)} card fee` : ''}) on invoice ${inv.number} (${paymentRecord.method})`, 'invoices', inv.id);
       if (inv.jobId) {
         const linkedJob = getOne('jobs', inv.jobId);
