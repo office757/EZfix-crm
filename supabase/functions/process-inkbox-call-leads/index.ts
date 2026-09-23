@@ -8,6 +8,9 @@ const textOf=(t:any)=>Array.isArray(t)?t.map((x:any)=>String(x?.text||"")).join(
 const localLines=(t:any)=>Array.isArray(t)?t.filter((x:any)=>["local","assistant","agent"].includes(partyOf(x))).map((x:any)=>String(x?.text||"")):[];
 const localTextOf=(t:any)=>localLines(t).join("\n");
 const remoteTextOf=(t:any)=>Array.isArray(t)?t.filter((x:any)=>["remote","caller","user"].includes(partyOf(x))).map((x:any)=>String(x?.text||"")).join("\n"):typeof t==="string"?t:"";
+function uniquePhoneMatch(rows:any[],phoneDigits:string){const matches=phoneDigits?(rows||[]).filter((x:any)=>digits(x?.phone)===phoneDigits):[];return{match:matches.length===1?matches[0]:null,count:matches.length,ambiguous:matches.length>1};}
+function sourceLeadMatch(rows:any[],providerCallId:any){const sourceId=String(providerCallId||"").trim();const matches=sourceId?(rows||[]).filter((x:any)=>String(x?.source_call_id||"").trim()===sourceId):[];return{match:matches.length===1?matches[0]:null,count:matches.length,ambiguous:matches.length>1};}
+function identityAmbiguity(customerMatch:any,leadMatch:any,sourceMatch:any){if(sourceMatch?.ambiguous)return{status:"ambiguous_source_call",reason:"multiple_leads_share_source_call_id",customer_matches:customerMatch?.count||0,lead_matches:sourceMatch.count};if(sourceMatch?.match)return null;const cc=customerMatch?.count||0,lc=leadMatch?.count||0;if(cc>1)return{status:"ambiguous_phone",reason:"multiple_customers_share_phone",customer_matches:cc,lead_matches:lc};if(lc>1)return{status:"ambiguous_phone",reason:"multiple_leads_share_phone",customer_matches:cc,lead_matches:lc};if(cc>0&&lc>0)return{status:"ambiguous_phone",reason:"customer_and_lead_share_phone",customer_matches:cc,lead_matches:lc};return null;}
 function guardrails(t:any,assignmentAllowed:boolean){
  const local=localTextOf(t), lines=localLines(t);
  const paymentAmountPrompt=/\b(payment amount|exact amount|dollar amount|amount (?:would|do|should) you (?:like|want|use)|how much (?:would|do|should) you (?:like|want) to pay)\b/i.test(local);
@@ -60,21 +63,29 @@ Deno.serve(async req=>{
   }
   const {data:calls,error}=await db.from("calls").select("*").not("provider_call_id","is",null).is("lead_id",null).is("customer_id",null).order("created_at",{ascending:true}).limit(50);if(error)throw error;
   const [{data:customers},{data:leads}]=await Promise.all([db.from("customers").select("id,phone").is("deleted_at",null),db.from("leads").select("id,phone,source_call_id,assigned_technician_id,assignment_status").is("deleted_at",null)]);
-  let created=0,linkedLead=0,linkedCustomer=0,skipped=0,assignmentsApplied=0;
+  const customerRows=customers||[],leadRows=[...(leads||[])];
+  let created=0,linkedLead=0,linkedCustomer=0,skipped=0,assignmentsApplied=0,identityAmbiguous=0;
   for(const c of calls||[]){
    const txText=remoteTextOf(c.transcript),ex:any=parse(txText);if(!ex.phone&&clean(c.remote_number))ex.phone=clean(c.remote_number);const g=guardrails(c.transcript,assignmentAllowed),tx=transferStatus(c,ex),asgn=assignmentState(c,assignmentAllowed,techs||[]);ex.missing_fields=missingFields(ex);ex.caller_details_complete=ex.missing_fields.length===0;ex.assignment=asgn;ex.transfer_status=tx;ex.receptionist_guardrails=g;const caller=clean(c.remote_number),d=digits(ex.phone||caller);
-   const customer=d?(customers||[]).find((x:any)=>digits(x.phone)===d):null;
-   if(customer){const outcome=outcomeFor(c,g,ex,"customer",tx);const {error:e}=await db.from("calls").update({customer_id:customer.id,lead_id:null,lead_extraction_status:"linked_customer",lead_extraction:ex,lead_extracted_at:new Date().toISOString(),outcome}).eq("id",c.id);if(e)throw e;linkedCustomer++;continue;}
-   let lead:any=d?(leads||[]).find((x:any)=>digits(x.phone)===d):null;if(!lead&&c.provider_call_id)lead=(leads||[]).find((x:any)=>x.source_call_id===c.provider_call_id)||null;
+   const sourceMatch=sourceLeadMatch(leadRows,c.provider_call_id),customerMatch=uniquePhoneMatch(customerRows,d),leadMatch=uniquePhoneMatch(leadRows,d),ambiguity=identityAmbiguity(customerMatch,leadMatch,sourceMatch);
+   if(ambiguity){
+    ex.identity_match={...ambiguity,phone_last4:d?d.slice(-4):null,requires_manual_review:true};
+    const {error:u}=await db.from("calls").update({customer_id:null,lead_id:null,lead_extraction_status:"ambiguous_identity",lead_extraction:ex,lead_extracted_at:new Date().toISOString(),outcome:"needs_review"}).eq("id",c.id);if(u)throw u;
+    identityAmbiguous++;skipped++;continue;
+   }
+   const customer=sourceMatch.match?null:customerMatch.match;
+   if(customer){ex.identity_match={status:"matched_customer",requires_manual_review:false};const outcome=outcomeFor(c,g,ex,"customer",tx);const {error:e}=await db.from("calls").update({customer_id:customer.id,lead_id:null,lead_extraction_status:"linked_customer",lead_extraction:ex,lead_extracted_at:new Date().toISOString(),outcome}).eq("id",c.id);if(e)throw e;linkedCustomer++;continue;}
+   let lead:any=sourceMatch.match||leadMatch.match||null;
    const enough=!!(ex.name||ex.phone||ex.email||ex.address||ex.service_requested);
    if(!lead&&enough){
     const id="lead_call_"+crypto.randomUUID().replaceAll("-","").slice(0,20);
     const notes=["AI receptionist call via Inkbox",ex.human_transfer_requested?`Caller requested a human. Transfer target: ${BUSINESS_TRANSFER}`:"",tx==="requested_unfulfilled"?"Live transfer was not recorded by the phone provider; human follow-up required.":"",g?.requires_review?"Receptionist guardrail review required.":"",ex.missing_fields?.length?`Missing caller details: ${ex.missing_fields.join(", ")}.`:"",c.summary?String(c.summary):"",textOf(c.transcript)?"Transcript available in Call History.":""].filter(Boolean).join("\n");
     const insert:any={id,name:ex.name||"New phone lead",email:ex.email,phone:ex.phone||caller,address:ex.address,notes,service_requested:ex.service_requested,source:"AI Receptionist",source_provider:"inkbox",source_channel:"phone",source_call_id:c.provider_call_id,status:"new",assignment_status:asgn.assigned_technician_id?"assigned":"unassigned"};if(asgn.assigned_technician_id)insert.assigned_technician_id=asgn.assigned_technician_id;
-    const {data:n,error:e}=await db.from("leads").insert(insert).select("id,assigned_technician_id,assignment_status").single();if(e)throw e;lead=n;created++;if(asgn.assigned_technician_id)assignmentsApplied++;
-   }else if(lead){linkedLead++;if(asgn.assigned_technician_id&&!lead.assigned_technician_id){const {error:aerr}=await db.from("leads").update({assigned_technician_id:asgn.assigned_technician_id,assignment_status:"assigned",updated_at:new Date().toISOString()}).eq("id",lead.id);if(aerr)throw aerr;lead={...lead,assigned_technician_id:asgn.assigned_technician_id,assignment_status:"assigned"};assignmentsApplied++;}}else skipped++;
+    const {data:n,error:e}=await db.from("leads").insert(insert).select("id,phone,source_call_id,assigned_technician_id,assignment_status").single();if(e)throw e;lead=n;leadRows.push(n);created++;if(asgn.assigned_technician_id)assignmentsApplied++;
+   }else if(lead){linkedLead++;if(asgn.assigned_technician_id&&!lead.assigned_technician_id){const {error:aerr}=await db.from("leads").update({assigned_technician_id:asgn.assigned_technician_id,assignment_status:"assigned",updated_at:new Date().toISOString()}).eq("id",lead.id);if(aerr)throw aerr;lead={...lead,assigned_technician_id:asgn.assigned_technician_id,assignment_status:"assigned"};const idx=leadRows.findIndex((x:any)=>x.id===lead.id);if(idx>=0)leadRows[idx]=lead;assignmentsApplied++;}}else skipped++;
+   ex.identity_match=lead?{status:sourceMatch.match?"matched_source_call":"matched_lead",requires_manual_review:false}:{status:"unmatched",requires_manual_review:false};
    const outcome=outcomeFor(c,g,ex,lead?"lead":null,tx);const {error:u}=await db.from("calls").update({customer_id:null,lead_id:lead?.id||null,lead_extraction_status:lead?"created_or_linked":"needs_review",lead_extraction:ex,lead_extracted_at:new Date().toISOString(),outcome}).eq("id",c.id);if(u)throw u;
   }
-  return new Response(JSON.stringify({ok:true,created,linkedLead,linkedCustomer,skipped,processed:(calls||[]).length,guardrailFlagged,metadataRefreshed,assignmentPermissionEnabled:assignmentAllowed,assignmentsApplied}),{headers:cors});
+  return new Response(JSON.stringify({ok:true,created,linkedLead,linkedCustomer,skipped,processed:(calls||[]).length,guardrailFlagged,metadataRefreshed,assignmentPermissionEnabled:assignmentAllowed,assignmentsApplied,identityAmbiguous}),{headers:cors});
  }catch(e:any){console.error(e);return new Response(JSON.stringify({ok:false,error:e?.message||String(e)}),{status:500,headers:cors})}
 });
