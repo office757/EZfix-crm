@@ -4249,32 +4249,7 @@ async function openTeamLoginAccess(teamId) {
 }
 window.openTeamLoginAccess = openTeamLoginAccess;
 
-async function inviteTeamUser(teamId) {
-  const member = getOne('team', teamId);
-  if (!member) return toast('Team member not found', true);
-  if (member.authUserId) return toast('User account is already linked');
-  if (!member.email) return toast('Add an email address first', true);
-  if (!confirm(`Send a secure login invite to ${member.email}?`)) return;
-  try {
-    const { data:{ session } } = await SB.auth.getSession();
-    if (!session?.access_token) throw new Error('Please sign in again');
-    const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/invite-team-user`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`},
-      body:JSON.stringify({ teamId, redirectTo: window.location.origin })
-    });
-    const result = await response.json().catch(()=>({}));
-    if (!response.ok || !result.ok) throw new Error(result.error || `Invite failed (${response.status})`);
-    await loadCollection('team');
-    toast(result.alreadyLinked ? 'User account already linked' : `Invite sent to ${member.email}`);
-    closeModal();
-    render();
-  } catch (e) {
-    console.error('inviteTeamUser failed', e);
-    toast(e.message || 'Unable to invite user', true);
-  }
-}
-window.inviteTeamUser = inviteTeamUser;
+// Legacy invitation-email flow removed. Technician credentials are Owner-managed via manage-team-login.
 
 /* ============================================================
    WHATSAPP NOTIFICATION ARCHITECTURE
