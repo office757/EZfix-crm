@@ -18,6 +18,7 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-23.
 | `list-inkbox-events` | 4 | `24bc8850c8ebd387c7c23310169f7929bfdfd7f81cb5c5947116a3d3fd8702ed` |
 | `ack-inkbox-event` | 4 | `336de3a1ac41bc8f3c4d4a75542dd695528e2850bc78f9d416fa93e96f06a28d` |
 | `ai-manager-tools` | 18 | `d6cf8177bfaf5413c947a35e2338bc03e93301e2a41347d52c21d087e128effa` |
+| `google-ads-readonly` | 3 | `c9333939f5368716417cd07cbcfbe47523492ea0c8fdd73d536c4246b7bf69b6` |
 
 ## Already tracked on `main`
 
@@ -32,7 +33,6 @@ The following live functions remain outside this source-sync change and should b
 - `invite-team-user` v2
 - `send-whatsapp-notification` v1
 - `whatsapp-webhook` v1
-- `google-ads-readonly` v2
 - `supabase-health` v2
 - `inkbox-sdk-test` v2
 
