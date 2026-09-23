@@ -7925,11 +7925,11 @@ function openJobModal(id, presetCustomerId) {
           boxes.forEach(b => { out[b.dataset.key] = b.checked; });
           return out;
         })(),
-        statusHistory: statusChanged ? [...(j?.statusHistory||[]), { status: newStatus, at: Date.now() }] : (j?.statusHistory||[]),
         cancelReason: newStatus==='cancelled' ? document.getElementById('f_cancelreason').value : (j?.cancelReason||''),
       };
       if (j) {
-        await dbSet('jobs', j.id, data);
+        if (statusChanged) await updateJobStatusWithHistory(j.id, newStatus, data);
+        else await dbSet('jobs', j.id, data);
         logAudit('job_edited', `Job "${title}" edited`, 'jobs', j.id);
         if (statusChanged) {
           logAudit('status_changed', `Status → ${labelize(newStatus)}`, 'jobs', j.id);
@@ -7947,7 +7947,8 @@ function openJobModal(id, presetCustomerId) {
         if (newPhotoCount > 0) logAudit('photo_added', `${newPhotoCount} photo(s) added`, 'jobs', j.id);
         if (data.internalNotes && data.internalNotes !== (j.internalNotes||'')) logAudit('note_added', `Note updated`, 'jobs', j.id);
       } else {
-        const newJobId = await dbAdd('jobs', { ...data, status: data.status||'new' });
+        const initialStatus = data.status||'new';
+        const newJobId = await dbAdd('jobs', { ...data, status: initialStatus, statusHistory: [{ status: initialStatus, at: Date.now() }] });
         logAudit('job_created', `Job "${title}" created for ${cust.name}`, 'jobs', newJobId);
         if (newTech) {
           logAudit('technician_assigned', `Assigned to ${newTech}`, 'jobs', newJobId);

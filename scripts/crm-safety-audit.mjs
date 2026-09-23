@@ -82,6 +82,12 @@ requirePattern(
   'Status changes must append to the latest stored job history instead of a potentially stale STORE snapshot.'
 );
 
+requirePattern(
+  'Job editor does not write stale status history snapshots',
+  /if\s*\(\s*j\s*\)\s*\{[\s\S]{0,500}?if\s*\(\s*statusChanged\s*\)\s*await\s+updateJobStatusWithHistory\(\s*j\.id\s*,\s*newStatus\s*,\s*data\s*\)[\s\S]{0,300}?else\s+await\s+dbSet\(\s*['"]jobs['"]\s*,\s*j\.id\s*,\s*data\s*\)/,
+  'Existing job edits must preserve authoritative status history; status changes must use the history-aware helper.'
+);
+
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);
 for (const item of passes) console.log(`PASS ${item}`);
 for (const item of warnings) console.warn(`WARN ${item}`);
