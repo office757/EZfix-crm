@@ -779,7 +779,7 @@ async function refreshCollection(col){
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
   const records=rows.map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls));
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
-  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner/Admin':x.role==='technician'?'Technician':x.role==='office'?'Office':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status;}); return STORE[col];
+  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
 }
 async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (413) 961-3223',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
 function setSyncState(ok,labelText){ const dot=document.getElementById('syncDot'),label=document.getElementById('syncLabel'); if(dot) dot.classList.toggle('off',!ok); if(label) label.textContent=labelText; }
@@ -818,7 +818,7 @@ async function dbAdd(col,data){
     const delta=Number(data.delta||0); const adjustmentId=newId(); const {data:rid,error}=await SB.rpc('adjust_product_stock',{p_adjustment_id:adjustmentId,p_product_id:data.productId,p_delta:delta,p_type:data.type||'manual',p_reason:data.reason||null}); if(error) throw markHandled(error); await Promise.all([refreshCollection('inventoryAdjustments'),refreshCollection('products')]); return rid;
   }
   if(col==='calls' || col==='smsMessages') throw markHandled(new Error(`${col} is server-managed in production and cannot be created directly by the browser.`));
-  const id=newId(), normalized={id,...data}; if(col==='team'){normalized.role=data.role==='Owner/Admin'?'owner':String(data.role||'technician').toLowerCase(); normalized.status=String(data.status||'active').toLowerCase();} const row=toDbRowForCollection(col,normalized); delete row.created_at; delete row.updated_at; delete row.row_version;
+  const id=newId(), normalized={id,...data}; if(col==='team'){normalized.role=String(data.role||'technician').toLowerCase(); normalized.status=String(data.status||'active').toLowerCase();} const row=toDbRowForCollection(col,normalized); delete row.created_at; delete row.updated_at; delete row.row_version;
   const {data:created,error}=await SB.from(TABLE_MAP[col]).insert(row).select('*').single(); if(error){toast("Couldn't save this. Please try again.",true);throw markHandled(error);} if(!created?.id) throw markHandled(new Error('Save completed without returning the record.')); replaceStoreRecord(col,created); return created.id;
  });
 }
@@ -827,7 +827,7 @@ async function dbSet(col,id,data){
   if(!await requireSession()) throw markHandled(new Error('Sign in required'));
   if(col==='auditLog'){ const allowed={}; if(Object.prototype.hasOwnProperty.call(data,'read')) allowed.read=!!data.read; const {error}=await SB.from('audit_log').update(allowed).eq('id',id); if(error) throw markHandled(error); await refreshCollection(col); return; }
   if(col==='calls' || col==='inventoryAdjustments') throw markHandled(new Error(`${col} is append-only in production.`));
-  const normalized={...data}; if(col==='team'){if('role' in normalized) normalized.role=normalized.role==='Owner/Admin'?'owner':String(normalized.role).toLowerCase(); if('status' in normalized) normalized.status=String(normalized.status).toLowerCase();} const row=toDbRowForCollection(col,normalized); delete row.id; delete row.created_at; delete row.updated_at; delete row.row_version; delete row.auth_user_id;
+  const normalized={...data}; if(col==='team'){if('role' in normalized) normalized.role=String(normalized.role).toLowerCase(); if('status' in normalized) normalized.status=String(normalized.status).toLowerCase();} const row=toDbRowForCollection(col,normalized); delete row.id; delete row.created_at; delete row.updated_at; delete row.row_version; delete row.auth_user_id;
   // Never let a partial update erase legacy/compatibility fields. Merge app_data
   // against the authoritative database row, not the in-memory STORE cache.
   if(row.app_data){ const {data:currentRow,error:currentErr}=await SB.from(TABLE_MAP[col]).select('app_data').eq('id',id).maybeSingle(); if(currentErr) throw markHandled(currentErr); row.app_data={...((currentRow&&currentRow.app_data)||{}),...row.app_data}; }
@@ -3824,7 +3824,7 @@ window.openExpenseModal = openExpenseModal;
    Who can actually open and edit this app is controlled by
    Claude's own Share dialog on this artifact, not by this list.)
    ============================================================ */
-const TEAM_ROLES = ['Owner/Admin','Office','Technician'];
+const TEAM_ROLES = ['Owner','Admin','Dispatcher','Technician'];
 /* ============================================================
    CANONICAL TECHNICIAN IDENTITY
    ------------------------------------------------------------
@@ -9173,8 +9173,9 @@ async function initUserRole() {
     if(error) throw error;
     CURRENT_TEAM_MEMBER=member||null;
     CAN_EDIT=!!member; IS_OWNER=member?.role==='owner';
+    const roleName=member?.role==='owner'?'Owner':member?.role==='admin'?'Admin':member?.role==='dispatcher'?'Dispatcher':member?.role==='technician'?'Technician':'Unassigned';
     if(!IS_OWNER){ VIEW_AS=''; try{localStorage.removeItem('ezfix_view_as');}catch(e){} }
-    if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || member.role}${IS_OWNER?' • Owner':' • Technician'}` : 'Access not assigned';
+    if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || 'User'} • ${roleName}` : 'Access not assigned';
     renderNav();
   } catch(e) { CAN_EDIT=false; IS_OWNER=false; console.error('Supabase role resolution failed',e); }
 }
