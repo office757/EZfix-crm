@@ -8462,9 +8462,12 @@ async function convertEstimateToInvoice(estId) {
   if (_convertingEstimates.has(estId)) return; // already converting — guards against a double-click racing ahead of the STORE update below
   _convertingEstimates.add(estId);
   try {
-    const newNumber = await nextProductionNumber('invoice');
-    const invId = await dbAdd('invoices', buildInvoiceDataFromEstimate(e, newNumber));
-    await dbSet('estimates', estId, { convertedInvoiceId: invId });
+    const {data:converted,error} = await SB.rpc('convert_estimate_to_invoice',{p_estimate_id:estId});
+    if(error) throw error;
+    const row = Array.isArray(converted) ? converted[0] : converted;
+    const invId = row?.invoice_id, newNumber = row?.invoice_number;
+    if(!invId || !newNumber) throw new Error('Conversion completed without an invoice reference');
+    await Promise.all([refreshCollection('estimates'),refreshCollection('invoices')]);
     logAudit('converted_to_invoice', `Estimate ${e.number} converted to invoice ${newNumber}`, 'estimates', estId, 'invoices', invId);
     logAudit('created_from_estimate', `Created from estimate ${e.number}`, 'invoices', invId, 'estimates', estId);
     toast('Converted to invoice ' + newNumber);
