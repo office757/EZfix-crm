@@ -70,10 +70,10 @@ requirePattern(
   /async\s+recordPayment\s*\([^)]*\)\s*\{[\s\S]{0,1800}?queueMutation\s*\(\s*`record:invoices:\$\{invoiceId\}`[\s\S]{0,1800}?SB\.from\(\s*['"]invoices['"]\s*\)[\s\S]{0,400}?select\(\s*['"]id,payments,deleted_at['"]\s*\)/,
   'Payment append must derive from the latest database payments inside the same invoice mutation boundary, not from STORE.'
 );
-warnPattern(
-  'Collection queries still use a silent 500-row ceiling',
-  /\.limit\(\s*500\s*\)/,
-  'Search, reports, duplicate checks, and history can become incomplete once a collection exceeds 500 rows.'
+requirePattern(
+  'Collection refresh paginates beyond 500 rows',
+  /async function refreshCollection\s*\([^)]*\)[\s\S]{0,1800}?const pageSize\s*=\s*500[\s\S]{0,1800}?\.range\(\s*from\s*,\s*from\s*\+\s*pageSize\s*-\s*1\s*\)[\s\S]{0,1800}?if\s*\(\s*page\.length\s*<\s*pageSize\s*\)\s*break/,
+  'Collection refreshes must page through the full result set instead of silently truncating at 500 rows.'
 );
 
 console.log(`CRM safety audit: ${passes.length} pass, ${warnings.length} warning, ${failures.length} fail`);

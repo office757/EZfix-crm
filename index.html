@@ -767,10 +767,17 @@ async function requireSession(){ const {data:{session},error}=await SB.auth.getS
 async function refreshCollection(col){
   const table=TABLE_MAP[col]; if(!table) throw new Error('Unknown collection '+col);
   const refreshVersion=(collectionRefreshVersions.get(col)||0)+1; collectionRefreshVersions.set(col,refreshVersion);
-  let q=SB.from(table).select('*'); if(SOFT_DELETE.has(col)) q=q.is('deleted_at',null); q=q.order('created_at',{ascending:false}).limit(500);
-  const {data,error}=await q; if(error) throw error;
+  const pageSize=500;
+  const rows=[];
+  for(let from=0;;from+=pageSize){
+    let q=SB.from(table).select('*'); if(SOFT_DELETE.has(col)) q=q.is('deleted_at',null); q=q.order('created_at',{ascending:false}).range(from,from+pageSize-1);
+    const {data,error}=await q; if(error) throw error;
+    const page=data||[];
+    rows.push(...page);
+    if(page.length<pageSize) break;
+  }
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
-  const records=(data||[]).map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls));
+  const records=rows.map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls));
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
   collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner/Admin':x.role==='technician'?'Technician':x.role==='office'?'Office':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status;}); return STORE[col];
 }
