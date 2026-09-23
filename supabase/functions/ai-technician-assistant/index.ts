@@ -19,37 +19,56 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 function parseMoney(request: string, explicit: any) {
   const supplied = Number(explicit);
   if (Number.isFinite(supplied) && supplied > 0) return round2(supplied);
-  const match = request.match(/\$\s*([0-9][0-9,]*(?:\.\d{1,2})?)/) ||
-    request.match(/\b([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:dollars?|total|including\s+tax|incl\.?\s*tax)\b/i);
-  return match ? round2(Number(match[1].replaceAll(",", ""))) : 0;
+
+  const patterns = [
+    /[$₪]\s*([0-9][0-9,]*(?:\.\d{1,2})?)/,
+    /\b([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:dollars?|total|including\s+tax|incl\.?\s*tax)\b/i,
+    /(?:סה["״']?כ|סכום|בסך|כולל\s+(?:מס|מיסים)|עם\s+(?:מס|מיסים))\s*(?:של)?\s*(?:ב)?\s*[:\-]?\s*[$₪]?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i,
+    /(?:^|\s)ב\s*([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:₪|ש["״']?ח)?(?:\s|$)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = request.match(pattern);
+    if (match) return round2(Number(match[1].replaceAll(",", "")));
+  }
+  return 0;
 }
 
 function inferService(request: string) {
   const value = lower(request);
-  const pair = /pair|both|two|2\s*springs/.test(value);
-  if (/extension/.test(value) && /spring/.test(value)) return { category: "springs", kind: "extension", pair };
-  if (/torsion/.test(value) && /spring/.test(value)) return { category: "springs", kind: "torsion", pair };
-  if (/spring/.test(value)) return { category: "springs", kind: "spring", pair };
-  if (/opener|liftmaster|motor/.test(value)) return { category: "openers", kind: "opener", pair: false };
-  if (/cable/.test(value)) return { category: "cables", kind: "cable", pair: false };
-  if (/roller/.test(value)) return { category: "rollers", kind: "roller", pair: false };
-  if (/weather|seal/.test(value)) return { category: "weather", kind: "weather seal", pair: false };
+  const pair = /pair|both|two|2\s*springs|זוג|שני\s+קפיצים|שתי\s+קפיצים/.test(value);
+  const spring = /spring|קפיץ|קפיצים/.test(value);
+  const extension = /extension|אקסטנש(?:ן|ן)|אקסטנשן/.test(value);
+  const torsion = /torsion|טורש(?:ן|יון)|טורשן|טורשיון/.test(value);
+  if (extension && spring) return { category: "springs", kind: "extension", pair };
+  if (torsion && spring) return { category: "springs", kind: "torsion", pair };
+  if (spring) return { category: "springs", kind: "spring", pair };
+  if (/opener|liftmaster|motor|פותחן|מנוע|ליפטמאסטר/.test(value)) return { category: "openers", kind: "opener", pair: false };
+  if (/cable|כבל|כבלים/.test(value)) return { category: "cables", kind: "cable", pair: false };
+  if (/roller|רולר|רולרים/.test(value)) return { category: "rollers", kind: "roller", pair: false };
+  if (/weather|seal|אטם|גומי/.test(value)) return { category: "weather", kind: "weather seal", pair: false };
   return { category: "repair", kind: "garage door repair", pair: false };
 }
 
 function scoreProduct(product: any, service: any, request: string) {
   const haystack = lower(`${product.name} ${product.category} ${product.category_id} ${product.details}`);
   const requested = lower(request);
+  const categoryId = lower(product.category_id);
+  const category = lower(product.category);
   let score = 0;
+
+  if (categoryId === service.category || category === service.category) score += 35;
   if (service.category === "springs" && haystack.includes("spring")) score += 20;
   if (service.kind !== "spring" && haystack.includes(service.kind)) score += 20;
-  if (service.pair && /pair|both/.test(haystack)) score += 12;
+  if (service.pair && /pair|both/.test(haystack)) score += 14;
   if (!service.pair && /pair|both/.test(haystack)) score -= 4;
-  for (const word of requested.split(/[^a-z0-9]+/).filter((x: string) => x.length > 4)) {
+  if (service.category === "springs" && /replacement|replace/.test(haystack)) score += 10;
+  if (service.category === "springs" && /safety cable|inspection|adjustment/.test(haystack) && !/safety|inspection|adjust/.test(requested)) score -= 15;
+
+  for (const word of requested.split(/[^a-z0-9א-ת]+/).filter((x: string) => x.length > 3)) {
     if (haystack.includes(word)) score += 1;
   }
   if (num(product.rate) > 0) score += 4;
-  if (lower(product.category_id) === "labor" || lower(product.category) === "labor") score -= 15;
+  if (categoryId === "labor" || category === "labor") score -= 15;
   return score;
 }
 
@@ -60,8 +79,18 @@ function compute(items: any[], taxRate: number) {
   return { subtotal, tax_rate: taxRate, tax, total: round2(subtotal + tax) };
 }
 
+function documentType(request: string) {
+  if (/receipt|קבלה/i.test(request)) return "receipt_draft";
+  if (/estimate|quote|הצעת\s*מחיר/i.test(request)) return "estimate_draft";
+  return "invoice_draft";
+}
+
+function requestLanguage(request: string) {
+  return /[א-ת]/.test(request) ? "he" : "en";
+}
+
 function buildDraft(catalog: any[], request: string, targetTotal: number, taxRate: number) {
-  if (!targetTotal) throw new Error("A positive total is required (for example: $750 including tax).");
+  if (!targetTotal) throw new Error("A positive total is required (for example: $750 including tax / 750 כולל מס).");
 
   const service = inferService(request);
   const parts = catalog
@@ -165,7 +194,8 @@ function buildDraft(catalog: any[], request: string, targetTotal: number, taxRat
   }
 
   return {
-    document_type: /receipt/i.test(request) ? "receipt_draft" : /estimate|quote/i.test(request) ? "estimate_draft" : "invoice_draft",
+    document_type: documentType(request),
+    language: requestLanguage(request),
     request,
     service,
     items,
@@ -203,6 +233,7 @@ Deno.serve(async (req) => {
         role,
         capabilities: {
           prepare_service_document: true,
+          supports_hebrew_requests: true,
           persists_financial_document: false,
           requires_approval: true,
           technician_scope: "assigned jobs only when job_id/customer_id is supplied",
@@ -249,6 +280,7 @@ Deno.serve(async (req) => {
       job: job ? { id: job.id, customer_id: job.customer_id, customer_name: job.customer_name, title: job.title, status: job.status } : null,
       requested_by: { team_id: member.id, name: member.name, role },
       can_persist: false,
+      approval_required_by: role === "technician" ? ["owner", "admin", "office"] : ["owner", "admin", "office"],
       next_step: role === "technician"
         ? "Review the draft, then submit it for office/owner approval before creating or sending a financial document."
         : "Review and explicitly approve before creating or sending the financial document.",
