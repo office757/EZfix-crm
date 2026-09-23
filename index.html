@@ -9142,10 +9142,12 @@ window.renderPreserveScroll = renderPreserveScroll;
 
 /* ---------- boot ---------- */
 let CAN_EDIT = true; // default true when the capability isn't available (e.g. local preview)
-let IS_OWNER = true; // default true for local preview; real published pages resolve this from `user`
+let IS_OWNER = false;
+let CURRENT_TEAM_MEMBER = null;
 let VIEW_AS = '';
 try { VIEW_AS = localStorage.getItem('ezfix_view_as') || ''; } catch(e) {}
 function setViewAs(name) {
+  if (!IS_OWNER) return;
   VIEW_AS = name;
   try { localStorage.setItem('ezfix_view_as', name); } catch(e) {}
   render();
@@ -9154,11 +9156,14 @@ window.setViewAs = setViewAs;
 function renderViewAsOptions() {
   const sel = document.getElementById('viewAsSelect');
   if (!sel) return;
+  const wrap = sel.parentElement;
+  if (!IS_OWNER) { if (wrap) wrap.style.display='none'; VIEW_AS=''; return; }
+  if (wrap) wrap.style.display='';
   sel.innerHTML = `<option value="">Owner (full access)</option>` +
-    STORE.team.map(m=>`<option value="${esc(m.name)}" ${VIEW_AS===m.name?'selected':''}>${esc(m.name)}${m.role?' — '+esc(m.role):''}</option>`).join('');
+    STORE.team.filter(m=>m.role==='Technician').map(m=>`<option value="${esc(m.name)}" ${VIEW_AS===m.name?'selected':''}>${esc(m.name)} — Technician</option>`).join('');
   sel.value = VIEW_AS;
 }
-function isTechnicianView() { return !!VIEW_AS; }
+function isTechnicianView() { return !IS_OWNER || !!VIEW_AS; }
 async function initUserRole() {
   try {
     const {data:{user}} = await SB.auth.getUser();
@@ -9166,8 +9171,10 @@ async function initUserRole() {
     if(!user){ CAN_EDIT=false; IS_OWNER=false; if(roleLabelEl) roleLabelEl.textContent='Not signed in'; renderNav(); return; }
     const {data:member,error}=await SB.from('team').select('id,name,role,status').eq('auth_user_id',user.id).eq('status','active').maybeSingle();
     if(error) throw error;
+    CURRENT_TEAM_MEMBER=member||null;
     CAN_EDIT=!!member; IS_OWNER=member?.role==='owner';
-    if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || member.role}${IS_OWNER?' • Owner':''}` : 'Access not assigned';
+    if(!IS_OWNER){ VIEW_AS=''; try{localStorage.removeItem('ezfix_view_as');}catch(e){} }
+    if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || member.role}${IS_OWNER?' • Owner':' • Technician'}` : 'Access not assigned';
     renderNav();
   } catch(e) { CAN_EDIT=false; IS_OWNER=false; console.error('Supabase role resolution failed',e); }
 }
