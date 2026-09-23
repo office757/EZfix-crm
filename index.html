@@ -1318,7 +1318,7 @@ function renderDashboard(content, actions) {
               <td class="name-cell">${esc(p.invoiceNumber)}<div class="muted" style="font-weight:400">${esc(p.customerName||'')}</div></td>
               <td class="muted">${esc(p.method||'—')}</td>
               <td class="muted">${fmtDate(p.date)}</td>
-              <td>${money(p.amount)}</td>
+              <td>${money(paymentAppliedAmount(p))}</td>
             </tr>`).join('')}
           </tbody></table>` : emptyState('💳','No payments recorded yet','Record a payment from any invoice.')}
         </div>
@@ -2258,7 +2258,7 @@ function renderCustomerDetail(content, id) {
   });
   cInvoices.forEach(inv => {
     timeline.push({ icon:'🧾', text:`Invoice ${inv.number} created (${money(invoiceTotal(inv))})`, at:inv.createdAt||0 });
-    (inv.payments||[]).forEach(p => timeline.push({ icon:'💳', text:`Payment ${money(p.amount)} (${p.method}) on ${inv.number}`, at: p.date ? new Date(p.date).getTime() : (inv.createdAt||0) }));
+    (inv.payments||[]).forEach(p => timeline.push({ icon:'💳', text:`Payment ${money(paymentAppliedAmount(p))} (${p.method}) on ${inv.number}`, at: p.date ? new Date(p.date).getTime() : (inv.createdAt||0) }));
   });
   cWarranties.forEach(w => timeline.push({ icon:'🛡️', text:`Warranty added: ${w.product||w.part||'—'}`, at:w.createdAt||0 }));
   const commEvents = buildCommunicationTimeline('customers', id);
@@ -4450,7 +4450,7 @@ function payrollTechCardData(name) {
     const t = inv ? computeTotals(inv) : null;
     const revenue = t ? t.discountedSubtotal : 0; // pre-tax — commission never includes sales tax
     const invoiceGrandTotal = t ? t.total : 0;
-    const paymentMethods = inv ? (inv.payments||[]).map(p=>`${p.method}: ${money(p.amount)}`).join(', ') : (j.paymentMethod ? `${j.paymentMethod}: ${money(revenue)}` : '');
+    const paymentMethods = inv ? (inv.payments||[]).map(p=>`${p.method}: ${money(paymentAppliedAmount(p))}`).join(', ') : (j.paymentMethod ? `${j.paymentMethod}: ${money(revenue)}` : '');
     const materialCost = Number(j.materialCost)||0;
     const jobProfit = revenue - materialCost;
     const jobCut = jobProfit * (commissionPct/100);
@@ -7569,7 +7569,7 @@ function renderJobDetail(content, id) {
       <div class="panel-body pad">
         ${linkedInvoice ? `
           <div class="kv" style="cursor:pointer" onclick="go('invoices','${linkedInvoice.id}')"><div class="k">${esc(linkedInvoice.number)}</div><div>${money(invoiceTotal(linkedInvoice))} · <span class="badge badge-${invoiceStatus(linkedInvoice)}">${labelize(invoiceStatus(linkedInvoice))}</span></div></div>
-          ${(linkedInvoice.payments||[]).map(p=>`<div class="kv"><div class="k">${fmtDate(p.date)}</div><div>${money(p.amount)} via ${esc(p.method)}</div></div>`).join('')}
+          ${(linkedInvoice.payments||[]).map(p=>`<div class="kv"><div class="k">${fmtDate(p.date)}</div><div>${money(paymentAppliedAmount(p))} via ${esc(p.method)}</div></div>`).join('')}
         ` : `<div class="muted" style="font-size:13px">No invoice yet.${j.status==='completed'?` <a href="#" onclick="createInvoiceFromJob('${id}');return false;">Create one</a>`:''}</div>`}
       </div>
     </div>
@@ -8413,7 +8413,7 @@ function renderDocumentView(type, id) {
                 ${t.tax>0 ? `<tr><td class="l">Tax (${t.taxRate}%)</td><td class="r">${money(t.tax)}</td></tr>` : ''}
                 <tr class="total"><td class="l">TOTAL</td><td class="r">${money(total)}</td></tr>
                 ${isInvoice && t.depositRequired>0 ? `<tr><td class="l">Deposit required</td><td class="r">${money(t.depositRequired)}</td></tr>` : ''}
-                ${isInvoice && (doc.payments||[]).map(p=>`<tr><td class="l">${p.type==='deposit'?'Deposit':'Payment'}${p.method?' · '+esc(p.method):''}${p.date?' · '+fmtDate(p.date):''}</td><td class="r">-${money(p.amount)}</td></tr>`).join('') || ''}
+                ${isInvoice && (doc.payments||[]).map(p=>`<tr><td class="l">${p.type==='deposit'?'Deposit':'Payment'}${p.method?' · '+esc(p.method):''}${p.date?' · '+fmtDate(p.date):''}</td><td class="r">-${money(paymentAppliedAmount(p))}</td></tr>`).join('') || ''}
                 ${isInvoice && depositRemaining>0 ? `<tr class="balance"><td class="l">DEPOSIT DUE</td><td class="r">USD ${money(depositRemaining)}</td></tr>` : ''}
                 <tr class="balance"><td class="l">${isInvoice?'BALANCE DUE':'ESTIMATE TOTAL'}</td><td class="r">USD ${money(isInvoice?balance:total)}</td></tr>
                 
@@ -8650,7 +8650,7 @@ function buildDocSummaryText(type, doc) {
   }
   lines.push(`Total: ${money(t.total)}`);
   if (isInvoice) {
-    (doc.payments||[]).forEach(p => lines.push(`Payment (${p.method}${p.date?', '+fmtDate(p.date):''}): -${money(p.amount)}`));
+    (doc.payments||[]).forEach(p => lines.push(`Payment (${p.method}${p.date?', '+fmtDate(p.date):''}): -${money(paymentAppliedAmount(p))}`));
     lines.push(`Balance due: ${money(balance)}`);
     lines.push(`Due: ${doc.dueTerm||'On Receipt'}`);
     const payUrl = PaymentProvider.createPaymentRequest(doc);
@@ -8858,7 +8858,7 @@ async function buildPdfDoc(type, doc) {
   }
   if (isInvoice) (doc.payments||[]).forEach(p => {
     pdf.setTextColor(110,110,110); pdf.text(`${p.type==='deposit'?'Deposit':'Payment'}${p.method?' · '+p.method:''}`, totalsX-150, y, {align:'right'});
-    pdf.setTextColor(20,20,20); pdf.text('-'+money(p.amount), totalsX, y, {align:'right'});
+    pdf.setTextColor(20,20,20); pdf.text('-'+money(paymentAppliedAmount(p)), totalsX, y, {align:'right'});
     y += 15;
   });
   if (isInvoice && depositRemainingPdf > 0) {
