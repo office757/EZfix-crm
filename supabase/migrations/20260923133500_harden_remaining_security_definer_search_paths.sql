@@ -4,8 +4,8 @@
 -- schema-qualified in the production definitions.
 
 create or replace function public.log_audit_event(
-  p_id text, p_action text, p_summary text, p_entity_type text, p_entity_id text,
-  p_related_type text, p_related_id text
+  p_id text, p_action text, p_summary text, p_entity_type text default null, p_entity_id text default null,
+  p_related_type text default null, p_related_id text default null
 )
 returns text
 language plpgsql
