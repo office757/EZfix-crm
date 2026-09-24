@@ -7621,6 +7621,7 @@ function renderJobDetail(content, id) {
           <button class="btn btn-sm" onclick="openJobModal('${id}')">📷 Add Photo</button>
           ${(j.status==='completed' && IS_OWNER) ? `<button class="btn btn-sm" onclick="addJobToGallery('${id}')">🖼️ Add to Gallery</button>` : ''}
           <button class="btn btn-sm" onclick="openJobModal('${id}')">📝 Add Note</button>
+          <button class="btn btn-sm btn-primary" onclick="openTechnicianAiAssistant('${id}')">AI Service Assistant</button>
         </div>
       </div>
     </div>
@@ -7696,6 +7697,66 @@ function renderJobDetail(content, id) {
     </div>
   `;
 }
+let technicianAiDraft = null;
+async function callTechnicianAi(action,payload={}){
+  const {data,error}=await SB.functions.invoke('ai-technician-assistant',{body:{action,...payload}});
+  if(error) throw error;
+  if(!data?.ok) throw new Error(data?.error||'AI technician assistant failed');
+  return data.result;
+}
+async function submitTechnicianAiApproval(draft,jobId){
+  const {data,error}=await SB.functions.invoke('ai-service-document-approval',{body:{draft,job_id:jobId}});
+  if(error) throw error;
+  if(!data?.ok) throw new Error(data?.error||'Could not submit AI document for approval');
+  return data;
+}
+function technicianAiDraftHtml(draft){
+  if(!draft)return '';
+  const items=Array.isArray(draft.items)?draft.items:[],warnings=Array.isArray(draft.warnings)?draft.warnings:[];
+  return '<div class="panel" style="margin-top:12px"><div class="panel-head"><h3>AI Draft</h3><span class="badge">'+esc(String(draft.document_type||'draft').replace('_draft',''))+'</span></div><div class="panel-body pad">'+
+    items.map(x=>'<div class="kv"><div class="k">'+esc(x.name||x.description||'Item')+'</div><div>'+Number(x.qty||0)+' × '+money(x.rate||0)+'</div></div>').join('')+
+    '<div class="kv"><div class="k">Subtotal</div><div>'+money(draft.totals?.subtotal||0)+'</div></div>'+
+    '<div class="kv"><div class="k">Tax</div><div>'+money(draft.totals?.tax||0)+'</div></div>'+
+    '<div class="kv"><div class="k"><b>Total</b></div><div><b>'+money(draft.totals?.total||0)+'</b></div></div>'+
+    (warnings.length?'<div style="margin-top:10px;background:#fff3d6;padding:10px 12px;border-radius:8px;font-size:12px">'+warnings.map(w=>'<div>⚠ '+esc(w)+'</div>').join('')+'</div>':'')+
+    '<div class="muted" style="margin-top:10px;font-size:12px">Pricing source: active Product Catalog only.</div></div></div>';
+}
+async function prepareTechnicianAiDraft(jobId){
+  const input=document.getElementById('techAiRequest'),resultBox=document.getElementById('techAiResult'),submitBtn=document.getElementById('techAiSubmitBtn');
+  const requestText=String(input?.value||'').trim();
+  if(!requestText)return toast('Describe the service and total first',true);
+  if(resultBox)resultBox.innerHTML='<div class="muted">Preparing catalog-priced draft…</div>';
+  if(submitBtn)submitBtn.disabled=true;
+  try{
+    const j=getOne('jobs',jobId);
+    const result=await callTechnicianAi('prepare_service_document',{request_text:requestText,job_id:jobId,customer_id:j?.customerId||undefined,tax_rate:6.25});
+    technicianAiDraft=result;
+    if(resultBox)resultBox.innerHTML=technicianAiDraftHtml(result);
+    if(submitBtn){submitBtn.disabled=!(result.catalog_pricing_complete&&result.target_matches_catalog&&result.reconciled);submitBtn.textContent=submitBtn.disabled?'Pricing Review Required':'Submit for Approval';}
+  }catch(e){technicianAiDraft=null;if(resultBox)resultBox.innerHTML='<div style="color:var(--danger);font-size:13px">'+esc(e?.message||'Could not prepare draft')+'</div>';toast(e?.message||'Could not prepare AI draft',true);}
+}
+async function submitTechnicianAiDraft(jobId){
+  if(!technicianAiDraft)return toast('Prepare a draft first',true);
+  try{const result=await submitTechnicianAiApproval(technicianAiDraft,jobId);toast('Submitted for approval');closeModal();logAudit('ai_document_approval_requested','AI service document submitted for approval','jobs',jobId,'ai_approvals',result?.approval?.id||null,'ai');}
+  catch(e){console.error('submitTechnicianAiDraft',e);toast(e?.message||'Could not submit AI draft',true);}
+}
+function startTechnicianAiDictation(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return toast('Voice dictation is not supported in this browser. Type the request instead.',true);
+  const input=document.getElementById('techAiRequest'),rec=new SR();rec.lang='en-US';rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onresult=e=>{if(input)input.value=(input.value?input.value+' ':'')+e.results[0][0].transcript;};
+  rec.onerror=e=>toast('Voice dictation error: '+(e.error||'unknown error'),true);rec.start();toast('Listening…');
+}
+function openTechnicianAiAssistant(jobId){
+  const j=getOne('jobs',jobId);if(!j)return;technicianAiDraft=null;
+  showModal({title:'AI Service Assistant',wide:true,body:'<p class="muted" style="margin-top:0">Describe what was done and the requested total. The assistant uses active Product Catalog pricing only and submits matching drafts for approval.</p><label class="field"><span class="lbl">Service request</span><textarea id="techAiRequest" rows="4" placeholder="Create an invoice for a pair of torsion springs, $750 including tax"></textarea></label><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-sm" onclick="startTechnicianAiDictation()">🎤 Dictate</button><button type="button" class="btn btn-primary btn-sm" onclick="prepareTechnicianAiDraft(\''+jobId+'\')">Prepare Draft</button></div><div id="techAiResult" style="margin-top:12px"></div>',onSave:async()=>submitTechnicianAiDraft(jobId)});
+  const btn=document.getElementById('modalSaveBtn');if(btn){btn.id='techAiSubmitBtn';btn.textContent='Submit for Approval';btn.disabled=true;}
+}
+window.openTechnicianAiAssistant=openTechnicianAiAssistant;
+window.prepareTechnicianAiDraft=prepareTechnicianAiDraft;
+window.submitTechnicianAiDraft=submitTechnicianAiDraft;
+window.startTechnicianAiDictation=startTechnicianAiDictation;
+
 function createEstimateFromJob(jobId) {
   const j = getOne('jobs', jobId);
   if (!j) return;
