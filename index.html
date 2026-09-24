@@ -9087,7 +9087,7 @@ async function downloadDocPdf(type, id) {
 }
 window.downloadDocPdf = downloadDocPdf;
 
-async function tryGmailSend(email, subject, body, attachment, htmlBody, extraAttachments) {
+async function tryGmailSend(email, subject, body, attachment, htmlBody, extraAttachments, entityMeta={}) {
   try {
     const { data: sessionData } = await SB.auth.getSession();
     const token = sessionData?.session?.access_token;
@@ -9098,7 +9098,7 @@ async function tryGmailSend(email, subject, body, attachment, htmlBody, extraAtt
     const res = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/send-crm-email`, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${token}`, 'apikey':SUPABASE_ANON_KEY },
-      body:JSON.stringify({ to:email, subject, text:body||'', html:htmlBody||'', attachments })
+      body:JSON.stringify({ to:email, subject, text:body||'', html:htmlBody||'', attachments, entity_type:entityMeta.entityType||undefined, entity_id:entityMeta.entityId||undefined })
     });
     const result = await res.json().catch(()=>({}));
     if (!res.ok || !result.success) throw new Error(result.error || 'Email provider rejected the message.');
@@ -9171,16 +9171,28 @@ async function emailDocument(type, id) {
     const base64 = arrayBufferToBase64(pdf.output('arraybuffer'));
     attachment = { content: base64, filename: `${doc.number}.pdf`, mimeType: 'application/pdf' };
   } catch(e) { console.error('could not build PDF for email attachment', e); }
-  const sent = await tryGmailSend(email, subject, body, attachment, htmlBody);
+  const sent = await tryGmailSend(email, subject, body, attachment, htmlBody, null, { entityType: col, entityId: id });
   if (!sent) return;
   logAudit('sent_email', `${type==='invoice'?'Invoice':'Estimate'} ${doc.number} sent to ${email}`, col, id, null, sent.providerMessageId||null);
+  if (type==='invoice' && balanceDue(doc)<=0 && sent.providerMessageId) {
+    try {
+      const { data:markData, error:markError } = await SB.functions.invoke('mark-receipt-delivery', {
+        body: { invoice_id:id, provider_message_id:sent.providerMessageId }
+      });
+      if (markError || !markData?.ok) throw markError || new Error(markData?.error || 'Receipt delivery state was not recorded');
+      await refreshCollection('invoices');
+    } catch (e) {
+      console.error('Receipt acceptance tracking failed', e);
+      toast('Receipt email was sent, but delivery tracking could not be initialized.', true);
+    }
+  }
 }
 
 function buildDocSmsText(type, doc) {
   const isInvoice = type === 'invoice';
   const balance = isInvoice ? balanceDue(doc) : estimateTotal(doc);
   const directPayUrl = isInvoice ? unwrapGoogleRedirect(doc?.paymentLink || '') : '';
-  const validSquare = /^https:\/\/checkout\.square\.site\//i.test(directPayUrl);
+  const validSquare = /^https:\/\/(?:checkout\.square\.site|square\.link)\//i.test(directPayUrl);
   const amountLabel = isInvoice ? `Balance: ${money(balance)}.` : `Estimate total: ${money(balance)}.`;
   const payLine = validSquare && balance > 0 ? ` Pay securely: ${directPayUrl}` : '';
   return `EZfix Garage Doors Inc: ${isInvoice ? 'Invoice' : 'Estimate'} ${doc.number}. ${amountLabel}${payLine} Reply HELP for help or STOP to opt out.`;
