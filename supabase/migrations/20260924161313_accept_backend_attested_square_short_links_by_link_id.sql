@@ -1,0 +1,2 @@
+-- Accept Square short links only when they were created by the trusted Square backend and carry its stored link ID.
+-- checkout.square.site links remain bound to invoice number through client_reference_id.
