@@ -1123,8 +1123,39 @@ function renderAiManagerChat(b){b.innerHTML=`<div class="panel"><div class="pane
 async function renderAiManagerApprovals(b){
  b.innerHTML='<div class="panel"><div class="panel-body">Loading approvals…</div></div>';
  const {data,error}=await SB.from('ai_approvals').select('*').order('created_at',{ascending:false}).limit(50);if(error){b.innerHTML=`<div class="panel"><div class="panel-body">Data Unavailable: ${esc(error.message)}</div></div>`;return;}
- b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Approvals</h3></div><div class="panel-body">${(data||[]).length?(data||[]).map(x=>`<div class="kv"><div><b>${esc(x.action)}</b><div class="muted">${esc(x.reason||'No reason supplied')} · Risk: ${esc(x.risk_level)}</div></div><span class="badge">${esc(x.status)}</span></div>`).join(''):emptyState('✓','No pending approvals','Consequential AI actions will appear here before execution.')}</div></div>`;
+ b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Approvals</h3></div><div class="panel-body">${(data||[]).length?(data||[]).map(x=>`
+   <div class="kv" style="grid-template-columns:1fr auto;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+     <div><b>${esc(x.action)}</b><div class="muted">${esc(x.reason||'No reason supplied')} · Risk: ${esc(x.risk_level)}</div></div>
+     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+       <span class="badge">${esc(x.status)}</span>
+       ${x.status==='pending'?`<button class="btn btn-sm btn-primary" onclick="decideAiApproval('${x.id}','approved')">Approve</button><button class="btn btn-sm btn-danger" onclick="decideAiApproval('${x.id}','rejected')">Reject</button>`:''}
+       ${x.status==='approved'&&x.action==='create_service_document'?`<button class="btn btn-sm btn-primary" onclick="executeAiServiceApproval('${x.id}')">Create Document</button>`:''}
+     </div>
+   </div>`).join(''):emptyState('✓','No pending approvals','Consequential AI actions will appear here before execution.')}</div></div>`;
 }
+async function decideAiApproval(id,status){
+ if(!IS_OWNER)return toast('Owner access required',true);
+ if(!['approved','rejected'].includes(status))return;
+ if(!confirm(status==='approved'?'Approve this AI action?':'Reject this AI action?'))return;
+ const member=STORE.team.find(m=>String(m.authUserId||'')===String(CURRENT_AUTH_USER_ID||''))||null;
+ const {error}=await SB.from('ai_approvals').update({status,decided_at:new Date().toISOString(),decided_by_team_id:member?.id||null}).eq('id',id).eq('status','pending');
+ if(error)return toast(error.message||'Could not update approval',true);
+ toast(status==='approved'?'Approved':'Rejected');
+ renderAiManagerApprovals(document.getElementById('aiManagerBody'));
+}
+async function executeAiServiceApproval(id){
+ if(!IS_OWNER)return toast('Owner access required',true);
+ try{
+   const {data,error}=await SB.functions.invoke('ai-service-document-execute',{body:{approval_id:id}});
+   if(error)throw error;
+   if(!data?.ok)throw new Error(data?.error||'AI document execution failed');
+   toast((data.already_executed?'Already created: ':'Created: ')+(data.document?.number||data.document_type||'document'));
+   await Promise.all([refreshCollection('invoices'),refreshCollection('estimates')]);
+   renderAiManagerApprovals(document.getElementById('aiManagerBody'));
+ }catch(e){console.error('executeAiServiceApproval',e);toast(e?.message||'Could not create approved document',true);}
+}
+window.decideAiApproval=decideAiApproval;
+window.executeAiServiceApproval=executeAiServiceApproval;
 async function renderAiManagerActivity(b){
  b.innerHTML='<div class="panel"><div class="panel-body">Loading activity…</div></div>';
  const {data,error}=await SB.from('ai_actions').select('created_at,tool,domain,approval_status,success,error_message').order('created_at',{ascending:false}).limit(100);if(error){b.innerHTML=`<div class="panel"><div class="panel-body">Data Unavailable: ${esc(error.message)}</div></div>`;return;}
