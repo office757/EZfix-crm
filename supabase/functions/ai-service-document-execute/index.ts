@@ -59,10 +59,11 @@ Deno.serve(async(req)=>{
     .limit(1).maybeSingle();
   if(existing)return out({ok:true,already_executed:true,document_type:targetTable==="invoices"?"invoice":"estimate",document:existing});
 
-  const now=new Date();
-  const prefix=targetTable==="invoices"?"INV":"EST";
-  const suffix=String(now.getTime()).slice(-6);
-  const number=prefix+suffix;
+  const numberRpc=targetTable==="invoices"?"next_invoice_number":"next_estimate_number";
+  const {data:numberData,error:numberError}=await admin.rpc(numberRpc);
+  if(numberError)throw numberError;
+  const number=text(numberData);
+  if(!number)return out({ok:false,error:"Could not allocate document number"},500);
   const mappedItems=items.map((x:any)=>({
     desc:text(x.name||x.description||"Service"),
     details:text(x.description||""),
