@@ -12,7 +12,7 @@ function guardrails(t:any,assignmentAllowed:boolean){
  const local=localTextOf(t), lines=localLines(t);
  const paymentAmountPrompt=/\b(payment amount|exact amount|dollar amount|amount (?:would|do|should) you (?:like|want|use)|how much (?:would|do|should) you (?:like|want) to pay)\b/i.test(local);
  const paymentSchedulingClaim=lines.some((line:string)=>/\b(?:schedule|arrange|set up|book)\b.{0,35}\b(?:payment|payment amount|dollar amount)\b|\b(?:payment|payment amount|dollar amount)\b.{0,35}\b(?:schedule|arrange|set up|book)\b/i.test(line));
- const definitiveBookingRe=/\b(?:your appointment (?:is|has been) (?:booked|scheduled|confirmed|reserved)|you(?:'re| are) (?:booked|scheduled|confirmed|reserved)|i(?:'ve| have) (?:booked|scheduled|confirmed|reserved)|i(?:'ll| will) (?:book|schedule|reserve)|your service (?:is|has been) (?:booked|scheduled|confirmed|reserved)|(?:technician|tech) (?:will|is going to) (?:arrive|be there))\b/i;
+ const definitiveBookingRe=/\b(?:your appointment (?:is|has been) (?:booked|scheduled|confirmed|reserved)|you(?:['’]re| are) (?:booked|scheduled|confirmed|reserved)|i(?:['’]ve| have) (?:booked|scheduled|confirmed|reserved)|i(?:['’]ll| will| can(?: help)?) (?:book|schedule|arrange|reserve)|your service (?:is|has been) (?:booked|scheduled|confirmed|reserved)|(?:technician|tech) (?:will|is going to) (?:arrive|be there))\b/i;
  const qualificationRe=/\b(?:request|requested|preference|preferred|tentative|pending|subject to|availability|once .{0,24}confirm|will confirm|need to confirm|not confirmed|follow up to confirm)\b/i;
  const unverifiedLines=lines.filter((line:string)=>definitiveBookingRe.test(line)&&!qualificationRe.test(line));
  const unverified=unverifiedLines.length>0;
@@ -22,7 +22,7 @@ function guardrails(t:any,assignmentAllowed:boolean){
   const amountClaim=/\$\s*\d|\b(?:price|cost|charge|total|quote|estimate)\s*(?:is|would be|will be|comes to|around|about)?\s*\$?\s*\d/i.test(line);
   if(amountClaim&&!refusal){unsupportedPricing=true;break;}
  }
- const assignmentClaim=/\b(?:i(?:'ve| have)?\s*(?:assigned|dispatched)|i(?:'ll| will)\s+(?:assign|dispatch|send)|(?:your|the)\s+(?:technician|tech)\s+(?:is|will be)|(?:technician|tech)\s+[A-Z][a-z]+\s+(?:is|will be))\b/i.test(local);
+ const assignmentClaim=/\b(?:i(?:['’]ve| have)?\s*(?:assigned|dispatched)|i(?:['’]ll| will)\s+(?:assign|dispatch|send)|(?:your|the)\s+(?:technician|tech)\s+(?:is|will be)|(?:technician|tech)\s+[A-Z][a-z]+\s+(?:is|will be))\b/i.test(local);
  const unauthorizedAssignment=assignmentClaim&&!assignmentAllowed;
  const evidence:string[]=[];
  if(paymentAmountPrompt)evidence.push("Local assistant requested a payment amount during appointment intake.");
