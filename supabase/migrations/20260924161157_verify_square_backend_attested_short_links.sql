@@ -1,0 +1,2 @@
+-- Superseded by 20260924161313; retained to match applied production migration history.
+-- Initial backend-attested Square short-link verification required both squarePaymentLinkId and squareOrderId.
