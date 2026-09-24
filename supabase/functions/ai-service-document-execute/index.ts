@@ -102,9 +102,8 @@ Deno.serve(async(req)=>{
 
   const {error:updateApprovalErr}=await admin.from("ai_approvals").update({
     status:"executed",
-    executed_at:new Date().toISOString(),
-    executed_by_team_id:member.id,
-    result:{document_type:targetTable==="invoices"?"invoice":"estimate",document_id:inserted.id,document_number:inserted.number}
+    decided_at:new Date().toISOString(),
+    decided_by_team_id:member.id
   }).eq("id",approvalId).eq("status","approved");
   if(updateApprovalErr)throw updateApprovalErr;
 
