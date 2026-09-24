@@ -1059,8 +1059,12 @@ async function callAiManagerTool(tool,input={}){
 }
 async function loadAiManagerOverview(){
   aiManagerState.busy=true; aiManagerState.error=null; render();
-  try{ const [summary,ads,settingsRes]=await Promise.all([callAiManagerTool('get_business_summary'),callAiManagerTool('get_google_ads_summary'),SB.from('ai_manager_settings').select('id,paused,provider,daily_request_limit,monthly_request_limit').eq('id','main').maybeSingle()]); aiManagerState.summary=summary;aiManagerState.ads=ads;aiManagerState.settings=settingsRes.data||null; }
-  catch(e){aiManagerState.error=e.message||String(e);} finally{aiManagerState.busy=false;render();}
+  try{ aiManagerState.summary=await callAiManagerTool('get_business_summary'); }
+  catch(e){ aiManagerState.error=e.message||String(e); aiManagerState.busy=false; render(); return; }
+  const [adsRes,settingsRes]=await Promise.allSettled([callAiManagerTool('get_google_ads_summary'),SB.from('ai_manager_settings').select('id,paused,provider,daily_request_limit,monthly_request_limit').eq('id','main').maybeSingle()]);
+  aiManagerState.ads=adsRes.status==='fulfilled'?adsRes.value:{status:'unavailable',read_only:true,error:adsRes.reason?.message||String(adsRes.reason||'unavailable')};
+  aiManagerState.settings=settingsRes.status==='fulfilled'&&!settingsRes.value?.error?(settingsRes.value?.data||null):null;
+  aiManagerState.busy=false; render();
 }
 function renderAiManager(content,actions){
   if(!IS_OWNER){content.innerHTML=emptyState('🔒','Owner access only','');return;}
@@ -1094,7 +1098,7 @@ function renderAiManager(content,actions){
       <div class="stat-card accent"><div class="label">Outstanding</div><div class="value">${money(s.outstanding)}</div></div>
     </div>
     <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Needs Attention</h3></div><div class="panel-body"><div class="kv"><div><b>AI Action State</b><div class="muted">Global owner-controlled execution switch</div></div><span class="badge">${aiManagerState.settings?.paused?'PAUSED':'ACTIVE / SAFE MODE'}</span></div>
-      <div class="kv"><div><b>Google Ads</b><div class="muted">${a?.status==='connected'?'Connected — reporting sync not yet enabled.':'Google Ads Not Connected'}</div></div><button class="btn btn-sm" onclick="aiManagerState.subview='google_ads';render()">Open</button></div>
+      <div class="kv"><div><b>Google Ads</b><div class="muted">${(a?.status||a?.connection?.status)==='connected'?(a?.available?'Connected - read-only reporting available.':'Connected - no synchronized campaign rows yet.'):(a?.status==='unavailable'?'Google Ads summary unavailable':'Google Ads Not Connected')}</div></div><button class="btn btn-sm" onclick="aiManagerState.subview='google_ads';render()">Open</button></div>
       <div class="kv"><div><b>AI Manager write actions</b><div class="muted">Initial foundation is read-only. Consequential writes remain blocked until permission/approval tools are enabled.</div></div><span class="badge">Safe default</span></div>
     </div></div>`;
 }
@@ -1109,7 +1113,11 @@ async function setAiManagerPaused(paused){
   toast(paused?'AI actions paused':'AI actions resumed'); render();
 }
 function renderAiManagerAds(b,a){
- const connected=a?.status==='connected'; b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Google Ads</h3></div><div class="panel-body">${connected?`<b>Connected</b><p class="muted">Account: ${esc(a.selected_customer_id||'Not selected')} · Reporting sync: ${a.available?'Available':'Data Unavailable'}</p>`:`<h3 style="margin-top:0">Google Ads Not Connected</h3><p class="muted">No advertising metrics are shown until the official Google Ads OAuth/API connection is completed.</p>`}</div></div>`;
+ const connection=a?.connection||null,connected=(a?.status||connection?.status)==='connected',snap=a?.campaign_snapshot||{},attr=a?.attribution||{},sync=Array.isArray(a?.sync_state)?a.sync_state:[];
+ const lastSync=a?.last_synced_at||connection?.last_synced_at||sync[0]?.last_run_at||null,syncLabel=lastSync?new Date(lastSync).toLocaleString():'Not synced yet',lastError=a?.last_error||connection?.last_error||sync.find(x=>x?.last_error)?.last_error||null;
+ if(!connected){b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Google Ads</h3><span class="badge">READ ONLY</span></div><div class="panel-body"><h3 style="margin-top:0">${a?.status==='unavailable'?'Google Ads Summary Unavailable':'Google Ads Not Connected'}</h3><p class="muted">${esc(a?.error||'No advertising metrics are shown until the official Google Ads OAuth/API connection is completed.')}</p></div></div>`;return;}
+ const attributionLeads=attr?.available?Number(attr?.totals?.attributed_leads||0):null;
+ b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Google Ads</h3><span class="badge">READ ONLY</span></div><div class="panel-body"><div class="kv"><div><b>Connected account</b><div class="muted">Customer ID: ${esc(a?.selected_customer_id||connection?.selected_customer_id||'Not selected')} - Last sync: ${esc(syncLabel)}</div></div><span class="badge">${a?.available?'REPORTING AVAILABLE':'NO SYNCED ROWS'}</span></div>${lastError?`<div class="notice" style="margin-top:12px">Last sync error: ${esc(lastError)}</div>`:''}<div class="stat-grid" style="margin-top:16px"><div class="stat-card"><div class="label">Campaigns</div><div class="value">${Number(snap.campaigns||0)}</div></div><div class="stat-card"><div class="label">Impressions</div><div class="value">${Number(snap.impressions||0).toLocaleString()}</div></div><div class="stat-card"><div class="label">Clicks</div><div class="value">${Number(snap.clicks||0).toLocaleString()}</div></div><div class="stat-card"><div class="label">Cost</div><div class="value">${money(snap.cost||0)}</div></div><div class="stat-card"><div class="label">Conversions</div><div class="value">${Number(snap.conversions||0).toLocaleString()}</div></div><div class="stat-card"><div class="label">CTR</div><div class="value">${Number(snap.ctr_percent||0).toFixed(2)}%</div></div><div class="stat-card"><div class="label">Avg CPC</div><div class="value">${money(snap.avg_cpc||0)}</div></div><div class="stat-card"><div class="label">Attributed leads</div><div class="value">${attributionLeads===null?'-':attributionLeads.toLocaleString()}</div></div></div><p class="muted" style="margin-top:14px">Source: synchronized Google Ads reporting tables through the owner-only read-only gateway. Campaign changes, budgets, bidding, keywords and ads cannot be modified from this view.</p></div></div>`;
 }
 function renderAiManagerChat(b){b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Manager Chat</h3></div><div class="panel-body"><p class="muted">The server-side business tool gateway is active. The model-provider gateway is intentionally not connected from browser code. Chat will activate only after OpenAI/Anthropic credentials are configured securely server-side.</p><div class="empty-state">AI provider not configured</div></div></div>`;}
 async function renderAiManagerApprovals(b){
