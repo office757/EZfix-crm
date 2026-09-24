@@ -4943,16 +4943,32 @@ function cardPaymentAmounts(balance) {
 }
 
 const PaymentProvider = {
-  name: 'manual', // becomes 'square' once a real backend exists
-  isLive: false,  // true only when backed by a real Square connection
+  name: 'square',
+  isLive: true,
 
-  // Create a request for the customer to pay (today: our hosted link).
-  // Square version: call Payment Links API server-side, return the URL.
+  // Return an existing verified Square checkout URL when the invoice already has one.
   createPaymentRequest(invoice) {
     const direct = unwrapGoogleRedirect(invoice?.paymentLink || '');
     if (!direct) return null;
-    try { const u = new URL(direct); if (u.protocol !== 'https:' || u.hostname !== 'checkout.square.site') return null; return u.toString(); }
-    catch(e) { return null; }
+    try {
+      const u = new URL(direct);
+      const squareHost = u.hostname === 'checkout.square.site' || u.hostname === 'square.link';
+      if (u.protocol !== 'https:' || !squareHost) return null;
+      return u.toString();
+    } catch(e) { return null; }
+  },
+
+  // Create a fresh invoice-bound Square payment link through the authenticated
+  // production Edge Function. The server calculates balance + card fee and stores
+  // the Square order/payment-link identity on the invoice.
+  async createPaymentLink(invoiceId) {
+    const { data, error } = await SB.functions.invoke('create-square-payment-link', {
+      body: { invoice_id: invoiceId }
+    });
+    if (error) throw error;
+    if (!data?.ok || !data?.checkout_url) throw new Error(data?.error || 'Square payment link creation failed');
+    await refreshCollection('invoices');
+    return data.checkout_url;
   },
 
   // Look up a specific payment. Manual mode reads our own record;
@@ -5006,12 +5022,16 @@ const PaymentProvider = {
     throw new Error('Refunds require a live Square connection — not available yet.');
   },
 
-  // Pull the latest status from the provider. Manual mode has
-  // nothing to sync (there's no external state). Square version
-  // would call Payments API or rely on the webhook already having
-  // updated our record.
+  // Reconcile a Square payment on demand. Normal payment updates arrive through
+  // the verified Square webhook; this is the recovery path after checkout/return.
   async syncPaymentStatus(invoiceId) {
-    return invoiceStatus(getOne('invoices', invoiceId));
+    const { data, error } = await SB.functions.invoke('sync-square-payment', {
+      body: { invoice_id: invoiceId }
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || 'Square payment sync failed');
+    await refreshCollection('invoices');
+    return data;
   },
 
   // Our branded document already functions as the receipt.
@@ -5044,7 +5064,7 @@ function renderPayments(content, actions) {
   content.innerHTML = `
     <div class="panel no-print" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="font-size:13px">
-        This shows every payment recorded through <b>${PaymentProvider.name === 'square' ? 'Square' : 'the manual payment link workflow'}</b>${PaymentProvider.isLive ? '' : ' — there is no live Square API connection yet'}. The architecture is built so a real Square connection (OAuth, Payment Links API, and a webhook for automatic status sync) can be plugged in later without changing this page — it isn't hard-coded to manual entry.
+        This shows payments recorded on CRM invoices. <b>Square is live</b>: invoice-specific payment links are created server-side, completed card payments are verified against Square, and webhook events reconcile verified payments back to the invoice. Manual payment entry remains available for cash, check, Zelle, and other offline payments.
       </div>
     </div>
     <div class="stat-grid">
@@ -8351,6 +8371,20 @@ window.openPaymentModal = openPaymentModal;
 /* ============================================================
    DOCUMENT VIEW — matches EZfix's real invoice/estimate template
    ============================================================ */
+async function createSquarePaymentLinkAndOpen(invoiceId) {
+  try {
+    toast('Creating secure Square payment link…');
+    const url = await PaymentProvider.createPaymentLink(invoiceId);
+    if (!url) throw new Error('Square did not return a checkout URL');
+    window.open(url, '_blank', 'noopener');
+    render();
+  } catch (e) {
+    console.error('createSquarePaymentLinkAndOpen', e);
+    toast(e?.message || 'Could not create Square payment link', true);
+  }
+}
+window.createSquarePaymentLinkAndOpen = createSquarePaymentLinkAndOpen;
+
 let docViewMode = 'preview';
 let docViewModeFor = null;
 function setDocViewTab(type, id, tab) {
@@ -8418,7 +8452,8 @@ function renderDocumentView(type, id) {
       const { fee: cardFee, total: cardTotal } = cardPaymentAmounts(balance);
       payBtn = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:7px"><a class="btn btn-primary" href="${payUrl}" target="_blank" rel="noopener">PAY NOW — ${money(balance)}</a><div style="font-size:13px;line-height:1.45;color:var(--muted)"><div><b>Credit Card Fee: 3.5% (${money(cardFee)})</b></div><div><b>Total with Card: ${money(cardTotal)}</b></div></div></div>`;
     } else {
-      payBtn = `<button class="btn btn-primary" onclick="go('settings')">💳 Set up online payments</button>`;
+      const { fee: cardFee, total: cardTotal } = cardPaymentAmounts(balance);
+      payBtn = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:7px"><button class="btn btn-primary" onclick="createSquarePaymentLinkAndOpen('${doc.id}')">💳 CREATE PAY NOW — ${money(balance)}</button><div style="font-size:13px;line-height:1.45;color:var(--muted)"><div><b>Credit Card Fee: 3.5% (${money(cardFee)})</b></div><div><b>Total with Card: ${money(cardTotal)}</b></div></div></div>`;
     }
   }
   let convertBtn = '';
