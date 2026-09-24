@@ -1,0 +1,27 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const SQUARE_VERSION="2026-09-16";
+const NOTIFICATION_URL="https://fylbalenuqpovwncwbah.supabase.co/functions/v1/square-webhook";
+const NAME="EZfix CRM Payment Sync";
+const EVENTS=["payment.created","payment.updated"];
+function out(data:unknown,status=200){return Response.json(data,{status,headers:{"Content-Type":"application/json","Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, apikey, content-type"}})}
+Deno.serve(async(req:Request)=>{
+ if(req.method==="OPTIONS")return new Response("ok",{headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, apikey, content-type"}});
+ if(req.method!=="POST")return out({ok:false,error:"Method not allowed"},405);
+ try{
+  const auth=req.headers.get("Authorization")||""; if(!auth.startsWith("Bearer "))return out({ok:false,error:"Authentication required"},401);
+  const url=Deno.env.get("SUPABASE_URL")!,anon=Deno.env.get("SUPABASE_ANON_KEY")!; const sb=createClient(url,anon,{global:{headers:{Authorization:auth}}}); const {data:{user}}=await sb.auth.getUser(); if(!user)return out({ok:false,error:"Authentication required"},401);
+  const {data:member}=await sb.from("team").select("id,role,status").eq("auth_user_id",user.id).eq("status","active").maybeSingle(); if(!member||String(member.role||"").toLowerCase()!=="owner")return out({ok:false,error:"Owner access required"},403);
+  const body=await req.json().catch(()=>({})); const action=String(body?.action||"status").toLowerCase(); const token=Deno.env.get("SQUARE_ACCESS_TOKEN"); if(!token)return out({ok:false,error:"Square is not configured"},503); const headers={"Authorization":`Bearer ${token}`,"Content-Type":"application/json","Square-Version":SQUARE_VERSION};
+  const listRes=await fetch("https://connect.squareup.com/v2/webhooks/subscriptions?include_disabled=true",{headers}); const listJson=await listRes.json().catch(()=>({})); if(!listRes.ok)return out({ok:false,error:listJson?.errors?.[0]?.detail||"Could not list Square webhook subscriptions"},502); let sub=(Array.isArray(listJson?.subscriptions)?listJson.subscriptions:[]).find((s:any)=>String(s?.notification_url||"")===NOTIFICATION_URL)||null;
+  if(action==="status"){const admin=createClient(url,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});const cutoff=new Date(Date.now()-30*86400000).toISOString();const {data:events,error:eventErr}=await admin.from("square_webhook_events").select("status,received_at").gte("received_at",cutoff).order("received_at",{ascending:false}).limit(1000);const rows=eventErr?[]:(events||[]);const evidence={events:rows.length,processed:rows.filter((x:any)=>String(x.status||"").toLowerCase()==="processed").length,ignored:rows.filter((x:any)=>String(x.status||"").toLowerCase()==="ignored").length,error:eventErr?.message||null};return out({ok:true,configured:!!sub,subscription:sub?{id:sub.id,name:sub.name,enabled:sub.enabled,event_types:sub.event_types,notification_url:sub.notification_url,api_version:sub.api_version}:null,evidence});}
+  if(action!=="ensure"&&action!=="test")return out({ok:false,error:"Unsupported action"},400);
+  const admin=createClient(url,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
+  if(action==="ensure"){
+   if(!sub){const createRes=await fetch("https://connect.squareup.com/v2/webhooks/subscriptions",{method:"POST",headers,body:JSON.stringify({idempotency_key:crypto.randomUUID(),subscription:{name:NAME,event_types:EVENTS,notification_url:NOTIFICATION_URL,api_version:SQUARE_VERSION,enabled:true}})});const createJson=await createRes.json().catch(()=>({}));if(!createRes.ok)return out({ok:false,error:createJson?.errors?.[0]?.detail||"Could not create webhook subscription"},502);sub=createJson?.subscription;}
+   if(!sub?.id)return out({ok:false,error:"Webhook subscription id missing"},502);let signatureKey=String(sub?.signature_key||"");if(!signatureKey){const getRes=await fetch(`https://connect.squareup.com/v2/webhooks/subscriptions/${encodeURIComponent(sub.id)}`,{headers});const getJson=await getRes.json().catch(()=>({}));if(getRes.ok)signatureKey=String(getJson?.subscription?.signature_key||"");}
+   if(!signatureKey)return out({ok:false,error:"Webhook signature key unavailable; rotate it in Square before saving"},409);
+   const {error}=await admin.from("square_integration_config").upsert({id:"main",webhook_subscription_id:String(sub.id),webhook_signature_key:signatureKey,notification_url:NOTIFICATION_URL,event_types:EVENTS,configured_at:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:"id"});if(error)throw error;return out({ok:true,configured:true,subscription_id:String(sub.id)});
+  }
+  if(!sub?.id)return out({ok:false,error:"Webhook subscription not configured"},409);const testRes=await fetch(`https://connect.squareup.com/v2/webhooks/subscriptions/${encodeURIComponent(sub.id)}/test`,{method:"POST",headers,body:JSON.stringify({event_type:"payment.created"})});const testJson=await testRes.json().catch(()=>({}));return out({ok:testRes.ok,subscription_id:String(sub.id),test:testJson?.subscription_test_result||testJson},testRes.ok?200:502);
+ }catch(e){console.error("configure-square-webhook",e);return out({ok:false,error:e instanceof Error?e.message:String(e)},500)}
+});
