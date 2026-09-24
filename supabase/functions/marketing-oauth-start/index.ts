@@ -37,6 +37,7 @@ Deno.serve(async(req:Request)=>{
   const clientId=String(Deno.env.get("GOOGLE_OAUTH_CLIENT_ID")||"").trim();
   const clientSecret=String(Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET")||"").trim();
   if(!clientId||!clientSecret) return J({ok:false,error:"Google OAuth credentials are not configured",code:"CREDENTIALS_MISSING"},409);
+  if(provider==="google_ads"&&!String(Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN")||"").trim()) return J({ok:false,error:"Google Ads developer token is not configured",code:"DEVELOPER_TOKEN_MISSING"},409);
 
   const state=randomToken(32);
   const verifier=randomToken(48);
