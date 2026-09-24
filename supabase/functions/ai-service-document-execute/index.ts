@@ -27,7 +27,7 @@ Deno.serve(async(req)=>{
   if(!approvalId)return out({ok:false,error:"approval_id required"},400);
 
   const {data:approval,error:approvalErr}=await admin.from("ai_approvals")
-    .select("id,domain,action,status,proposed_value,created_at")
+    .select("id,domain,action,status,proposed_value,evidence,created_at")
     .eq("id",approvalId).maybeSingle();
   if(approvalErr)throw approvalErr;
   if(!approval)return out({ok:false,error:"Approval not found"},404);
