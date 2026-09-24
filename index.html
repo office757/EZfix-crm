@@ -1122,21 +1122,29 @@ function renderAiManagerAds(b,a){
 function renderAiManagerChat(b){b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Manager Chat</h3></div><div class="panel-body"><p class="muted">The server-side business tool gateway is active. The model-provider gateway is intentionally not connected from browser code. Chat will activate only after OpenAI/Anthropic credentials are configured securely server-side.</p><div class="empty-state">AI provider not configured</div></div></div>`;}
 async function renderAiManagerApprovals(b){
  b.innerHTML='<div class="panel"><div class="panel-body">Loading approvals…</div></div>';
- const {data,error}=await SB.from('ai_approvals').select('*').order('created_at',{ascending:false}).limit(50);if(error){b.innerHTML=`<div class="panel"><div class="panel-body">Data Unavailable: ${esc(error.message)}</div></div>`;return;}
- b.innerHTML=`<div class="panel"><div class="panel-head"><h3>Approvals</h3></div><div class="panel-body">${(data||[]).length?(data||[]).map(x=>{
-   const pv=x.proposed_value||{},tot=pv?.totals?.total;
-   const actions=x.status==='pending'
-     ? `<div style="display:flex;gap:6px"><button class="btn btn-sm btn-primary" onclick="decideAiApproval('${x.id}','approved')">Approve</button><button class="btn btn-sm btn-danger" onclick="decideAiApproval('${x.id}','rejected')">Reject</button></div>`
-     : x.status==='approved'
-       ? `<button class="btn btn-sm btn-primary" onclick="executeAiApproval('${x.id}')">Create Document</button>`
-       : '';
-   return `<div class="kv" style="grid-template-columns:1fr auto;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(x.action)}</b><div class="muted">${esc(x.reason||'No reason supplied')} · Risk: ${esc(x.risk_level)}${tot!==undefined?' · Total '+money(tot):''}</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge">${esc(x.status)}</span>${actions}</div></div>`;
- }).join(''):emptyState('✓','No pending approvals','Consequential AI actions will appear here before execution.')}</div></div>`;
+ const {data,error}=await SB.from('ai_approvals').select('*').order('created_at',{ascending:false}).limit(50);
+ if(error){b.innerHTML='<div class="panel"><div class="panel-body">Data Unavailable: '+esc(error.message)+'</div></div>';return;}
+ const rows=data||[];
+ b.innerHTML='<div class="panel"><div class="panel-head"><h3>Approvals</h3></div><div class="panel-body">'+
+   (rows.length?rows.map(x=>{
+     const pv=x.proposed_value||{},tot=pv?.totals?.total;
+     const actions=x.status==='pending'
+       ? '<div style="display:flex;gap:6px"><button class="btn btn-sm btn-primary" onclick="decideAiApproval(\''+x.id+'\',\'approved\')">Approve</button><button class="btn btn-sm btn-danger" onclick="decideAiApproval(\''+x.id+'\',\'rejected\')">Reject</button></div>'
+       : x.status==='approved'
+         ? '<button class="btn btn-sm btn-primary" onclick="executeAiApproval(\''+x.id+'\')">Create Document</button>'
+         : '';
+     return '<div class="kv" style="grid-template-columns:1fr auto;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)"><div><b>'+esc(x.action)+'</b><div class="muted">'+esc(x.reason||'No reason supplied')+' · Risk: '+esc(x.risk_level)+(tot!==undefined?' · Total '+money(tot):'')+'</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge">'+esc(x.status)+'</span>'+actions+'</div></div>';
+   }).join(''):emptyState('✓','No pending approvals','Consequential AI actions will appear here before execution.'))+
+ '</div></div>';
 }
 async function decideAiApproval(id,status){
  if(!IS_OWNER)return toast('Owner access required',true);
  if(!['approved','rejected'].includes(status))return;
- const {error}=await SB.from('ai_approvals').update({status,decided_at:new Date().toISOString()}).eq('id',id).eq('status','pending');
+ const {data:{session}}=await SB.auth.getSession();
+ if(!session?.access_token)return toast('Authentication required',true);
+ const {data:member}=await SB.from('team').select('id').eq('auth_user_id',session.user.id).eq('status','active').maybeSingle();
+ if(!member?.id)return toast('Active team membership required',true);
+ const {error}=await SB.from('ai_approvals').update({status,decided_at:new Date().toISOString(),decided_by_team_id:member.id}).eq('id',id).eq('status','pending');
  if(error)return toast(error.message||'Could not update approval',true);
  toast(status==='approved'?'Approval approved':'Approval rejected');
  renderAiManagerApprovals(document.getElementById('aiManagerBody'));
