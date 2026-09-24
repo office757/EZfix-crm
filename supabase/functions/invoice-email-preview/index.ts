@@ -19,15 +19,23 @@ const calc=(i:any)=>{
  return{sub:round2(sub),tax,discount:round2(discount),total,paid,balance:round2(Math.max(0,total-paid))};
 };
 const validHttps=(v:any)=>{try{const u=new URL(String(v||""));return u.protocol==="https:"?u.toString():null}catch{return null}};
-const squareLinkCheck=(provider:any,link:any,invoiceNumber:any)=>{try{
- if(String(provider||"").toLowerCase()!=="square")return {url:null,reason:"payment_provider_not_square"};
+const squareLinkCheck=(provider:any,link:any,invoiceNumber:any,appData:any)=>{try{
+ if(String(provider||"").toLowerCase()!=="square")return {url:null,reason:"payment_provider_not_square",mode:null};
  const u=new URL(String(link||""));
- if(u.protocol!=="https:"||u.hostname!=="checkout.square.site")return {url:null,reason:"not_direct_square_checkout"};
- const ref=u.searchParams.get("client_reference_id");
- if(!ref)return {url:null,reason:"missing_client_reference_id"};
- if(String(ref)!==String(invoiceNumber||""))return {url:null,reason:"client_reference_id_mismatch"};
- return {url:u.toString(),reason:null};
-}catch{return {url:null,reason:"invalid_payment_link"}}};
+ if(u.protocol!=="https:")return {url:null,reason:"payment_link_not_https",mode:null};
+ const host=u.hostname.toLowerCase();
+ if(host==="checkout.square.site"){
+  const ref=u.searchParams.get("client_reference_id");
+  if(!ref)return {url:null,reason:"missing_client_reference_id",mode:null};
+  if(String(ref)!==String(invoiceNumber||""))return {url:null,reason:"client_reference_id_mismatch",mode:null};
+  return {url:u.toString(),reason:null,mode:"invoice_reference_query"};
+ }
+ if(host==="square.link"){
+  if(!String(appData?.squarePaymentLinkId||"").trim())return {url:null,reason:"square_short_link_not_backend_attested",mode:null};
+  return {url:u.toString(),reason:null,mode:"square_backend_attested_link_id"};
+ }
+ return {url:null,reason:"not_direct_square_checkout",mode:null};
+}catch{return {url:null,reason:"invalid_payment_link",mode:null}}};
 Deno.serve(async(req)=>{try{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  if(req.method!=="POST")return json({error:"Method not allowed"},405);
@@ -42,16 +50,16 @@ Deno.serve(async(req)=>{try{
  const body=await req.json().catch(()=>null),id=String(body?.invoice_id||"");
  if(!id)return json({error:"invoice_id required"},400);
  const [{data:i,error},{data:paySettings},{data:crmSettings}]=await Promise.all([
-  db.from("invoices").select("id,number,customer_name,customer_email,date,due_term,items,payments,tax_rate,discount,payment_link,payment_provider").eq("id",id).is("deleted_at",null).maybeSingle(),
+  db.from("invoices").select("id,number,customer_name,customer_email,date,due_term,items,payments,tax_rate,discount,payment_link,payment_provider,app_data").eq("id",id).is("deleted_at",null).maybeSingle(),
   db.from("ai_manager_settings").select("payment_instructions").eq("id","main").maybeSingle(),
   db.from("settings").select("email_logo_url,cc_surcharge_percent").eq("id","main").maybeSingle()
  ]);
  if(error)throw error;if(!i)return json({error:"Invoice not found"},404);
- const a=calc(i),p=paySettings?.payment_instructions||{},linkCheck=squareLinkCheck(i.payment_provider,i.payment_link,i.number),direct=linkCheck.url;
+ const a=calc(i),p=paySettings?.payment_instructions||{},linkCheck=squareLinkCheck(i.payment_provider,i.payment_link,i.number,i.app_data),direct=linkCheck.url;
  const feeRate=Math.max(0,Number(crmSettings?.cc_surcharge_percent)||0)/100,cardFee=round2(a.balance*feeRate),cardTotal=round2(a.balance+cardFee),logoUrl=validHttps(crmSettings?.email_logo_url);
  const brand=logoUrl?`<img src="${esc(logoUrl)}" alt="EZfix Garage Doors Inc" width="220" style="display:block;max-width:220px;height:auto;border:0;outline:none;text-decoration:none">`:`<div style="font-size:22px;font-weight:700">EZfix Garage Doors Inc</div>`;
  const button=direct&&a.balance>0?`<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#f97316" style="border-radius:8px"><a href="${esc(direct)}" style="display:inline-block;padding:14px 28px;color:#fff;text-decoration:none;font-weight:800;letter-spacing:.02em">PAY NOW</a></td></tr></table>${feeRate>0?`<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px;font-size:14px"><tr><td style="padding:3px 0"><strong>Credit Card Fee: ${(feeRate*100).toFixed(2).replace(/\.00$/,"")}% (${money(cardFee)})</strong></td></tr><tr><td style="padding:3px 0"><strong>Total with Card: ${money(cardTotal)}</strong></td></tr></table>`:""}`:"";
  const methods=[p.zelle?.recipient?`Zelle: ${esc(p.zelle.recipient)}`:"",p.check?.payable_to?`Check payable to: ${esc(p.check.payable_to)}`:"",p.cash?.accepted?"Cash accepted":""].filter(Boolean).join("<br>");
  const html=`<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:Arial,sans-serif;color:#18181b"><table width="100%" role="presentation"><tr><td align="center" style="padding:24px"><table width="600" role="presentation" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden"><tr><td style="background:#111827;color:#fff;padding:24px">${brand}<div style="color:#fdba74;margin-top:8px">Invoice ${esc(i.number)}</div></td></tr><tr><td style="padding:28px"><p>Hi ${esc(i.customer_name||"there")},</p><p>Thank you for choosing EZfix Garage Doors Inc.</p><p><strong>Invoice:</strong> ${esc(i.number)}<br><strong>Balance due:</strong> ${money(a.balance)}</p>${button}${!direct&&a.balance>0?`<p style="color:#71717a;font-size:13px">Online PAY NOW is unavailable because this invoice does not have a verified direct Square checkout link tied to this exact invoice.</p>`:""}${methods?`<p style="margin-top:24px"><strong>Other payment options</strong><br>${methods}</p>`:""}<p style="margin-top:28px">Thank you for your business.</p></td></tr></table></td></tr></table></body></html>`;
- return json({ok:true,preview_only:true,invoice:{id:i.id,number:i.number,to:i.customer_email||null,balance:a.balance,total:a.total,paid:a.paid,tax:a.tax,discount:a.discount},payment:{provider:i.payment_provider||null,direct_square_link:direct,verified_direct_square:!!direct,show_pay_now:!!button,client_reference_matches:!!direct,verification_error:linkCheck.reason,card_fee_rate:feeRate,card_fee:cardFee,total_with_card:cardTotal},branding:{logo_url:logoUrl,uses_image_logo:!!logoUrl},subject:`Invoice ${i.number} — EZfix Garage Doors Inc`,html});
+ return json({ok:true,preview_only:true,invoice:{id:i.id,number:i.number,to:i.customer_email||null,balance:a.balance,total:a.total,paid:a.paid,tax:a.tax,discount:a.discount},payment:{provider:i.payment_provider||null,direct_square_link:direct,verified_direct_square:!!direct,show_pay_now:!!button,client_reference_matches:!!direct,verification_error:linkCheck.reason,verification_mode:linkCheck.mode,card_fee_rate:feeRate,card_fee:cardFee,total_with_card:cardTotal},branding:{logo_url:logoUrl,uses_image_logo:!!logoUrl},subject:`Invoice ${i.number} — EZfix Garage Doors Inc`,html});
 }catch(e:any){console.error("invoice-email-preview failed",e);return json({ok:false,error:e?.message||"Preview failed"},500)}});
