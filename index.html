@@ -1140,14 +1140,13 @@ async function renderAiManagerApprovals(b){
 async function decideAiApproval(id,status){
  if(!IS_OWNER)return toast('Owner access required',true);
  if(!['approved','rejected'].includes(status))return;
- const {data:{session}}=await SB.auth.getSession();
- if(!session?.access_token)return toast('Authentication required',true);
- const {data:member}=await SB.from('team').select('id').eq('auth_user_id',session.user.id).eq('status','active').maybeSingle();
- if(!member?.id)return toast('Active team membership required',true);
- const {error}=await SB.from('ai_approvals').update({status,decided_at:new Date().toISOString(),decided_by_team_id:member.id}).eq('id',id).eq('status','pending');
- if(error)return toast(error.message||'Could not update approval',true);
- toast(status==='approved'?'Approval approved':'Approval rejected');
- renderAiManagerApprovals(document.getElementById('aiManagerBody'));
+ try{
+   const {data,error}=await SB.functions.invoke('ai-approval-decision',{body:{approval_id:id,decision:status}});
+   if(error)throw error;
+   if(!data?.ok)throw new Error(data?.error||'Could not update approval');
+   toast(status==='approved'?'Approval approved':'Approval rejected');
+   renderAiManagerApprovals(document.getElementById('aiManagerBody'));
+ }catch(e){console.error('decideAiApproval',e);toast(e?.message||'Could not update approval',true);}
 }
 async function executeAiApproval(id){
  if(!IS_OWNER)return toast('Owner access required',true);
