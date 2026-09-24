@@ -41,12 +41,15 @@ Deno.serve(async(req)=>{try{
  if(!member)return json({error:"Forbidden"},403);
  const body=await req.json().catch(()=>null),id=String(body?.invoice_id||"");
  if(!id)return json({error:"invoice_id required"},400);
- const [{data:i,error},{data:paySettings},{data:crmSettings}]=await Promise.all([
-  db.from("invoices").select("id,number,customer_name,customer_email,date,due_term,items,payments,tax_rate,discount,payment_link,payment_provider").eq("id",id).is("deleted_at",null).maybeSingle(),
+ const {data:i,error}=await scoped.from("invoices").select("id,number,customer_name,customer_email,date,due_term,items,payments,tax_rate,discount,payment_link,payment_provider").eq("id",id).is("deleted_at",null).maybeSingle();
+ if(error)throw error;
+ if(!i)return json({error:"Invoice not found"},404);
+ const [{data:paySettings,error:paySettingsError},{data:crmSettings,error:crmSettingsError}]=await Promise.all([
   db.from("ai_manager_settings").select("payment_instructions").eq("id","main").maybeSingle(),
   db.from("settings").select("email_logo_url,cc_surcharge_percent").eq("id","main").maybeSingle()
  ]);
- if(error)throw error;if(!i)return json({error:"Invoice not found"},404);
+ if(paySettingsError)throw paySettingsError;
+ if(crmSettingsError)throw crmSettingsError;
  const a=calc(i),p=paySettings?.payment_instructions||{},linkCheck=squareLinkCheck(i.payment_provider,i.payment_link,i.number),direct=linkCheck.url;
  const feeRate=Math.max(0,Number(crmSettings?.cc_surcharge_percent)||0)/100,cardFee=round2(a.balance*feeRate),cardTotal=round2(a.balance+cardFee),logoUrl=validHttps(crmSettings?.email_logo_url);
  const brand=logoUrl?`<img src="${esc(logoUrl)}" alt="EZfix Garage Doors Inc" width="220" style="display:block;max-width:220px;height:auto;border:0;outline:none;text-decoration:none">`:`<div style="font-size:22px;font-weight:700">EZfix Garage Doors Inc</div>`;
