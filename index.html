@@ -8310,7 +8310,7 @@ function openInvoiceModal(id, presetCustomerId, presetJobId, presetItems) {
       const jobId = document.getElementById('f_job').value;
       const job = jobId ? getOne('jobs', jobId) : null;
       const paymentLink = document.getElementById('f_payment_link').value.trim();
-      if (paymentLink) { try { const u=new URL(paymentLink); if(u.protocol!=='https:'||u.hostname!=='checkout.square.site') return toast('Paste the direct checkout.square.site link for this invoice',true); } catch(e) { return toast('Paste a valid Square Payment Link',true); } }
+      if (paymentLink) { try { const u=new URL(paymentLink); const squareHost=u.hostname==='checkout.square.site'||u.hostname==='square.link'; if(u.protocol!=='https:'||!squareHost) return toast('Paste a direct Square checkout link for this invoice',true); } catch(e) { return toast('Paste a valid Square Payment Link',true); } }
       const data = {
         number: (inv && inv.number) || await nextProductionNumber('invoice'),
         customerId, customerName: cust.name, customerPhone: cust.phone||'', customerAddress: cust.address||'', customerEmail: cust.email||'',
