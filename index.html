@@ -5043,9 +5043,10 @@ const PaymentProvider = {
 window.PaymentProvider = PaymentProvider;
 
 /* ============================================================
-   PAYMENTS — real recorded payments only (from invoices).
-   We have no live Square API connection in this environment, so
-   this shows exactly what's been recorded here, honestly labeled.
+   PAYMENTS — real recorded payments from invoices.
+   Square payments reconcile through the production webhook or
+   the explicit invoice recovery check; offline payments can still
+   be recorded manually.
    ============================================================ */
 function renderPayments(content, actions) {
   actions.innerHTML = `<button class="btn btn-sm" onclick="go('settings')">💳 Payment link settings</button>`;
@@ -8385,6 +8386,26 @@ async function createSquarePaymentLinkAndOpen(invoiceId) {
 }
 window.createSquarePaymentLinkAndOpen = createSquarePaymentLinkAndOpen;
 
+async function syncSquareInvoicePayment(invoiceId) {
+  try {
+    toast('Checking Square payment status…');
+    const result = await PaymentProvider.syncPaymentStatus(invoiceId);
+    const updated = getOne('invoices', invoiceId);
+    if (result?.paid || (updated && balanceDue(updated) <= 0)) {
+      toast('Square payment verified — invoice is paid.');
+    } else if (result?.requires_review) {
+      toast('Square payment needs review before it can be applied.', true);
+    } else {
+      toast('No completed Square payment found yet.');
+    }
+    renderDocumentView('invoice', invoiceId);
+  } catch (e) {
+    console.error('syncSquareInvoicePayment', e);
+    toast(e?.message || 'Could not check Square payment status', true);
+  }
+}
+window.syncSquareInvoicePayment = syncSquareInvoicePayment;
+
 let docViewMode = 'preview';
 let docViewModeFor = null;
 function setDocViewTab(type, id, tab) {
@@ -8487,7 +8508,7 @@ function renderDocumentView(type, id) {
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           ${primaryBtn}
-          ${isInvoice ? `<button class="btn btn-sm" onclick="openPaymentModal('${doc.id}')">+ Payment</button>` : jobLinkBtn}
+          ${isInvoice ? `<button class="btn btn-sm" onclick="openPaymentModal('${doc.id}')">+ Payment</button>${String(doc.paymentProvider||'').toLowerCase()==='square' && balance>0 ? `<button class="btn btn-sm" onclick="syncSquareInvoicePayment('${doc.id}')">↻ Check Square</button>` : ''}` : jobLinkBtn}
           ${addOptionBtn}
           <div style="position:relative">
             <button class="btn btn-sm" onclick="toggleDocMenu(event)">⋯ More</button>
