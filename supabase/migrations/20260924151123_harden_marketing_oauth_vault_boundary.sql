@@ -1,0 +1,3 @@
+-- Migration history reconciliation only.
+-- The same idempotent OAuth Vault boundary hardening was applied concurrently at 20260924150309.
+-- No additional schema change is required for this recorded duplicate version.
