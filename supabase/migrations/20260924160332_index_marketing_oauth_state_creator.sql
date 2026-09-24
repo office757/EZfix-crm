@@ -1,0 +1,1 @@
+create index if not exists marketing_oauth_states_created_by_team_idx on public.marketing_oauth_states(created_by_team_id);
