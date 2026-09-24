@@ -4540,19 +4540,24 @@ function payrollTechCardData(name) {
     const invoiceGrandTotal = t ? t.total : 0;
     const paymentMethods = inv ? (inv.payments||[]).map(p=>`${p.method}: ${money(paymentAppliedAmount(p))}`).join(', ') : (j.paymentMethod ? `${j.paymentMethod}: ${money(revenue)}` : '');
     const materialCost = Number(j.materialCost)||0;
+    const partsPaidBy = j.partsPaidBy === 'technician' ? 'technician' : 'company';
     const jobProfit = revenue - materialCost;
-    const jobCut = jobProfit * (commissionPct/100);
+    const commission = jobProfit * (commissionPct/100);
+    const reimbursement = partsPaidBy === 'technician' ? materialCost : 0;
+    const jobCut = commission + reimbursement;
     const itemLine = [j.title, j.description].filter(Boolean).join(' — ');
-    return { job: j, revenue, invoiceGrandTotal, materialCost, paymentMethods, invNumber: inv?.number||'', jobProfit, jobCut, itemLine };
+    return { job: j, revenue, invoiceGrandTotal, materialCost, partsPaidBy, reimbursement, commission, paymentMethods, invNumber: inv?.number||'', jobProfit, jobCut, itemLine };
   });
   const totalRevenue = rows.reduce((s,r)=>s+r.revenue,0);
   const totalMaterial = rows.reduce((s,r)=>s+r.materialCost,0);
+  const totalReimbursement = rows.reduce((s,r)=>s+r.reimbursement,0);
   const profit = totalRevenue - totalMaterial;
-  const payout = profit * (commissionPct/100);
-  return { name, jobs, rows, totalRevenue, totalMaterial, profit, commissionPct, payout };
+  const commission = rows.reduce((s,r)=>s+r.commission,0);
+  const payout = commission + totalReimbursement;
+  return { name, jobs, rows, totalRevenue, totalMaterial, totalReimbursement, profit, commission, commissionPct, payout };
 }
 function renderPayrollTechCardHtml(c) {
-  const { name, jobs, rows, totalRevenue, totalMaterial, profit, commissionPct, payout } = c;
+  const { name, jobs, rows, totalRevenue, totalMaterial, totalReimbursement, profit, commission, commissionPct, payout } = c;
   return `
     <div class="panel" style="margin-bottom:18px">
       <div class="panel-head"><h3>${esc(name)}</h3><span class="muted">${jobs.length} job(s)</span></div>
@@ -4564,12 +4569,13 @@ function renderPayrollTechCardHtml(c) {
               <div class="muted" style="font-size:12.5px;margin-top:2px">${esc(r.itemLine || '—')}</div>
               <div class="muted" style="font-size:11.5px;margin-top:4px">
                 Revenue ${money(r.revenue)} (pre-tax)${r.invNumber?` · ${esc(r.invNumber)}`:''}
-                ${r.materialCost>0?` · Parts ${money(r.materialCost)}`:''}
+                ${r.materialCost>0?` · Parts ${money(r.materialCost)} (${r.partsPaidBy==='technician'?'Technician':'Company'})`:''}
+                ${r.reimbursement>0?` · Reimbursement ${money(r.reimbursement)}`:''}
                 ${r.paymentMethods?` · ${esc(r.paymentMethods)}`:''}
               </div>
             </div>
             <div style="text-align:right;flex:none">
-              <div class="muted" style="font-size:11px">Profit ${money(r.jobProfit)} · Rate ${commissionPct}%</div>
+              <div class="muted" style="font-size:11px">Profit ${money(r.jobProfit)} · Commission ${money(r.commission)} · Rate ${commissionPct}%${r.reimbursement>0?` · +${money(r.reimbursement)} parts reimbursement`:''}</div>
               <div style="font-weight:800;font-size:15px;color:${r.jobCut>=0?'var(--good)':'var(--danger)'}">${r.jobCut<0?`(${money(Math.abs(r.jobCut))})`:money(r.jobCut)}</div>
             </div>
           </div>`).join('') : `<div class="muted" style="padding:16px 18px">No jobs in this date range</div>`}
@@ -4579,6 +4585,8 @@ function renderPayrollTechCardHtml(c) {
           <div class="row"><div class="l">Revenue (pre-tax)</div><div>${money(totalRevenue)}</div></div>
           <div class="row"><div class="l">Material/parts cost</div><div>-${money(totalMaterial)}</div></div>
           <div class="row"><div class="l">Profit</div><div>${money(profit)}</div></div>
+          <div class="row"><div class="l">Commission</div><div>${money(commission)}</div></div>
+          <div class="row"><div class="l">Technician parts reimbursement</div><div>${money(totalReimbursement)}</div></div>
         </div>
         <div class="field-row" style="margin-top:10px;align-items:end">
           <label class="field" style="max-width:160px"><span class="lbl">Commission %</span>
@@ -7642,7 +7650,7 @@ function renderJobDetail(content, id) {
       <div class="panel-body pad" style="font-size:13.5px">
         ${j.description ? `<p style="margin-top:0">${esc(j.description)}</p>` : ''}
         ${checklistDone > 0 ? `<div class="muted">Checklist: ${checklistDone}/${checklistTotal} complete</div>` : ''}
-        ${j.materialCost ? `<div class="muted">Material cost: ${money(j.materialCost)}</div>` : ''}
+        ${j.materialCost ? `<div class="muted">Material cost: ${money(j.materialCost)} · ${j.partsPaidBy==='technician'?'Technician Parts':'Company Parts'}</div>` : ''}
       </div>
     </div>` : ''}
 
@@ -7992,6 +8000,14 @@ function openJobModal(id, presetCustomerId) {
       </div>
       <div class="field-row">
         <label class="field"><span class="lbl">Material/parts cost ($)</span><input type="number" step="0.01" min="0" id="f_materialcost" value="${j?.materialCost ?? ''}"></label>
+        <label class="field"><span class="lbl">Parts paid by</span>
+          <select id="f_partspaidby">
+            <option value="company" ${(j?.partsPaidBy||'company')==='company'?'selected':''}>Company Parts</option>
+            <option value="technician" ${j?.partsPaidBy==='technician'?'selected':''}>Technician Parts</option>
+          </select>
+        </label>
+      </div>
+      <div class="field-row">
         <label class="field"><span class="lbl">Payment method (if paid directly)</span>
           <select id="f_paymentmethod"><option value="">— N/A —</option>${['Card','Check','Cash','Zelle','Other'].map(m=>`<option ${j?.paymentMethod===m?'selected':''}>${m}</option>`).join('')}</select>
         </label>
@@ -8062,6 +8078,7 @@ function openJobModal(id, presetCustomerId) {
         technician: newTech, technicianId: newTechId || null,
         status: newStatus,
         materialCost: parseFloat(document.getElementById('f_materialcost').value)||0,
+        partsPaidBy: document.getElementById('f_partspaidby').value || 'company',
         paymentMethod: document.getElementById('f_paymentmethod').value,
         complaint: document.getElementById('f_complaint').value.trim(),
         propertyType: document.getElementById('f_proptype').value,
