@@ -20,7 +20,9 @@ ok(invite.includes('inviteUserByEmail'),'team invite uses Supabase admin invite'
 ok(invite.includes('Admins cannot manage an owner account'),'admin cannot manage owner login');
 
 ok(wa.includes('whatsapp_opt_in'),'WhatsApp send requires technician opt-in state');
-ok(wa.includes('whatsapp_status'),'WhatsApp send requires connected technician state');
+ok(!wa.includes('techData.whatsapp_status || "") !== "connected"'),'WhatsApp send does not rely on fake per-technician provider connection state');
+ok(wa.includes('const recipient = cleanE164(techData.whatsapp_number)'),'WhatsApp send requires a valid saved recipient number');
+ok(wa.includes('missingConfig.length'),'WhatsApp send gates on centralized Meta provider configuration');
 ok(wa.includes('recipient_team_id'),'WhatsApp send resolves recipient team member');
 ok(wa.includes('retrySafe: false'),'WhatsApp uncertain provider outcomes are not auto-retry-safe');
 ok(/\["owner",\s*"admin",\s*"dispatcher"\]/.test(wa),'WhatsApp send is role restricted');
@@ -52,7 +54,9 @@ ok(oauth.includes('store_marketing_oauth_secret'),'OAuth callback stores refresh
 ok(oauth.includes('safeReturnTo'),'OAuth callback restricts return URL');
 
 ok(diag.includes('runtime_loaded'),'diagnostic endpoint only returns runtime capability state');
-ok(!diag.includes('SUPABASE_SERVICE_ROLE_KEY'),'diagnostic endpoint has no service-role secret');
-ok(!diag.includes('.from('),'diagnostic endpoint reads no database tables');
+ok(diag.includes('auth.getUser'),'diagnostic endpoint authenticates the caller JWT');
+ok(diag.includes('["owner","admin"]'),'diagnostic endpoint restricts access to Owner/Admin');
+ok(diag.includes('.from("team")'),'diagnostic endpoint checks active Team membership server-side');
+ok(diag.includes('SUPABASE_SERVICE_ROLE_KEY'),'diagnostic uses service-role only after caller authentication for Team authorization');
 
 console.log(`final live-edge security audit passed: ${n} assertions`);
