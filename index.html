@@ -3269,8 +3269,11 @@ function openLeadModal(id) {
         serviceRequested: document.getElementById('f_service').value.trim(),
         estimatedValue: parseFloat(document.getElementById('f_value').value)||0,
         preferredAppointment: document.getElementById('f_preferred').value,
-        assignedTechnician: newTech, assignedTechnicianId: newTechId || null,
-        assignmentStatus: newTech ? (techChanged ? 'pending' : (l?.assignmentStatus||'pending')) : '',
+        ...(techChanged || !l ? {
+          assignedTechnician: newTech,
+          assignedTechnicianId: newTechId || null,
+          assignmentStatus: newTech ? (techChanged ? 'pending' : (l?.assignmentStatus||'pending')) : null,
+        } : {}),
         lastContact: document.getElementById('f_lastcontact').value || null,
         nextFollowUp: document.getElementById('f_nextfollowup').value || null,
         status: document.getElementById('f_status').value,
