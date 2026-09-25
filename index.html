@@ -5824,7 +5824,7 @@ const PRODUCTION_READINESS = {
   ],
   DEPLOYMENT: [
     ['Domain/hosting', '⚪ NOT STARTED'],
-    ['Environment/secrets architecture', '⚪ NOT STARTED — documented in code comments only'],
+    ['Environment/secrets architecture', '✅ READY — browser uses only Supabase public URL/publishable key; Square, Inkbox, Meta, Google OAuth/Ads, Resend and service-role credentials stay server-side in Edge Function environment variables; guarded by secrets-boundary audit'],
   ],
 };
 const DEV_CHECKLIST = [
@@ -5905,7 +5905,7 @@ const DEV_CHECKLIST = [
   ['— Webhook verification','✅ Inkbox x-inkbox-signature/request-id/timestamp verified server-side'],
   ['— Call transfer configuration','🟡 No verified mid-call transfer API in the current Inkbox SDK; high-priority human callback task fallback is live and server-side'],
   ['— WhatsApp provider/configuration','🟡 Meta Cloud API sender/webhook backend deployed; technician number + explicit opt-in required, provider readiness checked in Team → WhatsApp'],
-  ['— Environment secrets','⬜'],
+  ['— Environment secrets','✅ Boundary enforced — privileged provider/service credentials are server-side only; provider-specific readiness is checked separately and secret values are never returned to the browser'],
   ['— HTTPS','✅ Vercel + Supabase production HTTPS'],
   ['— Logging/error monitoring','🟡 CRM Integration Health + Supabase/Vercel logs are live; no external paging/alert delivery layer configured yet'],
   ['— Test incoming call','✅ Real Inkbox provider calls are present in production Call History'],
