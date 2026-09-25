@@ -1154,8 +1154,15 @@ async function executeAiApproval(id){
    const {data,error}=await SB.functions.invoke('ai-service-document-execute',{body:{approval_id:id}});
    if(error)throw error;
    if(!data?.ok)throw new Error(data?.error||'Execution failed');
-   toast((data.document_type==='invoice'?'Invoice':'Estimate')+' created: '+(data.document?.number||''));
+   const documentType=data.document_type==='invoice'?'invoice':'estimate';
+   const documentId=data.document?.id||'';
+   toast((documentType==='invoice'?'Invoice':'Estimate')+' created: '+(data.document?.number||''));
    await Promise.all([refreshCollection('invoices'),refreshCollection('estimates')]);
+   if(documentId){
+     go(documentType==='invoice'?'invoices':'estimates',documentId);
+     if(documentType==='invoice')toast('Invoice ready — collect payment with PAY NOW.');
+     return;
+   }
    renderAiManagerApprovals(document.getElementById('aiManagerBody'));
  }catch(e){console.error('executeAiApproval',e);toast(e?.message||'Could not create document',true);}
 }
@@ -8503,6 +8510,23 @@ async function syncSquareInvoicePayment(invoiceId) {
 }
 window.syncSquareInvoicePayment = syncSquareInvoicePayment;
 
+async function finishPaidInvoiceJob(invoiceId) {
+  const invoice = getOne('invoices', invoiceId);
+  if (!invoice) return toast('Invoice not found', true);
+  if (balanceDue(invoice) > 0) return toast('Invoice must be paid before finishing the job.', true);
+  const jobId = invoice.jobId || invoice.appData?.createdFromJobId || null;
+  if (!jobId) return toast('This paid invoice is not linked to a job.', true);
+  await refreshCollection('jobs');
+  const job = getOne('jobs', jobId);
+  if (!job) return toast('Linked job not found or access was revoked.', true);
+  if (job.status === 'completed') {
+    toast('Job is already completed.');
+    return go('jobs', jobId);
+  }
+  signJobCompletion(jobId);
+}
+window.finishPaidInvoiceJob = finishPaidInvoiceJob;
+
 let docViewMode = 'preview';
 let docViewModeFor = null;
 function setDocViewTab(type, id, tab) {
@@ -8593,6 +8617,10 @@ function renderDocumentView(type, id) {
     : '';
   const signedBadge = (!isInvoice && doc.signature) ? `<span class="badge badge-approved">✓ Signed by ${esc(doc.signature.name)}</span>` : '';
   const receiptBtn = (isInvoice && balance <= 0 && t.total > 0) ? `<button class="btn btn-primary" onclick="emailDocument('invoice','${doc.id}')">✉ Send Receipt</button>` : '';
+  const linkedJob = isInvoice && doc.jobId ? getOne('jobs', doc.jobId) : null;
+  const finishJobBtn = (isInvoice && balance <= 0 && t.total > 0 && doc.jobId && linkedJob?.status !== 'completed')
+    ? `<button class="btn btn-sm" onclick="finishPaidInvoiceJob('${doc.id}')">✓ Finish Job</button>`
+    : '';
   const primaryBtn = payBtn || signBtn || convertBtn || receiptBtn || '';
 
   content.innerHTML = `
@@ -8605,6 +8633,7 @@ function renderDocumentView(type, id) {
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           ${primaryBtn}
+          ${finishJobBtn}
           ${isInvoice ? `<button class="btn btn-sm" onclick="openPaymentModal('${doc.id}')">+ Payment</button>${String(doc.paymentProvider||'').toLowerCase()==='square' && balance>0 ? `<button class="btn btn-sm" onclick="syncSquareInvoicePayment('${doc.id}')">↻ Check Square</button>` : ''}` : jobLinkBtn}
           ${addOptionBtn}
           <div style="position:relative">

@@ -195,10 +195,13 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(declaredTotal)) {
       return json({ ok: false, error: "Draft declared total is invalid" }, 400);
     }
-    if (Math.abs(recomputed.total - declaredTotal) >= 0.01) {
+    const recomputedCents = Math.round(recomputed.total * 100);
+    const declaredCents = Math.round(declaredTotal * 100);
+    const targetCents = Math.round(targetTotal * 100);
+    if (recomputedCents !== declaredCents) {
       return json({ ok: false, error: "Draft totals failed server-side reconciliation" }, 400);
     }
-    if (Math.abs(recomputed.total - targetTotal) >= 0.01) {
+    if (recomputedCents !== targetCents) {
       return json({ ok: false, error: "Requested total does not match verified Product Catalog pricing", catalog_total: recomputed.total, requested_total: round2(targetTotal) }, 409);
     }
     if (draft?.catalog_pricing_complete === false || draft?.target_matches_catalog === false || draft?.reconciled === false) {
