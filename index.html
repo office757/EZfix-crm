@@ -128,6 +128,9 @@
     border-radius: 8px; padding: 7px 10px; font-size: 16px; cursor: pointer; position: relative; line-height: 1;
   }
   .topbar-icon-btn:hover { background: #383838; }
+  .topbar-icon-btn:focus-visible, .hamburger:focus-visible, .nav-item:focus-visible, .bn-item:focus-visible {
+    outline: 2px solid var(--orange); outline-offset: 2px;
+  }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; }
   #topActions:empty { display: none; }
   #topActions .btn { background: var(--charcoal); color: #fff; border-color: var(--header-border); }
@@ -480,6 +483,11 @@
     .two-col.comm-split.comm-mobile-detail > .panel:first-child { display: none; }
     .two-col.comm-split.comm-mobile-detail .comm-detail-pane { display: block; }
     .field-row { grid-template-columns: 1fr; }
+    input, select, textarea, .select-compact { font-size: 16px !important; }
+    .overlay { padding: max(12px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom)); align-items: flex-start; }
+    .modal { max-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))); margin-bottom: 0; display:flex; flex-direction:column; }
+    .modal-body { max-height:none; min-height:0; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .modal-head, .modal-foot { flex:none; }
     .content { padding: 16px; }
     .topbar { padding: 12px 16px; }
     table.list th:nth-child(n+4), table.list td:nth-child(n+4) { display: none; }
@@ -500,10 +508,11 @@
       box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
     }
     .bn-item {
-      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content:center; gap: 2px;
       background: none; border: none; color: var(--muted); font-size: 10.5px; font-weight: 700;
-      padding: 4px 0; cursor: pointer;
+      padding: 4px 0; min-height: 44px; cursor: pointer;
     }
+    .topbar-icon-btn, .hamburger, .icon-btn { min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; }
     .bn-item.active { color: var(--orange-dark); }
     .bn-ic { width: 21px; height: 21px; }
     .content { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
@@ -518,26 +527,34 @@
   }
   .dropdown-menu .btn { border: none; background: transparent; justify-content: flex-start; }
   .dropdown-menu .btn:hover { background: var(--paper-2); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
 
 <div id="app">
   <div class="scrim" id="scrim" style="display:none" onclick="closeSidebar()"></div>
-  <aside class="sidebar" id="sidebar">
+  <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
     <div class="brand">
       <span id="brandMarkWrap" style="display:flex;width:100%;justify-content:center">
         <img class="brand-mark" id="brandMarkImg" src="" alt="EZfix Garage Doors Inc" style="width:100%;max-width:210px;max-height:92px;object-fit:contain" onerror="handleBrandMarkError(this)">
       </span>
     </div>
-    <nav class="nav" id="navList"></nav>
+    <nav class="nav" id="navList" aria-label="Main sections"></nav>
     <div class="nav-foot">
-      <span id="syncDot" class="sync-dot off"></span><span id="syncLabel">Connecting…</span>
+      <span id="syncDot" class="sync-dot off" aria-hidden="true"></span><span id="syncLabel" role="status" aria-live="polite">Connecting…</span>
       <div id="roleLabel" style="margin-top:4px"></div>
       <button type="button" class="btn btn-sm" id="signOutBtn" onclick="signOutCrm()" style="margin-top:8px;width:100%;display:none">Sign Out</button>
       <div style="margin-top:10px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#7a7a7a;margin-bottom:4px">Preview as Technician (owner testing only — not a security control)</div>
-        <select id="viewAsSelect" onchange="setViewAs(this.value)" style="width:100%;background:#232427;color:#eee;border:1px solid #3a3b3e;border-radius:6px;padding:5px 6px;font-size:11.5px"></select>
+        <label id="viewAsLabel" for="viewAsSelect" style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#7a7a7a;margin-bottom:4px">Preview as Technician (owner testing only — not a security control)</label>
+        <select id="viewAsSelect" aria-labelledby="viewAsLabel" onchange="setViewAs(this.value)" style="width:100%;background:#232427;color:#eee;border:1px solid #3a3b3e;border-radius:6px;padding:5px 6px;font-size:11.5px"></select>
       </div>
     </div>
   </aside>
@@ -546,18 +563,18 @@
     <div class="topbar">
       <div class="topbar-row1">
         <div class="topbar-titlewrap">
-          <button class="hamburger" onclick="openSidebar()">☰</button>
+          <button class="hamburger" id="sidebarToggle" onclick="openSidebar()" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
           <span class="topbar-emoji" id="pageEmoji"></span>
           <h1 id="pageTitle">Dashboard</h1>
         </div>
         <div class="topbar-iconrow">
           <div style="position:relative">
-            <button class="topbar-icon-btn" onclick="toggleNotifPopover()" title="Notifications">
+            <button class="topbar-icon-btn" id="notifToggle" onclick="toggleNotifPopover()" title="Notifications" aria-label="Notifications" aria-controls="notifPopover" aria-expanded="false">
               🔔<span id="notifBadge" class="notif-bell-badge" style="display:none"></span>
             </button>
-            <div id="notifPopover" class="notif-popover" style="display:none"></div>
+            <div id="notifPopover" class="notif-popover" style="display:none" role="region" aria-label="Notifications panel"></div>
           </div>
-          <button class="topbar-icon-btn" onclick="openGlobalSearch()" title="Search everything">🔍</button>
+          <button class="topbar-icon-btn" onclick="openGlobalSearch()" title="Search everything" aria-label="Search everything">🔍</button>
         </div>
       </div>
       <div class="topbar-sub" id="pageSub" style="display:none"></div>
@@ -566,15 +583,15 @@
     <div class="content" id="content"></div>
   </div>
 </div>
-<div class="bottom-nav no-print" id="bottomNav">
+<nav class="bottom-nav no-print" id="bottomNav" aria-label="Mobile navigation">
   <button class="bn-item" data-page="dashboard" onclick="go('dashboard')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h7V4H4v9zm0 7h7v-5H4v5zm9 0h7V11h-7v9zm0-16v5h7V4h-7z"/></svg>Home</button>
   <button class="bn-item" data-page="calendar" onclick="go('calendar')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3M16 2v3M3.5 9h17M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg>Schedule</button>
   <button class="bn-item" data-page="invoices" onclick="go('invoices')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4zM8 9h8M8 13h8M8 17h4"/></svg>Invoices</button>
   <button class="bn-item" data-page="estimates" onclick="go('estimates')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6"/></svg>Estimates</button>
   <button class="bn-item" data-page="more" onclick="go('more')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>More</button>
-</div>
+</nav>
 
-<div class="toast-wrap" id="toastWrap"></div>
+<div class="toast-wrap" id="toastWrap" aria-live="polite" aria-relevant="additions text"></div>
 
 <script>
 /* =========================================================
@@ -662,6 +679,8 @@ function toast(msg, isError, type) {
   const el = document.createElement('div');
   el.className = `toast toast-${kind}`;
   el.dataset.msg = msg;
+  el.setAttribute('role', kind==='error' ? 'alert' : 'status');
+  el.setAttribute('aria-live', kind==='error' ? 'assertive' : 'polite');
   el.innerHTML = `<span class="toast-icon">${{error:'⚠',warning:'⚠',info:'ℹ',success:'✓'}[kind]||''}</span><span class="toast-text"></span><button class="toast-close" aria-label="Dismiss">✕</button>`;
   el.querySelector('.toast-text').textContent = msg;
   el.querySelector('.toast-close').onclick = () => el.remove();
@@ -936,14 +955,24 @@ const CATEGORY_META = {
 function renderNav() {
   const el = document.getElementById('navList');
   el.innerHTML = NAV.filter(n => n.sidebar!==false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView())).map(n => `
-    <button class="nav-item ${route.page===n.key?'active':''}" onclick="go('${n.key}')">
+    <button class="nav-item ${route.page===n.key?'active':''}" onclick="go('${n.key}')" ${route.page===n.key?'aria-current="page"':''}>
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>
       ${n.label}
     </button>`).join('');
   renderViewAsOptions();
 }
-function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('scrim').style.display='block'; }
-function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('scrim').style.display='none'; }
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('scrim').style.display='block';
+  const toggle=document.getElementById('sidebarToggle');
+  if(toggle){ toggle.setAttribute('aria-expanded','true'); toggle.setAttribute('aria-label','Close navigation'); }
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('scrim').style.display='none';
+  const toggle=document.getElementById('sidebarToggle');
+  if(toggle){ toggle.setAttribute('aria-expanded','false'); toggle.setAttribute('aria-label','Open navigation'); }
+}
 function technicianAllowedPage(page) {
   return ['dashboard','calendar','jobs','customers','leads','estimates','invoices','quickpay','more'].includes(page);
 }
@@ -971,7 +1000,9 @@ function render() {
   renderNav();
   refreshNotifBadge();
   document.querySelectorAll('.bn-item').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.page === route.page);
+    const active = btn.dataset.page === route.page;
+    btn.classList.toggle('active', active);
+    if (active) btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
   const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'GPT AI Manager', settings:'Settings' };
   const PAGE_META = {
@@ -1745,6 +1776,7 @@ function toggleNotifPopover() {
   const opening = pop.style.display === 'none';
   if (opening) { notifPopoverFilter = 'all'; renderNotifPopover(); }
   pop.style.display = opening ? 'block' : 'none';
+  document.getElementById('notifToggle')?.setAttribute('aria-expanded', opening ? 'true' : 'false');
   if (opening) setTimeout(()=>document.addEventListener('click', closeNotifPopoverOnOutsideClick), 0);
 }
 window.toggleNotifPopover = toggleNotifPopover;
@@ -1752,6 +1784,7 @@ function closeNotifPopoverOnOutsideClick(e) {
   const pop = document.getElementById('notifPopover');
   if (!pop || pop.contains(e.target) || e.target.closest('.topbar-icon-btn[onclick*="toggleNotifPopover"]')) return;
   pop.style.display = 'none';
+  document.getElementById('notifToggle')?.setAttribute('aria-expanded','false');
   document.removeEventListener('click', closeNotifPopoverOnOutsideClick);
 }
 function setNotifPopoverFilter(f) { notifPopoverFilter = f; renderNotifPopover(); }
@@ -5884,7 +5917,7 @@ const DEV_CHECKLIST = [
   ['71-72. AI Safety/Context','✅ LIVE — AI actions use server-side permissions, catalog-bound pricing, approval gates, role checks and audited execution paths.'],
   ['73-74. Command Bar/Quick Create','🟡 PARTIAL — Global search + Dashboard quick actions; not a unified command bar'],
   ['75-77. Empty States/Errors/Feedback','✅ COMPLETE — throughout'],
-  ['78-79. Responsive/Accessibility','🟡 PARTIAL — responsive done; formal accessibility audit not performed'],
+  ['78-79. Responsive/Accessibility','🟡 STRONG BASELINE — responsive UI plus dialog semantics, keyboard focus trap/Escape/restore, live toast announcements, focus-visible states, reduced-motion support and 44px mobile targets; manual VoiceOver/screen-reader audit still pending'],
   ['80. AI RECEPTIONIST — PRODUCTION CONNECTION','✅ LIVE — Supabase/Inkbox production call data is loaded into CRM, server-side call processing and lead/customer linking are active, and the simulator remains a separate test tool.'],
   ['81. VOICE AI (INKBOX) — BUSINESS NUMBER', '🟡 BLOCKED (no supported path found) — verified directly via inkbox_channel_status_get: phone.assigned=false, phone.number=null. A real test call\'s raw record shows origin="shared_imessage_number" and local_phone_number=null, confirming the test used a shared Inkbox number, not the EZfix T-Mobile line (774-244-5533). Researched Inkbox\'s own documentation directly (inkbox.ai/docs/api/phone, GitHub SDK/CLI repos): outbound calls support exactly two origination modes, dedicated_number (a NEW Inkbox-provisioned number) and shared_imessage_number — no mention of BYOC, SIP trunking, or external-carrier caller ID anywhere in real Inkbox docs. A dedicated search for Inkbox+BYOC/porting/SIP returned zero Inkbox-specific results. No porting, replacement, or disconnection of the T-Mobile number has occurred or is planned.'],
   ['82. VOICE AI (INKBOX) — CALL INITIATION', '✅ LIVE, CONSENT-GATED — Owner-controlled Customer/Lead AI Callback UI calls a protected Supabase Edge Function using Inkbox hosted Voice AI. Live submission requires evidence-backed customer callback consent, a current single-use authorization, dedicated Inkbox number, 9 AM–7 PM ET window, exact CALL NOW phrase, and a second browser confirmation. No bulk dialer or automatic retry exists.'],
@@ -9872,32 +9905,75 @@ window.promptContactInfo = promptContactInfo;
 /* ============================================================
    Modal + confirm delete helpers
    ============================================================ */
+let modalReturnFocus = null;
+let modalKeyHandler = null;
 function showModal({ title, body, onSave, wide }) {
-  closeModal();
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  closeModal(false);
+  modalReturnFocus = opener;
+
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
   overlay.id = 'modalOverlay';
   overlay.innerHTML = `
-    <div class="modal ${wide?'wide':''}">
-      <div class="modal-head"><h3>${title}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal ${wide?'wide':''}" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+      <div class="modal-head"><h3 id="modalTitle">${title}</h3><button class="icon-btn" type="button" onclick="closeModal()" aria-label="Close dialog">✕</button></div>
       <div class="modal-body">${body}</div>
       <div class="modal-foot">
-        <button class="btn" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" id="modalSaveBtn">Save</button>
+        <button class="btn" type="button" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" type="button" id="modalSaveBtn">Save</button>
       </div>
     </div>
   `;
   overlay.addEventListener('mousedown', (e)=>{ if (e.target===overlay) closeModal(); });
   document.body.appendChild(overlay);
+
+  const modal = overlay.querySelector('.modal');
+  const focusables = () => [...modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter(el => el.offsetParent !== null);
+
+  modalKeyHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeModal();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const items = focusables();
+    if (!items.length) {
+      e.preventDefault();
+      modal.focus();
+      return;
+    }
+    const first = items[0], last = items[items.length-1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  };
+  document.addEventListener('keydown', modalKeyHandler);
+
   document.getElementById('modalSaveBtn').onclick = async () => {
     const btn = document.getElementById('modalSaveBtn');
     btn.disabled = true; btn.textContent = 'Saving…';
     try { await onSave(); } finally { if (document.getElementById('modalSaveBtn')) { btn.disabled=false; btn.textContent='Save'; } }
   };
+
+  requestAnimationFrame(() => {
+    const preferred = modal.querySelector('[autofocus], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+    (preferred || modal).focus();
+  });
 }
-function closeModal() {
+function closeModal(restoreFocus = true) {
   const el = document.getElementById('modalOverlay');
   if (el) el.remove();
+  if (modalKeyHandler) {
+    document.removeEventListener('keydown', modalKeyHandler);
+    modalKeyHandler = null;
+  }
+  if (restoreFocus && modalReturnFocus?.isConnected) modalReturnFocus.focus();
+  if (restoreFocus) modalReturnFocus = null;
 }
 window.closeModal = closeModal;
 window.openCustomerModal = openCustomerModal;
