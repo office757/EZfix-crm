@@ -3107,6 +3107,7 @@ function renderLeads(content, actions) {
   let list = STORE.leads.filter(l => !term || [(l.name||''),(l.phone||''),(l.email||'')].some(v=>v.toLowerCase().includes(term)));
   const pendingForMe = isTechnicianView() ? STORE.leads.filter(l=>l.assignedTechnician===VIEW_AS && l.assignmentStatus==='pending') : [];
   if (isTechnicianView()) list = list.filter(l=>l.assignedTechnician===VIEW_AS);
+  const requestedLeadId = route.page==='leads' ? route.id : null;
   content.innerHTML = `
     ${pendingForMe.length ? `
     <div class="panel" style="margin-bottom:16px;border-color:var(--orange)">
@@ -3145,6 +3146,12 @@ function renderLeads(content, actions) {
       </tbody></table>` : emptyState('🎯','No leads yet','Add a lead when a new inquiry comes in.')}
     </div></div>
   `;
+  if (requestedLeadId) {
+    const requestedLead = getOne('leads', requestedLeadId);
+    route.id = null;
+    if (requestedLead) setTimeout(() => openLeadModal(requestedLeadId), 0);
+    else setTimeout(() => toast('The linked lead could not be found. Refresh Leads and try again.', true), 0);
+  }
 }
 const CANCEL_REASONS = ['Price','No response','Competitor','Customer postponed','Duplicate','Outside service area','Parts unavailable','Other'];
 const ESTIMATE_OPTION_LABELS = ['','Option 1 — Repair','Option 2 — Recommended Repair','Option 3 — Replacement / Premium Solution'];
