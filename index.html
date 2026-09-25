@@ -8554,6 +8554,7 @@ window.startOfWeek = startOfWeek; window.addDays = addDays;
 async function setJobStatus(jobId, status) {
   const j = getOne('jobs', jobId);
   if (!j) return;
+  if (status === 'completed') return signJobCompletion(jobId);
   await updateJobStatusWithHistory(jobId, status);
   logAudit('status_changed', `Status → ${labelize(status)}`, 'jobs', jobId);
   toast('Status: ' + labelize(status));
@@ -8617,7 +8618,7 @@ function openJobModal(id, presetCustomerId) {
       <label class="field"><span class="lbl">Technician</span>${technicianPickerHtml(j?.technicianId, j?.technician, 'f_tech')}</label>
       ${jobPhotoUploaderHtml()}
       <label class="field"><span class="lbl">Status</span>
-        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
+        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed').map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
       </label>
       <div id="cancelReasonWrap" style="display:${j?.status==='cancelled'?'block':'none'}">
         <label class="field"><span class="lbl">Cancellation reason</span>
