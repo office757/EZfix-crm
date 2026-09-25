@@ -1534,6 +1534,13 @@ function renderDashboard(content, actions) {
   const appointmentRequestsToday = callsToday.filter(c=>c.leadExtraction?.preferredServiceWindow || c.leadExtraction?.preferred_service_window);
   const missedCallsToday = callsToday.filter(c=>String(c.outcome||'').toLowerCase()==='missed');
 
+  const waAttention = (STORE.waNotifications||[]).filter(n=>['failed','not_configured','blocked_no_opt_in'].includes(String(n.status||'').toLowerCase()));
+  const smsFailed = (STORE.smsMessages||[]).filter(m=>String(m.providerStatus||'').toLowerCase()==='failed');
+  const callsNeedReview = (STORE.calls||[]).filter(c=>c.providerCallId && ['ambiguous_identity','needs_review'].includes(String(c.leadExtractionStatus||'').toLowerCase()));
+  const squareAwaitingPayment = (STORE.invoices||[]).filter(i=>!i.deletedAt && String(i.paymentProvider||'').toLowerCase()==='square' && !!i.paymentLink && balanceDue(i)>0);
+  const highPriorityTasks = (STORE.tasks||[]).filter(t=>['open','in_progress'].includes(String(t.status||'').toLowerCase()) && String(t.priority||'').toLowerCase()==='high');
+  const integrationAttention = waAttention.length + smsFailed.length + callsNeedReview.length + highPriorityTasks.length;
+
   content.innerHTML = `
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-head"><h3>📞 Phone</h3><span class="badge badge-paid">● Live Data</span></div>
@@ -1545,6 +1552,18 @@ function renderDashboard(content, actions) {
           <div class="stat-card"><div class="label">Missed Calls</div><div class="value">${missedCallsToday.length}</div></div>
         </div>
         <div style="margin-top:10px"><button class="btn btn-sm" onclick="go('receptionist')">Open AI Receptionist →</button></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><h3>🩺 Integration Health</h3><span class="badge badge-${integrationAttention?'contacted':'paid'}">${integrationAttention ? integrationAttention+' need attention' : 'All clear'}</span></div>
+      <div class="panel-body pad">
+        <div class="stat-grid" style="margin-bottom:0">
+          <div class="stat-card clickable" onclick="go('team')"><div class="label">WhatsApp</div><div class="value">${waAttention.length}</div><div class="sub">${waAttention.length?'failed / setup-blocked':'no failed items'}</div></div>
+          <div class="stat-card clickable" onclick="go('communications')"><div class="label">SMS Failures</div><div class="value">${smsFailed.length}</div><div class="sub">${smsFailed.length?'review failed deliveries':'delivery looks healthy'}</div></div>
+          <div class="stat-card clickable" onclick="go('receptionist')"><div class="label">Calls Need Review</div><div class="value">${callsNeedReview.length}</div><div class="sub">${callsNeedReview.length?'identity / intake review':'no review queue'}</div></div>
+          <div class="stat-card clickable" onclick="searchTerms.invoiceFilter='outstanding';go('invoices')"><div class="label">Square Awaiting Payment</div><div class="value">${squareAwaitingPayment.length}</div><div class="sub">active Pay Now invoices</div></div>
+          <div class="stat-card clickable" onclick="go('followups')"><div class="label">High Priority Tasks</div><div class="value">${highPriorityTasks.length}</div><div class="sub">${highPriorityTasks.length?'open / in progress':'none open'}</div></div>
+        </div>
       </div>
     </div>
     ${(humanCallbackTasks.length || unassignedJobs.length || sentEstimatesAwaiting.length || completedNoInvoice.length || overdueInvoices.length) ? `
@@ -5801,7 +5820,7 @@ const PRODUCTION_READINESS = {
   ],
   MONITORING: [
     ['Audit Log (actor/action/entity/source/timestamp)', '✅ READY'],
-    ['Production error monitoring/logging service', '⚪ NOT STARTED'],
+    ['Production integration health monitoring', '✅ LIVE — Dashboard surfaces WhatsApp/SMS failures, calls needing review, high-priority tasks and Square invoices awaiting payment; external paging/alert delivery is still pending'],
   ],
   DEPLOYMENT: [
     ['Domain/hosting', '⚪ NOT STARTED'],
@@ -5888,7 +5907,7 @@ const DEV_CHECKLIST = [
   ['— WhatsApp provider/configuration','🟡 Meta Cloud API sender/webhook backend deployed; technician number + explicit opt-in required, provider readiness checked in Team → WhatsApp'],
   ['— Environment secrets','⬜'],
   ['— HTTPS','✅ Vercel + Supabase production HTTPS'],
-  ['— Logging/error monitoring','🟡 Supabase/Vercel production logs active; no external paging/alerting layer configured'],
+  ['— Logging/error monitoring','🟡 CRM Integration Health + Supabase/Vercel logs are live; no external paging/alert delivery layer configured yet'],
   ['— Test incoming call','✅ Real Inkbox provider calls are present in production Call History'],
   ['— Test existing customer recognition','✅ Production calls have been linked to existing Customers using unique identity matching'],
   ['— Test new lead','✅ Production calls have been linked/converted into CRM Leads through the server-side pipeline'],
