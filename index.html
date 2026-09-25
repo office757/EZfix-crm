@@ -5059,6 +5059,32 @@ window.exportPayrollCSV = exportPayrollCSV;
    ============================================================ */
 const TASK_STATUSES = ['open','in_progress','done'];
 const TASK_PRIORITIES = ['low','medium','high'];
+function isAiHumanCallbackTask(t) {
+  return !!(t && t.source==='ai_receptionist' && String(t.id||'').startsWith('ai_human_callback_'));
+}
+function humanCallbackTaskContext(t) {
+  const lead = t?.leadId ? getOne('leads', t.leadId) : null;
+  const customer = t?.customerId ? getOne('customers', t.customerId) : null;
+  const callbackPhone = normalizeToE164(t?.callbackPhone) || t?.callbackPhone || '';
+  return {
+    lead,
+    customer,
+    callbackPhone,
+    partyName: customer?.name || lead?.name || t?.customerName || 'Caller',
+    callId: t?.callId || null,
+  };
+}
+function humanCallbackTaskActionsHtml(t) {
+  if (!isAiHumanCallbackTask(t)) return '';
+  const ctx = humanCallbackTaskContext(t);
+  return `
+    <div style="display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
+      ${ctx.callbackPhone ? `<a class="btn btn-sm btn-primary" href="tel:${esc(ctx.callbackPhone)}">📞 Call</a>` : ''}
+      ${ctx.callId ? `<button type="button" class="btn btn-sm" onclick="viewCallDetail('${ctx.callId}')">View Call</button>` : ''}
+      ${ctx.lead?.id ? `<button type="button" class="btn btn-sm" onclick="openLeadModal('${ctx.lead.id}')">Open Lead</button>` : ''}
+      ${ctx.customer?.id ? `<button type="button" class="btn btn-sm" onclick="go('customers','${ctx.customer.id}')">Open Customer</button>` : ''}
+    </div>`;
+}
 function renderFollowUps(content, actions) {
   actions.innerHTML = `<button class="btn btn-primary" onclick="openTaskModal()">+ New task</button>`;
   const today = todayISO();
@@ -5082,14 +5108,15 @@ function renderFollowUps(content, actions) {
     </div>
     <div class="panel"><div class="panel-head"><h3>Tasks</h3></div>
       <div class="panel-body">
-        ${openTasks.length ? `<table class="list"><thead><tr><th>Title</th><th>Customer</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead><tbody>
-          ${openTasks.map(t=>`<tr class="clickable" onclick="openTaskModal('${t.id}')">
-            <td class="name-cell">${esc(t.title)}</td>
-            <td class="muted">${esc(t.customerName||'—')}</td>
+        ${openTasks.length ? `<table class="list"><thead><tr><th>Title</th><th>Customer / Caller</th><th>Due</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+          ${openTasks.map(t=>{ const ctx=isAiHumanCallbackTask(t)?humanCallbackTaskContext(t):null; return `<tr class="clickable" onclick="openTaskModal('${t.id}')">
+            <td class="name-cell">${isAiHumanCallbackTask(t)?'📞 ':''}${esc(t.title)}${isAiHumanCallbackTask(t)?' <span class="badge badge-lost">Human callback</span>':''}</td>
+            <td class="muted">${esc(ctx?.partyName||t.customerName||'—')}${ctx?.callbackPhone?`<div style="font-size:11px;margin-top:2px">${esc(ctx.callbackPhone)}</div>`:''}</td>
             <td class="muted">${t.dueDate?fmtDate(t.dueDate):'—'}</td>
             <td><span class="badge badge-${t.priority==='high'?'lost':(t.priority==='medium'?'contacted':'scheduled')}">${labelize(t.priority)}</span></td>
             <td><span class="badge badge-${t.status==='in_progress'?'sent':'draft'}">${labelize(t.status)}</span></td>
-          </tr>`).join('')}
+            <td>${humanCallbackTaskActionsHtml(t)}</td>
+          </tr>`;}).join('')}
         </tbody></table>` : emptyState('✅','No open tasks','Add a task like "Order door" or "Collect balance".')}
       </div>
     </div>
@@ -5116,9 +5143,23 @@ function renderFollowUps(content, actions) {
 }
 function openTaskModal(id) {
   const t = id ? getOne('tasks', id) : null;
+  const humanCtx = isAiHumanCallbackTask(t) ? humanCallbackTaskContext(t) : null;
   showModal({
     title: t ? 'Edit task' : 'New task',
     body: `
+      ${humanCtx ? `<div class="panel" style="margin-bottom:14px;border-color:var(--orange)"><div class="panel-body pad">
+        <div style="font-weight:800;margin-bottom:8px">📞 AI Receptionist — Human Callback Requested</div>
+        <div class="kv"><div class="k">Caller</div><div>${esc(humanCtx.partyName)}</div></div>
+        <div class="kv"><div class="k">Callback number</div><div>${esc(humanCtx.callbackPhone||'—')}</div></div>
+        <div class="kv"><div class="k">Transfer status</div><div>${esc(t.transferStatus||'requested_unfulfilled')}</div></div>
+        <div class="kv"><div class="k">Provider call</div><div>${esc(t.providerCallId||'—')}</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          ${humanCtx.callbackPhone ? `<a class="btn btn-primary btn-sm" href="tel:${esc(humanCtx.callbackPhone)}">📞 Call Customer</a>` : ''}
+          ${humanCtx.callId ? `<button type="button" class="btn btn-sm" onclick="closeModal();setTimeout(()=>viewCallDetail('${humanCtx.callId}'),50)">View Call</button>` : ''}
+          ${humanCtx.lead?.id ? `<button type="button" class="btn btn-sm" onclick="closeModal();setTimeout(()=>openLeadModal('${humanCtx.lead.id}'),50)">Open Lead</button>` : ''}
+          ${humanCtx.customer?.id ? `<button type="button" class="btn btn-sm" onclick="closeModal();go('customers','${humanCtx.customer.id}')">Open Customer</button>` : ''}
+        </div>
+      </div></div>` : ''}
       <label class="field"><span class="lbl">Title *</span><input type="text" id="f_title" value="${esc(t?.title)}" placeholder="e.g. Order replacement door"></label>
       <label class="field"><span class="lbl">Customer</span>${customerPickerHtml(t?.customerId)}</label>
       <div class="field-row">
