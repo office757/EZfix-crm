@@ -1154,8 +1154,15 @@ async function executeAiApproval(id){
    const {data,error}=await SB.functions.invoke('ai-service-document-execute',{body:{approval_id:id}});
    if(error)throw error;
    if(!data?.ok)throw new Error(data?.error||'Execution failed');
-   toast((data.document_type==='invoice'?'Invoice':'Estimate')+' created: '+(data.document?.number||''));
+   const documentType=data.document_type==='invoice'?'invoice':'estimate';
+   const documentId=data.document?.id||'';
+   toast((documentType==='invoice'?'Invoice':'Estimate')+' created: '+(data.document?.number||''));
    await Promise.all([refreshCollection('invoices'),refreshCollection('estimates')]);
+   if(documentId){
+     go(documentType==='invoice'?'invoices':'estimates',documentId);
+     if(documentType==='invoice')toast('Invoice ready — collect payment with PAY NOW.');
+     return;
+   }
    renderAiManagerApprovals(document.getElementById('aiManagerBody'));
  }catch(e){console.error('executeAiApproval',e);toast(e?.message||'Could not create document',true);}
 }
