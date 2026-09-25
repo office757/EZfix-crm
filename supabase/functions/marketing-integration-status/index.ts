@@ -19,13 +19,12 @@ Deno.serve(async(req)=>{
   try{
     const [channels,oauth,gConn,gAcct]=await Promise.all([
       db.from("marketing_channels").select("id,name,channel_type,connection_status,capabilities,public_config,last_synced_at,updated_at").order("channel_type"),
-      db.from("marketing_oauth_connections").select("provider,status,credential_ref,granted_scopes,account_meta,token_expires_at,connected_at,last_error,updated_at").order("provider"),
+      db.from("marketing_oauth_connections").select("provider,status,granted_scopes,token_expires_at,connected_at,last_error,updated_at").order("provider"),
       db.from("google_ads_connections").select("id",{count:"exact",head:true}),
       db.from("google_ads_accounts").select("id",{count:"exact",head:true})
     ]);
     for(const r of [channels,oauth,gConn,gAcct]) if(r.error) throw r.error;
-    const connections=(oauth.data||[]).map((x:any)=>({...x,credential_configured:!!x.credential_ref,credential_ref:undefined}));
-    const result={mode:"read_only",publishing_enabled:false,channels:channels.data||[],oauth_connections:connections,google_ads:{connections:gConn.count||0,accounts:gAcct.count||0}};
+    const result={mode:"read_only",publishing_enabled:false,channels:channels.data||[],oauth_connections:oauth.data||[],google_ads:{connections:gConn.count||0,accounts:gAcct.count||0}};
     await db.from("ai_actions").insert({id:crypto.randomUUID(),created_by_team_id:member.id,model_provider:"system",tool:"marketing_integration_status",domain:"marketing",requested_action:{mode:"read_only"},approval_status:"not_required",success:true,api_result:{ok:true,read_only:true}});
     return J({ok:true,...result});
   }catch(e:any){

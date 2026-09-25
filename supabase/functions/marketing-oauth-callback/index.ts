@@ -12,18 +12,21 @@ const safeReturnTo=(value:unknown)=>{try{const u=new URL(String(value||""));retu
 const page=(title:string,msg:string,returnTo:string,status=200)=>new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title><body style="font-family:Arial,sans-serif;background:#f6f4ef;color:#17181a;padding:32px"><main style="max-width:620px;margin:auto;background:white;padding:28px;border-radius:16px"><h2>${esc(title)}</h2><p>${esc(msg)}</p><a href="${esc(returnTo)}" style="display:inline-block;margin-top:14px;padding:12px 18px;background:#f7941d;color:#111;text-decoration:none;border-radius:8px;font-weight:700">Return to EZfix CRM</a></main></body>`,{status,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer"}});
 
 Deno.serve(async(req:Request)=>{
+  if(req.method!=="GET") return page("OAuth failed","Method not allowed.",CRM_RETURN,405);
   const u=new URL(req.url);
   const state=String(u.searchParams.get("state")||"").trim();
   const code=String(u.searchParams.get("code")||"").trim();
-  const oauthError=String(u.searchParams.get("error")||"").trim();
+  const oauthError=String(u.searchParams.get("error")||"").trim().slice(0,200);
   if(!SUPABASE_URL||!SERVICE) return page("OAuth unavailable","Server environment is incomplete.",CRM_RETURN,500);
-  if(!state) return page("OAuth failed","Missing state parameter.",CRM_RETURN,400);
+  if(!/^[A-Za-z0-9_-]{40,100}$/.test(state)) return page("OAuth failed","Invalid state parameter.",CRM_RETURN,400);
+  if(code.length>4096) return page("OAuth failed","Invalid authorization code.",CRM_RETURN,400);
 
   const db=createClient(SUPABASE_URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
   const hash=await sha256Hex(state);
   const nowIso=new Date().toISOString();
   const {data:st,error:stateError}=await db.from("marketing_oauth_states").select("*").eq("state_hash",hash).is("consumed_at",null).gt("expires_at",nowIso).maybeSingle();
   if(stateError||!st||!ALLOWED_PROVIDERS.has(String(st.provider||""))) return page("OAuth failed","The connection request is invalid or expired.",CRM_RETURN,400);
+  if(String(st.redirect_uri||"")!==CALLBACK) return page("OAuth failed","The connection request does not match this callback.",CRM_RETURN,400);
   const returnTo=safeReturnTo(st.return_to);
 
   const claimAt=new Date().toISOString();
