@@ -66,9 +66,9 @@ warnPattern(
   'Editing an invoice opened before a newer payment can overwrite payment history. Existing invoice edits should omit payments entirely.'
 );
 requirePattern(
-  'Payment recording re-reads authoritative invoice state inside its mutation queue',
-  /async\s+recordPayment\s*\([^)]*\)\s*\{[\s\S]{0,1800}?queueMutation\s*\(\s*`record:invoices:\$\{invoiceId\}`[\s\S]{0,1800}?SB\.from\(\s*['"]invoices['"]\s*\)[\s\S]{0,400}?select\(\s*['"]id,payments,deleted_at['"]\s*\)/,
-  'Payment append must derive from the latest database payments inside the same invoice mutation boundary, not from STORE.'
+  'Payment recording uses an authoritative atomic invoice mutation',
+  /async\s+recordPayment\s*\([^)]*\)\s*\{[\s\S]{0,2200}?queueMutation\s*\(\s*`record:invoices:\$\{invoiceId\}`[\s\S]{0,2200}?SB\.rpc\(\s*['"]append_invoice_payment['"][\s\S]{0,900}?p_expected_row_version/,
+  'Payment append must execute through the atomic append_invoice_payment RPC with an expected row version instead of deriving from STORE.'
 );
 requirePattern(
   'Collection refresh paginates beyond 500 rows',
@@ -89,9 +89,24 @@ requirePattern(
 );
 
 requirePattern(
-  'Document editors only write photos after an explicit photo change',
-  /let\s+docPhotosDirty\s*=\s*false[\s\S]{0,12000}?docPhotosDirty\s*=\s*true[\s\S]{0,12000}?\.\.\.\(docPhotosDirty\s*\|\|\s*!e\s*\?\s*\{\s*photos:/,
-  'Existing lead/estimate/invoice edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.'
+  'Document editors track explicit photo changes',
+  /let\s+docPhotosDirty\s*=\s*false[\s\S]{0,7000}?docPhotosDirty\s*=\s*true[\s\S]{0,2500}?function\s+removeDocPhoto\([^)]*\)\s*\{\s*docPhotosDirty\s*=\s*true/,
+  'Document photo add/remove operations must mark the shared draft dirty.'
+);
+requirePattern(
+  'Lead editor only writes photos after an explicit photo change',
+  /openLeadModal[\s\S]{0,7500}?\.\.\.\(docPhotosDirty\s*\|\|\s*!l\s*\?\s*\{\s*photos:/,
+  'Existing lead edits must not overwrite photos from a stale editor snapshot.'
+);
+requirePattern(
+  'Estimate editor only writes photos after an explicit photo change',
+  /openEstimateModal[\s\S]{0,9500}?\.\.\.\(docPhotosDirty\s*\|\|\s*!e\s*\?\s*\{\s*photos:/,
+  'Existing estimate edits must not overwrite photos from a stale editor snapshot.'
+);
+requirePattern(
+  'Invoice editor only writes photos after an explicit photo change',
+  /openInvoiceModal[\s\S]{0,10500}?\.\.\.\(docPhotosDirty\s*\|\|\s*!inv\s*\?\s*\{\s*photos:/,
+  'Existing invoice edits must not overwrite photos from a stale editor snapshot.'
 );
 
 requirePattern(
@@ -100,15 +115,30 @@ requirePattern(
   'Partial settings changes must merge onto the latest database row instead of potentially stale local SETTINGS.'
 );
 
-warnPattern(
-  'Conversion flows still rely on browser-local duplicate guards',
-  /const\s+_converting(?:Leads|Estimates(?:ToJob)?)\s*=\s*new\s+Set\(\)/,
-  'Lead and estimate conversion can still create duplicate customer/job/invoice records across tabs or users; closing this safely requires an atomic database claim/RPC, transaction, or uniqueness constraint.'
+requirePattern(
+  'Lead conversion uses an atomic database RPC',
+  /async function convertLead[\s\S]{0,1800}?SB\.rpc\(\s*['"]convert_lead_to_customer_job['"]/,
+  'Lead conversion must be claimed atomically in the database so concurrent tabs/users cannot create duplicate customer/job records.'
+);
+requirePattern(
+  'Estimate-to-job conversion uses an atomic database RPC',
+  /async function convertEstimateToJob[\s\S]{0,1800}?SB\.rpc\(\s*['"]convert_estimate_to_job['"]/,
+  'Estimate-to-job conversion must be claimed atomically in the database so concurrent tabs/users cannot create duplicate jobs.'
+);
+requirePattern(
+  'Estimate-to-invoice conversion uses an atomic database RPC',
+  /async function convertEstimateToInvoice[\s\S]{0,1800}?SB\.rpc\(\s*['"]convert_estimate_to_invoice['"]/,
+  'Estimate-to-invoice conversion must be claimed atomically in the database so concurrent tabs/users cannot create duplicate invoices.'
 );
 
 requirePattern(
+  'Job photo actions mark the editor dirty',
+  /let\s+jobPhotosDirty\s*=\s*false[\s\S]{0,3500}?jobPhotosDirty\s*=\s*true[\s\S]{0,1800}?function\s+removeJobPhoto\([^)]*\)\s*\{\s*jobPhotosDirty\s*=\s*true/,
+  'Job photo add/remove operations must mark the draft dirty.'
+);
+requirePattern(
   'Job editor only writes photos after an explicit photo change',
-  /let\s+jobPhotosDirty\s*=\s*false[\s\S]{0,10000}?jobPhotosDirty\s*=\s*true[\s\S]{0,12000}?\.\.\.\(jobPhotosDirty\s*\|\|\s*!j\s*\?\s*\{\s*photos:/,
+  /openJobModal[\s\S]{0,10500}?\.\.\.\(jobPhotosDirty\s*\|\|\s*!j\s*\?\s*\{\s*photos:/,
   'Existing job edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.'
 );
 
@@ -119,8 +149,13 @@ requirePattern(
 );
 
 requirePattern(
+  'Job checklist controls mark the editor dirty',
+  /openJobModal[\s\S]{0,8500}?onchange=["']jobChecklistDirty=true["']/,
+  'Checklist changes must explicitly mark the job draft dirty.'
+);
+requirePattern(
   'Job editor only writes checklist after an explicit checklist change',
-  /let\s+jobChecklistDirty\s*=\s*false[\s\S]{0,14000}?onchange=["']jobChecklistDirty=true["'][\s\S]{0,14000}?\.\.\.\(jobChecklistDirty\s*\|\|\s*!j\s*\?\s*\{\s*checklist:/,
+  /openJobModal[\s\S]{0,12000}?\.\.\.\(jobChecklistDirty\s*\|\|\s*!j\s*\?\s*\{\s*checklist:/,
   'Existing job edits must not overwrite checklist state from a stale editor snapshot unless the user explicitly changed the checklist.'
 );
 

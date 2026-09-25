@@ -1725,28 +1725,21 @@ async function addEstimateOption(estId) {
   go('estimates', newId);
 }
 window.addEstimateOption = addEstimateOption;
-const _convertingEstimatesToJob = new Set();
 async function convertEstimateToJob(estId, silent) {
   const e = getOne('estimates', estId);
   if (!e) return null;
   if (e.convertedJobId) { if (!silent) go('jobs', e.convertedJobId); return e.convertedJobId; }
-  if (_convertingEstimatesToJob.has(estId)) return null;
-  _convertingEstimatesToJob.add(estId);
-  try {
-    const itemSummary = (e.items||[]).map(li=>li.desc).filter(Boolean).join(', ');
-    const jobId = await dbAdd('jobs', {
-      title: itemSummary.slice(0,80) || ('Job from ' + e.number),
-      customerId: e.customerId, customerName: e.customerName,
-      scheduledDate: '', technician: '', status: 'new',
-      description: itemSummary, estimateId: estId,
-      statusHistory: [{status:'new', at: Date.now()}],
-    });
-    await dbSet('estimates', estId, { convertedJobId: jobId });
-    if (!silent) { toast('Job created from estimate'); go('jobs', jobId); }
-    return jobId;
-  } finally {
-    _convertingEstimatesToJob.delete(estId);
+  const {data:converted,error} = await SB.rpc('convert_estimate_to_job',{p_estimate_id:estId});
+  if (error) throw error;
+  const row = Array.isArray(converted) ? converted[0] : converted;
+  const jobId = row?.job_id;
+  if (!jobId) throw new Error('Estimate conversion completed without a job reference');
+  await Promise.all([refreshCollection('estimates'),refreshCollection('jobs')]);
+  if (!silent) {
+    toast(row?.was_existing ? 'Estimate was already converted to a job' : 'Job created from estimate');
+    go('jobs', jobId);
   }
+  return jobId;
 }
 window.convertEstimateToJob = convertEstimateToJob;
 function signJobCompletion(jobId) {
@@ -2729,30 +2722,18 @@ async function updateLeadStatus(id, status) {
   toast('Lead updated');
 }
 window.updateLeadStatus = updateLeadStatus;
-const _convertingLeads = new Set();
 async function convertLead(id) {
   const l = getOne('leads', id);
   if (!l) return;
   if (l.convertedCustomerId) { toast('Already converted'); go('customers', l.convertedCustomerId); return; }
-  if (_convertingLeads.has(id)) return;
-  _convertingLeads.add(id);
-  try {
-    const address = [l.address, l.city, l.state, l.zip].filter(Boolean).join(', ');
-    const custId = await dbAdd('customers', {
-      name: l.name, phone: l.phone||'', email: l.email||'', address,
-      leadSource: l.source||'', notes: 'Converted from lead. ' + (l.notes||''), tags: [],
-    });
-    const jobId = await dbAdd('jobs', {
-      title: l.serviceRequested || 'New job', customerId: custId, customerName: l.name,
-      scheduledDate: l.preferredAppointment || '', technician: l.assignedTechnician || '',
-      status: 'new', description: l.notes || '', statusHistory: [{status:'new', at:Date.now()}],
-    });
-    await dbSet('leads', id, { status: 'converted', convertedCustomerId: custId, convertedJobId: jobId });
-    toast('Converted to customer + job');
-    go('customers', custId);
-  } finally {
-    _convertingLeads.delete(id);
-  }
+  const {data:converted,error} = await SB.rpc('convert_lead_to_customer_job',{p_lead_id:id});
+  if (error) throw error;
+  const row = Array.isArray(converted) ? converted[0] : converted;
+  const custId = row?.customer_id, jobId = row?.job_id;
+  if (!custId || !jobId) throw new Error('Lead conversion completed without customer/job references');
+  await Promise.all([refreshCollection('leads'),refreshCollection('customers'),refreshCollection('jobs')]);
+  toast(row?.was_existing ? 'Lead was already converted' : 'Converted to customer + job');
+  go('customers', custId);
 }
 window.convertLead = convertLead;
 
