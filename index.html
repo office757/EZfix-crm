@@ -904,6 +904,7 @@ const NAV = [
   { key:'estimates', label:'Estimates', icon:'M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6' },
   { key:'invoices', label:'Invoices', icon:'M4 4h16v16H4zM8 9h8M8 13h8M8 17h4' },
   { key:'payments', label:'Payments', icon:'M2 10h20M6 15h4M2 6h20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z', hideForTech: true },
+  { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales Tools' },
   { key:'settings', label:'Settings', hideForTech: true, icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.5.6.9.6H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z' },
   // Secondary modules — reachable from the More/module launcher, not the main sidebar (kept out of NAV list rendering via sidebar:false), still owner/tech-gated the same way.
   { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Catalog & Stock' , hideForTech: true},
@@ -944,7 +945,7 @@ function renderNav() {
 function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('scrim').style.display='block'; }
 function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('scrim').style.display='none'; }
 function technicianAllowedPage(page) {
-  return ['dashboard','calendar','jobs','customers','leads','estimates','invoices','more'].includes(page);
+  return ['dashboard','calendar','jobs','customers','leads','estimates','invoices','quickpay','more'].includes(page);
 }
 function go(page, id) {
   if (isTechnicianView()) {
@@ -972,7 +973,7 @@ function render() {
   document.querySelectorAll('.bn-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.page === route.page);
   });
-  const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'GPT AI Manager', settings:'Settings' };
+  const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'GPT AI Manager', settings:'Settings' };
   const PAGE_META = {
     dashboard: { emoji:'🏠', sub:'Your business at a glance' },
     leads: { emoji:'🎯', sub:'New inquiries & follow-ups' },
@@ -981,6 +982,7 @@ function render() {
     calendar: { emoji:'📅', sub:'Schedule & appointments' },
     estimates: { emoji:'📝', sub:'Quotes awaiting approval' },
     invoices: { emoji:'🧾', sub:'Billing & customer payments' },
+    quickpay: { emoji:'💳', sub:'Fast field checkout & receipt' },
     payments: { emoji:'💳', sub:'Payments received' },
     products: { emoji:'🧰', sub:'Price book & services' },
     inventory: { emoji:'📦', sub:'Stock on hand' },
@@ -1023,6 +1025,7 @@ function render() {
   if (route.page === 'jobs') return renderJobs(content, actions);
   if (route.page === 'calendar') return renderCalendar(content, actions);
   if (route.page === 'invoices') return renderInvoices(content, actions);
+  if (route.page === 'quickpay') return renderQuickPay(content, actions);
   if (route.page === 'products') return renderProducts(content, actions);
   if (route.page === 'inventory') return renderInventory(content, actions);
   if (route.page === 'expenses') return renderExpenses(content, actions);
@@ -1050,6 +1053,227 @@ function render() {
    GPT AI MANAGER — owner-facing management layer
    Real-data foundation. No fake Google Ads or AI results.
    ============================================================ */
+function quickPayActiveTechId(){
+  return IS_OWNER ? (STORE.team.find(t=>t.name===VIEW_AS)?.id||CURRENT_TEAM_MEMBER?.id||null) : (CURRENT_TEAM_MEMBER?.id||null);
+}
+function renderQuickPay(content, actions){
+  const pct=Number(SETTINGS.ccSurchargePercent||3.5);
+  content.innerHTML=`
+    <div style="max-width:620px;margin:0 auto">
+      <div class="panel"><div class="panel-body pad">
+        <div class="muted" style="font-weight:700">QUICK PAYMENT</div>
+        <div id="qpAmountDisplay" style="font-size:64px;font-weight:800;letter-spacing:-3px;margin:12px 0">$0.00</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0"><b>Products & Services</b><button class="btn btn-sm btn-primary" onclick="quickPayAddLine()">+ Add Item</button></div>
+        <div id="qpLines"></div>
+        <div class="grid2"><label class="field"><span class="lbl">Parts cost</span><input id="qpPartsCost" type="number" min="0" step=".01" inputmode="decimal" placeholder="0.00"></label><label class="field"><span class="lbl">Parts belong to</span><select id="qpPartsOwner"><option value="company">Company</option><option value="technician">Technician</option></select></label></div>
+        <label class="field"><span class="lbl">Invoice note</span><input id="qpNote" placeholder="Optional note for customer"></label>
+        <label class="field"><span class="lbl">Related job</span><select id="qpJob"><option value="">No job / standalone payment</option>${STORE.jobs.filter(j=>!j.deletedAt && (!isTechnicianView()||canViewJob(quickPayActiveTechId(),j))).map(j=>'<option value="'+esc(j.id)+'">'+esc(j.jobNumber||j.title||j.customerName||j.id)+'</option>').join('')}</select></label>
+        <label class="field"><span class="lbl">Customer</span><select id="qpCustomer" onchange="quickPayLoadCustomer(this.value)"><option value="">New customer / enter below</option>${STORE.customers.filter(c=>!c.deletedAt).map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')}</select></label><div class="grid2"><label class="field"><span class="lbl">Client name *</span><input id="qpClientName" placeholder="Name"></label><label class="field"><span class="lbl">Phone</span><input id="qpClientPhone" inputmode="tel" placeholder="Phone"></label></div><div class="grid2"><label class="field"><span class="lbl">Email</span><input id="qpClientEmail" inputmode="email" placeholder="Email"></label><label class="field"><span class="lbl">Service address</span><input id="qpClientAddress" placeholder="Address"></label></div>
+        <div style="margin:14px 0"><div class="lbl" style="margin-bottom:8px">Payment method</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px">
+          <button type="button" class="btn qp-method active" data-method="cash" onclick="quickPaySetMethod('cash')">Cash</button>
+          <button type="button" class="btn qp-method" data-method="check" onclick="quickPaySetMethod('check')">Check</button>
+          <button type="button" class="btn qp-method" data-method="zelle" onclick="quickPaySetMethod('zelle')">Zelle</button>
+          <button type="button" class="btn qp-method" data-method="card" onclick="quickPaySetMethod('card')">Card</button>
+        </div></div>
+        <div class="kv"><div class="k">MA tax (6.25% on taxable parts)</div><div id="qpTax">$0.00</div></div>
+        <div class="kv"><div class="k">Total</div><div id="qpBaseTotal"><b>$0.00</b></div></div>
+        <div class="kv" id="qpCardFeeRow" style="display:none"><div class="k">Card fee (+${pct.toFixed(1)}%)</div><div id="qpCardFee"><b>$0.00</b></div></div>
+        <div class="kv"><div class="k">Amount to collect</div><div id="qpCardTotal"><b>$0.00</b></div></div>
+        <div class="panel" style="margin:16px 0 0"><div class="panel-body pad">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><b>Customer SMS consent</b><div class="muted" style="font-size:11px;margin-top:3px">Customer signs on this device to approve invoice, receipt and payment-related texts.</div></div><button type="button" class="btn btn-sm" id="qpConsentBtn" onclick="quickPayCaptureSmsConsent()">Customer Signature</button></div>
+          <div id="qpConsentStatus" class="muted" style="font-size:11px;margin-top:8px">Not signed yet.</div>
+        </div></div>
+        <div style="display:grid;gap:10px;margin-top:18px">
+          <button class="btn" onclick="quickPayPreviewInvoice()">Preview Invoice</button>
+          <button class="btn btn-primary" onclick="quickPayCreateInvoice()">Create Invoice / Receipt Draft</button>
+          <button class="btn" onclick="quickPaySendLink()">Payment Link</button>
+          <button class="btn" id="qpCardEntryBtn" onclick="quickPayManualCard()" style="display:none">Enter Card Securely</button>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:12px">Card details are never typed into or stored by EZfix CRM. Manual card entry must open the connected payment provider's secure form.</div>
+      </div></div>
+    </div>`;
+  quickPayRenderLines();
+  updateQuickPayPreview();
+}
+let quickPayLines=[]; let quickPayMethod='cash'; let quickPaySmsConsent=null;
+const QUICKPAY_SMS_CONSENT_TEXT='I agree to receive this invoice, receipt, and payment-related text messages from EZfix Garage Doors Inc at the phone number provided. Message and data rates may apply. Reply STOP to opt out.';
+function quickPayCaptureSmsConsent(){
+ const name=document.getElementById('qpClientName')?.value.trim()||'';
+ const phone=document.getElementById('qpClientPhone')?.value.trim()||'';
+ if(!name)return toast('Enter the client name before signing',true);
+ if(!phone)return toast('Enter the client phone before signing',true);
+ showModal({title:'Customer SMS Consent',body:'<div style="font-size:13px;line-height:1.55;margin-bottom:12px">'+esc(QUICKPAY_SMS_CONSENT_TEXT)+'</div><label class="field"><span class="lbl">Signer name *</span><input id="qpConsentName" value="'+esc(name)+'"></label><div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff"><canvas id="sigCanvas" width="500" height="180" style="width:100%;height:180px;touch-action:none;display:block"></canvas></div><button type="button" class="btn btn-sm" style="margin-top:8px" onclick="clearSignatureCanvas()">Clear</button>',onSave:async()=>{const signer=document.getElementById('qpConsentName')?.value.trim()||'';if(!signer)return toast('Signer name is required',true);if(!window.__sigHasDrawn)return toast('Customer signature is required',true);const canvas=document.getElementById('sigCanvas');quickPaySmsConsent={signerName:signer,phone,signatureDataUrl:canvas.toDataURL('image/png'),consentText:QUICKPAY_SMS_CONSENT_TEXT,consentVersion:'quickpay-sms-v1',signedAt:new Date().toISOString()};closeModal();const s=document.getElementById('qpConsentStatus');if(s){s.innerHTML='<b>Signed by '+esc(signer)+'</b> - SMS receipt authorized.';s.style.color='#2f7d46';}const b=document.getElementById('qpConsentBtn');if(b)b.textContent='Signed ✓';}});document.getElementById('modalSaveBtn').textContent='Accept & Sign';setTimeout(initSignatureCanvas,50);
+}
+async function saveQuickPaySmsConsent(invoiceId){
+ if(!quickPaySmsConsent)return;
+ const phone=String(quickPaySmsConsent.phone||'').replace(/\D/g,''); const e164=phone.length===10?'+1'+phone:(phone.startsWith('1')&&phone.length===11?'+'.concat(phone):'+'.concat(phone));
+ const {data,error}=await SB.rpc('record_quickpay_sms_consent',{
+  p_phone_e164:e164,p_invoice_id:invoiceId,p_signer_name:quickPaySmsConsent.signerName,
+  p_signature_data_url:quickPaySmsConsent.signatureDataUrl,p_consent_text:quickPaySmsConsent.consentText,
+  p_consent_version:quickPaySmsConsent.consentVersion,p_source_url:location.href,p_signed_at:quickPaySmsConsent.signedAt
+ });
+ if(error)throw error; if(!data?.ok)throw new Error('SMS consent could not be saved');
+}
+window.quickPayCaptureSmsConsent=quickPayCaptureSmsConsent;
+function quickPayRenderLines(){
+ const el=document.getElementById('qpLines'); if(!el)return;
+ if(!quickPayLines.length){el.innerHTML='<div class="muted" style="padding:14px 0">Add a product or service from your existing catalog.</div>';return;}
+ el.innerHTML=quickPayLines.map((x,i)=>'<div class="panel" style="margin:8px 0"><div class="panel-body pad"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.desc)+'</b><button class="btn btn-sm" onclick="quickPayRemoveLine('+i+')">×</button></div><div class="muted" style="font-size:12px;margin:4px 0">'+esc(x.details||'')+'</div><div class="grid2"><label class="field"><span class="lbl">Price</span><input type="number" step=".01" value="'+Number(x.rate||0)+'" oninput="quickPayLines['+i+'].rate=Number(this.value)||0;updateQuickPayPreview()"></label><label class="field"><span class="lbl">Tax</span><select onchange="quickPayLines['+i+'].taxable=this.value===\'yes\';updateQuickPayPreview()"><option value="yes" '+(x.taxable?'selected':'')+'>Taxable</option><option value="no" '+(!x.taxable?'selected':'')+'>Non-taxable / Labor</option></select></label></div></div></div>').join('');
+}
+function quickPayAddLine(){
+ const active=STORE.products.filter(p=>p.active!==false);
+ showModal({title:'Add Product / Service',wide:true,body:'<div id="qpCatalog">'+active.map(p=>'<button class="picker-card" style="width:100%;text-align:left" onclick="quickPayPickCatalog(\''+p.id+'\')"><div class="picker-card-top"><b>'+esc(p.name)+'</b><span class="picker-card-price">'+money(p.rate||0)+'</span></div><div class="muted">'+esc(p.details||'')+'</div></button>').join('')+'</div>'});
+}
+function quickPayPickCatalog(id){const p=getOne('products',id);if(!p)return;quickPayLines.push({desc:p.name,details:p.details||'',qty:p.defaultQty||1,rate:Number(p.rate)||0,taxable:p.taxable!==false,productId:p.id});closeModal();quickPayRenderLines();updateQuickPayPreview();}
+function quickPayRemoveLine(i){quickPayLines.splice(i,1);quickPayRenderLines();updateQuickPayPreview();}
+window.quickPayAddLine=quickPayAddLine;window.quickPayPickCatalog=quickPayPickCatalog;window.quickPayRemoveLine=quickPayRemoveLine;
+function quickPaySelectService(id){
+  const p=getOne('products',id); if(!p)return;
+  const note=document.getElementById('qpNote'); if(note&&!note.value)note.value=p.name;
+  const taxable=document.getElementById('qpTaxable'), labor=document.getElementById('qpLabor');
+  if(p.taxable===false){ if(labor)labor.value=(Number(p.rate)||0).toFixed(2); }
+  else { if(taxable)taxable.value=(Number(p.rate)||0).toFixed(2); }
+  updateQuickPayPreview();
+}
+function quickPayLoadCustomer(id){
+  const c=getOne('customers',id)||{};
+  const map={qpClientName:c.name||'',qpClientPhone:c.phone||'',qpClientEmail:c.email||'',qpClientAddress:c.address||''};
+  Object.entries(map).forEach(([k,v])=>{const e=document.getElementById(k);if(e)e.value=v;});
+}
+async function quickPayResolveCustomer(){
+  const selected=document.getElementById('qpCustomer')?.value;
+  if(selected)return getOne('customers',selected);
+  const name=document.getElementById('qpClientName')?.value.trim()||'';
+  const phone=document.getElementById('qpClientPhone')?.value.trim()||'';
+  const email=document.getElementById('qpClientEmail')?.value.trim()||'';
+  const address=document.getElementById('qpClientAddress')?.value.trim()||'';
+  if(!name)throw new Error('Enter client name');
+  const norm=s=>String(s||'').replace(/\D/g,'');
+  let c=STORE.customers.find(x=>!x.deletedAt&&((email&&String(x.email||'').toLowerCase()===email.toLowerCase())||(phone&&norm(x.phone)===norm(phone))));
+  if(c)return c;
+  const id=await dbAdd('customers',{name,phone,email,address,notes:'Created from Quick Payment'});
+  return getOne('customers',id)||{id,name,phone,email,address};
+}
+window.quickPaySelectService=quickPaySelectService; window.quickPayLoadCustomer=quickPayLoadCustomer;
+function quickPaySetMethod(method){
+ quickPayMethod=method;
+ document.querySelectorAll('.qp-method').forEach(b=>b.classList.toggle('btn-primary',b.dataset.method===method));
+ const row=document.getElementById('qpCardFeeRow'); if(row)row.style.display=method==='card'?'flex':'none';
+ const cardBtn=document.getElementById('qpCardEntryBtn'); if(cardBtn)cardBtn.style.display=method==='card'?'':'none';
+ updateQuickPayPreview();
+}
+window.quickPaySetMethod=quickPaySetMethod;
+function quickPayNumbers(){
+  const lineTaxable=quickPayLines.filter(x=>x.taxable).reduce((s,x)=>s+(Number(x.qty)||1)*(Number(x.rate)||0),0);
+  const lineLabor=quickPayLines.filter(x=>!x.taxable).reduce((s,x)=>s+(Number(x.qty)||1)*(Number(x.rate)||0),0);
+  const taxable=lineTaxable, labor=lineLabor;
+  const subtotal=taxable+labor;
+  const tax=Math.round(taxable*0.0625*100)/100;
+  const base=Math.round((subtotal+tax)*100)/100;
+  const fee=quickPayMethod==='card'?Math.round(base*Number(SETTINGS.ccSurchargePercent||3.5)/100*100)/100:0;
+  const card=Math.round((base+fee)*100)/100;
+  return {taxable,labor,subtotal,tax,base,fee,card};
+}
+function updateQuickPayPreview(){ const n=quickPayNumbers(); const d=document.getElementById('qpAmountDisplay'); if(d)d.textContent=money(n.subtotal); const t=document.getElementById('qpTax');if(t)t.textContent=money(n.tax);const b=document.getElementById('qpBaseTotal');if(b)b.innerHTML='<b>'+money(n.base)+'</b>';const f=document.getElementById('qpCardFee');if(f)f.innerHTML='<b>'+money(n.fee)+'</b>';const c=document.getElementById('qpCardTotal');if(c)c.innerHTML='<b>'+money(n.card)+'</b>'; }
+function quickPayPreviewInvoice(){
+ const n=quickPayNumbers();
+ const selected=document.getElementById('qpCustomer')?.value||'';
+ const c=selected?getOne('customers',selected):null;
+ const name=document.getElementById('qpClientName')?.value.trim()||c?.name||'Client';
+ const phone=document.getElementById('qpClientPhone')?.value.trim()||c?.phone||'';
+ const address=document.getElementById('qpClientAddress')?.value.trim()||c?.address||'';
+ const rows=quickPayLines.map(x=>'<tr><td><div class="idesc-title">'+esc(x.desc)+'</div>'+(x.details?'<div class="idesc-sub">'+esc(x.details)+'</div>':'')+'</td><td class="num">'+money(x.rate)+'</td><td class="num">'+(Number(x.qty)||1)+'</td><td class="num">'+money((Number(x.qty)||1)*(Number(x.rate)||0))+'</td></tr>').join('');
+ const feeRow=n.fee?'<tr><td class="l">Card fee (3.5%)</td><td class="r">'+money(n.fee)+'</td></tr>':'';
+ const body='<div class="doc-sheet"><div class="doc-header"><div class="doc-logo-block"><div class="doc-logo"><img src="'+getBrandLogoUrl()+'" alt="EZfix logo" style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:6px" onerror="handleBrandMarkError(this)"></div><div class="doc-co"><h2>'+esc(COMPANY.name)+'</h2><div class="line">'+esc(COMPANY.owner)+'</div><div class="line"><b>Business Number</b> '+esc(COMPANY.bn)+'</div><div class="line">'+esc(COMPANY.phone)+'</div><div class="line">'+esc(COMPANY.email)+'</div></div></div><div class="doc-right"><div>'+esc(COMPANY.address)+'</div><div>'+esc(COMPANY.hic)+'</div><div>'+esc(COMPANY.websiteLabel)+'</div></div></div><div class="doc-wave"></div><div class="doc-body"><div class="doc-meta-row"><div class="doc-billto"><div class="eyebrow">BILL TO</div><div class="cname">'+esc(name)+'</div>'+(address?'<div class="cline">'+esc(address)+'</div>':'')+(phone?'<div class="cline">☎ '+esc(phone)+'</div>':'')+'</div><div class="doc-meta"><div class="mrow"><div class="eyebrow">INVOICE</div><div class="mval">DRAFT</div></div><div class="mrow"><div class="eyebrow">DATE</div><div class="mval">'+fmtDate(todayISO())+'</div></div><div class="mrow"><div class="eyebrow">DUE</div><div class="mval">On Receipt</div></div><div class="mrow balance"><div class="eyebrow">BALANCE DUE</div><div class="mval">USD '+money(n.card)+'</div></div></div></div><table class="doc-items"><thead><tr><th>DESCRIPTION</th><th class="num">RATE</th><th class="num">QTY</th><th class="num">AMOUNT</th></tr></thead><tbody>'+rows+'</tbody></table><div style="display:flex;justify-content:space-between;gap:28px;flex-wrap:wrap;align-items:flex-start;margin:6px 0 24px"><div style="flex:1;min-width:180px"><div class="eyebrow">PAYMENT INFO</div><div style="font-size:12.5px;color:#6b6b6b;margin-top:6px">'+esc(quickPayMethod.toUpperCase())+'</div></div><div class="doc-totals" style="margin:0"><table><tr><td class="l">Subtotal</td><td class="r">'+money(n.subtotal)+'</td></tr><tr><td class="l">Massachusetts (6.25%)</td><td class="r">'+money(n.tax)+'</td></tr>'+feeRow+'<tr class="total"><td class="l">TOTAL</td><td class="r">'+money(n.card)+'</td></tr><tr class="balance"><td class="l">BALANCE DUE</td><td class="r">USD '+money(n.card)+'</td></tr></table></div></div></div><div class="doc-terms"><h4>'+esc(COMPANY.name)+' - Service Agreement &amp; Refund Policy</h4>'+TERMS_TEXT.split('\\n').map(p=>'<p style="margin:0 0 8px">'+esc(p)+'</p>').join('')+'</div></div>';
+ showModal({title:'Invoice Preview',wide:true,body});
+}
+window.quickPayPreviewInvoice=quickPayPreviewInvoice;
+async function quickPayCreateInvoice(options={}){
+  try{
+    const n=quickPayNumbers();
+    if(n.subtotal<=0 || !quickPayLines.length) throw new Error('Add at least one product or service');
+    const selected=document.getElementById('qpCustomer')?.value||null;
+    const c=selected?getOne('customers',selected):{
+      id:null,
+      name:document.getElementById('qpClientName')?.value.trim()||'',
+      phone:document.getElementById('qpClientPhone')?.value.trim()||'',
+      email:document.getElementById('qpClientEmail')?.value.trim()||'',
+      address:document.getElementById('qpClientAddress')?.value.trim()||''
+    };
+    if(!c?.name) throw new Error('Enter client name');
+    const note=document.getElementById('qpNote')?.value.trim()||'Quick Payment';
+    const items=quickPayLines.map(x=>({...x,details:x.details||note}));
+    const partsCost=Math.max(0,Number(document.getElementById('qpPartsCost')?.value)||0);
+    const partsOwner=document.getElementById('qpPartsOwner')?.value||'company';
+    const {data:rid,error}=await SB.rpc('technician_create_quickpay_invoice',{
+      p_customer_id:c.id||null,
+      p_customer_name:c.name||'',
+      p_customer_phone:c.phone||'',
+      p_customer_email:c.email||'',
+      p_customer_address:c.address||'',
+      p_items:items,
+      p_tax_rate:6.25,
+      p_preferred_payment_method:quickPayMethod,
+      p_parts_cost:partsCost,
+      p_parts_owner:partsOwner
+    });
+    if(error) throw error;
+    const id=Array.isArray(rid)?rid[0]:rid;
+    if(!id) throw new Error('Quick Payment did not return an invoice');
+    await Promise.all([refreshCollection('customers'),refreshCollection('invoices')]);
+    await saveQuickPaySmsConsent(id);
+    const relatedJobId=document.getElementById('qpJob')?.value||'';
+    if(relatedJobId){
+      const {data:linked,error:linkErr}=await SB.rpc('technician_link_quickpay_invoice_to_job',{
+        p_invoice_id:id,p_job_id:relatedJobId,p_parts_cost:partsCost,p_parts_owner:partsOwner
+      });
+      if(linkErr) throw linkErr;
+      const job=Array.isArray(linked)?linked[0]:linked;
+      if(job?.id) replaceStoreRecord('jobs',job);
+      await refreshCollection('invoices');
+    }
+    const created=getOne('invoices',id);
+    if(quickPayMethod!=='card' && created && confirm('Invoice created. Confirm '+quickPayMethod.toUpperCase()+' payment of '+money(balanceDue(created))+' now?')){
+      const {data:latest,error:latestErr}=await SB.from('invoices').select('id,row_version').eq('id',id).is('deleted_at',null).maybeSingle();
+      if(latestErr||!latest) throw latestErr||new Error('Could not verify invoice before payment');
+      const {data:paid,error:payErr}=await SB.rpc('technician_record_quickpay_payment',{
+        p_invoice_id:id,p_method:quickPayMethod,p_expected_row_version:Number(latest.row_version)
+      });
+      if(payErr) throw payErr;
+      const row=Array.isArray(paid)?paid[0]:paid;
+      if(row?.id) replaceStoreRecord('invoices',row);
+      toast('Payment confirmed — receipt is ready');
+    }else{
+      toast((getOne('invoices',id)?.number||'Invoice')+' created');
+    }
+    if(options.createSquareLink || quickPayMethod==='card'){
+      const url=await PaymentProvider.createPaymentLink(id);
+      if(url){toast('Square payment link ready');window.open(url,'_blank','noopener');}
+    }
+    quickPayLines=[]; quickPaySmsConsent=null; quickPayMethod='cash';
+    go('invoices',id);
+  }catch(e){
+    console.error('quickPayCreateInvoice',e);
+    toast(e?.message||'Could not create invoice',true);
+  }
+}
+async function quickPaySendLink(){
+  try{
+    const n=quickPayNumbers(); if(n.subtotal<=0)throw new Error('Choose a service first');
+    if(quickPayMethod!=='card')quickPaySetMethod('card');
+    await quickPayCreateInvoice({createSquareLink:true});
+  }catch(e){toast(e.message||'Could not create payment link',true);}
+}
+async function quickPayManualCard(){
+ toast('Create the invoice first, then use PAY NOW on the invoice. Card details stay on Square and are never collected by EZfix CRM.',true);
+}
+window.updateQuickPayPreview=updateQuickPayPreview;
+window.quickPayCreateInvoice=quickPayCreateInvoice;
+window.quickPaySendLink=quickPaySendLink;
+window.quickPayManualCard=quickPayManualCard;
+
+
+
 let aiManagerState={subview:'overview',summary:null,ads:null,busy:false,error:null,settings:null};
 async function callAiManagerTool(tool,input={}){
   const {data:{session}}=await SB.auth.getSession();
