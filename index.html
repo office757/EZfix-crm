@@ -1526,6 +1526,7 @@ function renderDashboard(content, actions) {
   const sentEstimatesAwaiting = STORE.estimates.filter(e=>e.status==='sent');
   const completedNoInvoice = STORE.jobs.filter(j=>j.status==='completed' && !STORE.invoices.some(i=>i.jobId===j.id));
   const overdueInvoices = STORE.invoices.filter(i=>balanceDue(i)>0 && i.dueTerm==='On Receipt' && i.date && i.date<today);
+  const humanCallbackTasks = STORE.tasks.filter(t=>t.status==='open' && t.source==='ai_receptionist' && String(t.id||'').startsWith('ai_human_callback_'));
   const nextAppointment = [...STORE.jobs].filter(j=>j.scheduledDate && j.scheduledDate>=today && !['completed','cancelled'].includes(j.status)).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate))[0];
   const recentEvents = [...STORE.auditLog].sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
   const callsToday = STORE.calls.filter(c=>c.providerCallId && c.createdAt && fmtDate(c.createdAt)===fmtDate(Date.now()));
@@ -1546,10 +1547,11 @@ function renderDashboard(content, actions) {
         <div style="margin-top:10px"><button class="btn btn-sm" onclick="go('receptionist')">Open AI Receptionist →</button></div>
       </div>
     </div>
-    ${(unassignedJobs.length || sentEstimatesAwaiting.length || completedNoInvoice.length || overdueInvoices.length) ? `
+    ${(humanCallbackTasks.length || unassignedJobs.length || sentEstimatesAwaiting.length || completedNoInvoice.length || overdueInvoices.length) ? `
     <div class="panel" style="margin-bottom:16px;border-color:var(--orange)">
       <div class="panel-head"><h3>Needs attention</h3></div>
       <div class="panel-body">
+        ${humanCallbackTasks.length ? `<div class="kv clickable" onclick="go('followups')"><div class="k">📞</div><div><b>${humanCallbackTasks.length}</b> AI receptionist human callback request(s) need attention</div></div>` : ''}
         ${overdueInvoices.length ? `<div class="kv clickable" onclick="searchTerms.invoiceFilter='outstanding'; go('invoices')"><div class="k">💰</div><div><b>${overdueInvoices.length}</b> overdue invoice(s) — ${money(overdueInvoices.reduce((s,i)=>s+balanceDue(i),0))} outstanding</div></div>` : ''}
         ${sentEstimatesAwaiting.length ? `<div class="kv clickable" onclick="searchTerms.estimateFilter='open'; go('estimates')"><div class="k">📋</div><div><b>${sentEstimatesAwaiting.length}</b> estimate(s) sent, awaiting customer approval</div></div>` : ''}
         ${completedNoInvoice.length ? `<div class="kv clickable" onclick="go('jobs')"><div class="k">🧾</div><div><b>${completedNoInvoice.length}</b> completed job(s) with no invoice yet</div></div>` : ''}
@@ -5822,7 +5824,7 @@ const DEV_CHECKLIST = [
   ['— Text-to-speech','⬜'],
   ['— AI API credentials (server-side)','⬜ — the API call itself already works from this artifact'],
   ['— Webhook verification','✅ Inkbox x-inkbox-signature/request-id/timestamp verified server-side'],
-  ['— Call transfer configuration','⬜'],
+  ['— Call transfer configuration','🟡 No verified mid-call transfer API in the current Inkbox SDK; high-priority human callback task fallback is live and server-side'],
   ['— WhatsApp provider/configuration','🟡 Meta Cloud API sender/webhook backend deployed; technician number + explicit opt-in required, provider readiness checked in Team → WhatsApp'],
   ['— Environment secrets','⬜'],
   ['— HTTPS','✅ Vercel + Supabase production HTTPS'],
@@ -5831,7 +5833,7 @@ const DEV_CHECKLIST = [
   ['— Test existing customer recognition','✅ Production calls have been linked to existing Customers using unique identity matching'],
   ['— Test new lead','✅ Production calls have been linked/converted into CRM Leads through the server-side pipeline'],
   ['— Test scheduling','🟡 Appointment preference/request capture is live; definitive booking remains guarded by CRM availability/confirmation flow'],
-  ['— Test human takeover','⬜ — UI/architecture only, no real call to take over yet'],
+  ['— Test human takeover','✅ Fallback verified in a rollback transaction: human_transfer_requested creates a high-priority open callback task with the caller number and EZfix transfer number'],
   ['— Test technician notification','🟡 READY FOR ONBOARDING — Team → WhatsApp can check Meta readiness and send a confirmed real test after number + explicit opt-in are saved'],
   ['— Production activation','🟡 LIVE for inbound call/SMS → CRM and owner-controlled consent-gated AI callbacks; T-Mobile origination and live transfer/join remain pending'],
 ];
