@@ -2015,6 +2015,180 @@ function promptWarrantyForJob(jobId) {
 }
 window.promptWarrantyForJob = promptWarrantyForJob;
 
+
+/* ============================================================
+   OWNER-CONTROLLED AI SERVICE CALLBACK
+   ------------------------------------------------------------
+   No bulk dialing. A callback is always scoped to one existing
+   Customer/Lead record and requires evidence-backed authorization
+   before the separate live-call confirmation step is available.
+   ============================================================ */
+async function callVoiceCallbackBackend(payload) {
+  const {data:{session}} = await SB.auth.getSession();
+  if (!session?.access_token) throw new Error('Please sign in again');
+  const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/place-inkbox-callback`, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'apikey':SUPABASE_ANON_KEY,
+      'Authorization':`Bearer ${session.access_token}`
+    },
+    body:JSON.stringify(payload)
+  });
+  const result = await response.json().catch(()=>({}));
+  if (!response.ok || !result.ok) throw new Error(result.error || `Voice callback action failed (${response.status})`);
+  return result;
+}
+function voiceCallbackRecord(entityType, entityId) {
+  return getOne(entityType==='customers' ? 'customers' : 'leads', entityId);
+}
+async function openVoiceCallbackControl(entityType, entityId) {
+  if (!IS_OWNER) return toast('Owner access required', true);
+  const record = voiceCallbackRecord(entityType, entityId);
+  if (!record) return toast('Customer or lead not found', true);
+  if (!normalizeToE164(record.phone)) return toast('Save a valid callback number first', true);
+
+  let status;
+  try {
+    status = await callVoiceCallbackBackend({action:'status',entity_type:entityType,entity_id:entityId});
+  } catch(e) {
+    return toast(e.message || 'Could not load callback status', true);
+  }
+
+  const auth = status.authorization || null;
+  const provider = status.provider || {};
+  const providerText = !provider.configured
+    ? '⚪ Inkbox provider unavailable'
+    : provider.dedicated_number
+      ? `🟢 Dedicated Inkbox line ready${provider.phone_last4 ? ' · ••••'+provider.phone_last4 : ''}`
+      : '🟡 Inkbox connected, but no dedicated outbound number is assigned';
+  const windowText = status.calling_window_open ? '🟢 Calling window open (9 AM–7 PM ET)' : '⚪ Outside calling window (9 AM–7 PM ET)';
+
+  if (!auth) {
+    showModal({
+      title:'Authorize AI Service Callback',
+      body:`
+        <div class="panel" style="margin-bottom:14px;background:var(--paper-2)"><div class="panel-body pad">
+          <div><b>${esc(record.name||'Customer')}</b> · ••••${esc(String(status.entity?.phone_last4||''))}</div>
+          <div class="muted" style="margin-top:5px">${providerText}<br>${windowText}</div>
+        </div></div>
+        <p style="font-size:13px;line-height:1.55"><b>This authorization does not place a call.</b> Use it only when the customer explicitly requested or consented to an AI-assisted EZfix service callback.</p>
+        <label class="field"><span class="lbl">Consent evidence source *</span>
+          <select id="voiceConsentSource">
+            <option value="customer_request">Customer request</option>
+            <option value="recorded_call">Recorded call</option>
+            <option value="signed_form">Signed form</option>
+          </select>
+        </label>
+        <label class="field"><span class="lbl">Evidence reference *</span>
+          <input id="voiceEvidenceRef" placeholder="e.g. Call ID, signed form ID, or exact CRM note reference">
+        </label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;margin-top:10px">
+          <input id="voiceConsentConfirmed" type="checkbox" style="width:auto;margin-top:2px">
+          <span>I confirm the customer explicitly requested or consented to this AI-assisted service callback at the phone number saved on this CRM record.</span>
+        </label>
+        <p class="muted" style="font-size:11.5px;margin-top:10px">Authorization is single-use for a live call and expires automatically. A separate CALL NOW confirmation is still required later.</p>
+      `,
+      onSave: async () => {
+        if (!document.getElementById('voiceConsentConfirmed')?.checked) return toast('Confirm customer callback consent first', true);
+        const source=document.getElementById('voiceConsentSource').value;
+        const evidence=document.getElementById('voiceEvidenceRef').value.trim();
+        if (evidence.length<5) return toast('Enter a specific evidence reference', true);
+        await callVoiceCallbackBackend({
+          action:'authorize',
+          entity_type:entityType,
+          entity_id:entityId,
+          confirmed:true,
+          consent_source:source,
+          evidence_reference:evidence,
+          consented_at:new Date().toISOString(),
+          expires_in_hours:168
+        });
+        closeModal();
+        toast('AI callback authorized — no call placed');
+        setTimeout(()=>openVoiceCallbackControl(entityType,entityId),50);
+      }
+    });
+    const save=document.getElementById('modalSaveBtn');
+    if(save) save.textContent='Authorize Callback';
+    return;
+  }
+
+  showModal({
+    title:'AI Service Callback',
+    body:`
+      <div class="panel" style="margin-bottom:14px"><div class="panel-body pad">
+        <div class="kv"><div class="k">Customer / Lead</div><div>${esc(record.name||'—')}</div></div>
+        <div class="kv"><div class="k">Callback number</div><div>••••${esc(String(status.entity?.phone_last4||''))}</div></div>
+        <div class="kv"><div class="k">Authorization</div><div>🟢 Active · expires ${fmtDate(auth.expires_at)}</div></div>
+        <div class="kv"><div class="k">Evidence</div><div>${esc(auth.consent_source||'—')} · ${esc(auth.evidence_reference||'—')}</div></div>
+        <div class="kv"><div class="k">Provider</div><div>${providerText}</div></div>
+        <div class="kv"><div class="k">Calling window</div><div>${windowText}</div></div>
+      </div></div>
+      <p class="muted" style="font-size:12px">A live call is never retried automatically if the provider outcome is uncertain. The authorization is single-use once a live submission begins.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button type="button" class="btn btn-danger btn-sm" id="voiceRevokeBtn">Revoke Authorization</button>
+        <button type="button" class="btn btn-primary" id="voiceReviewBtn" ${status.can_place?'':'disabled'}>Review Live Call</button>
+      </div>
+      ${status.can_place?'':'<p class="muted" style="font-size:11.5px;margin-top:8px">Live call is blocked until both the dedicated Inkbox line and the allowed calling window are ready.</p>'}
+    `,
+    onSave: async()=>closeModal()
+  });
+  const save=document.getElementById('modalSaveBtn'); if(save) save.textContent='Close';
+  const revoke=document.getElementById('voiceRevokeBtn');
+  if(revoke) revoke.onclick=async()=>{
+    if(!confirm('Revoke this unused callback authorization?')) return;
+    try{
+      await callVoiceCallbackBackend({action:'revoke',entity_type:entityType,entity_id:entityId});
+      closeModal(); toast('Callback authorization revoked');
+    }catch(e){toast(e.message,true)}
+  };
+  const review=document.getElementById('voiceReviewBtn');
+  if(review && status.can_place) review.onclick=()=>openVoiceCallbackLiveConfirm(entityType,entityId,status);
+}
+async function openVoiceCallbackLiveConfirm(entityType,entityId,status) {
+  const record=voiceCallbackRecord(entityType,entityId);
+  if(!record) return toast('Customer or lead not found',true);
+  showModal({
+    title:'Review Live AI Callback',
+    body:`
+      <div style="background:#fff3d6;border:1px solid #e7c978;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.5">
+        <b>This places a real phone call.</b><br>
+        Ashley will identify herself as an AI assistant calling for EZfix, handle service intake only, avoid sales/pricing claims, and hang up on voicemail.
+      </div>
+      <div class="kv"><div class="k">Recipient</div><div>${esc(record.name||'—')} · ••••${esc(String(status.entity?.phone_last4||''))}</div></div>
+      <div class="kv"><div class="k">Origination</div><div>Dedicated Inkbox number</div></div>
+      <div class="kv"><div class="k">Authorization</div><div>Single-use; consumed when submission begins</div></div>
+      <label class="field" style="margin-top:14px"><span class="lbl">Type CALL NOW to enable the live call *</span>
+        <input id="voiceCallPhrase" autocomplete="off" placeholder="CALL NOW">
+      </label>
+    `,
+    onSave:async()=>{
+      const phrase=document.getElementById('voiceCallPhrase').value.trim();
+      if(phrase!=='CALL NOW') return toast('Type CALL NOW exactly to continue',true);
+      if(!confirm('Place the real AI service callback now?')) return;
+      try{
+        const result=await callVoiceCallbackBackend({
+          action:'place',
+          entity_type:entityType,
+          entity_id:entityId,
+          confirm_call:true,
+          confirmation_phrase:'CALL NOW'
+        });
+        closeModal();
+        toast(result.provider_call_id ? 'AI callback submitted · '+result.provider_call_id : 'AI callback submitted');
+      }catch(e){
+        toast(e.message||'Could not place AI callback',true);
+      }
+    }
+  });
+  const save=document.getElementById('modalSaveBtn');
+  if(save){save.textContent='Place AI Callback';save.classList.add('btn-danger');}
+}
+window.openVoiceCallbackControl=openVoiceCallbackControl;
+window.openVoiceCallbackLiveConfirm=openVoiceCallbackLiveConfirm;
+
+
 /* ============================================================
    CUSTOMERS
    ============================================================ */
@@ -2592,6 +2766,7 @@ function renderCustomerDetail(content, id) {
       <div class="panel-body pad" style="display:flex;gap:8px;flex-wrap:wrap">
         ${c.phone ? `<a class="btn btn-primary" href="tel:${c.phone}">📞 Call</a>` : ''}
         ${c.phone ? `<button class="btn" onclick="openCustomerSmsComposer('${c.id}')">💬 Text</button>` : ''}
+        ${IS_OWNER && c.phone ? `<button class="btn" onclick="openVoiceCallbackControl('customers','${c.id}')">🤖 AI Callback</button>` : ''}
         ${c.email ? `<a class="btn" href="mailto:${c.email}">✉️ Email</a>` : ''}
         <button class="btn" onclick="openJobModal(null,'${c.id}')">+ Job</button>
         <button class="btn" onclick="openEstimateModal(null,'${c.id}')">+ Estimate</button>
@@ -3012,6 +3187,7 @@ function openLeadModal(id) {
       </label>
       <label class="field"><span class="lbl">Notes</span><textarea id="f_notes">${esc(l?.notes)}</textarea></label>
       ${photoUploaderHtml()}
+      ${l && IS_OWNER && l.phone ? `<button type="button" class="btn btn-sm" onclick="closeModal();setTimeout(()=>openVoiceCallbackControl('leads','${l.id}'),50)">🤖 AI Callback</button>` : ''}
       ${l ? `<button class="btn btn-danger btn-sm" onclick="confirmDelete('leads','${l.id}','leads')">Delete lead</button>` : ''}
     `,
     onSave: async () => {
