@@ -1,8 +1,23 @@
 # EZfix CRM completion QA status
 
-Last verified: 2026-09-23
+Last verified: 2026-09-25
 Production branch: `main`
-Post-release pricing hardening branch: `chatgpt/catalog-pricing-guardrail-2026-09-23`
+Current production QA baseline: `b4f0168`
+
+## 2026-09-25 production QA refresh
+
+- Full tracked regression suite: **30/30 audit scripts PASS** after updating two stale expectations to current production behavior.
+- CRM safety strict audit: **22/22 PASS, 0 warnings, 0 failures**.
+- Live referential-integrity checks returned **0 orphan links** across Jobs, Estimates, Invoices, converted Leads, Properties, and Warranties.
+- Invoice numbers: **0 duplicates**. Estimate numbers: **0 duplicates**. Payment IDs: **0 duplicates**, **0 missing IDs**, **0 negative applied payments**.
+- Full QA discovered one real legacy Job-number integrity issue: two active Jobs shared `JOB0001` and one active Job had no number. Production migration `atomic_job_numbering` repaired the live data to `JOB0001`, `JOB0002`, and `JOB0003`, added database-owned atomic numbering, and added an active-number unique index. Production now has **0 duplicate and 0 missing active Job numbers**.
+- Full QA also found a completion bypass: the Job status dropdown could set `completed` without the customer-signature flow. Production now hides direct completion for unfinished Jobs, routes generic completion through `Complete & Sign`, and enforces `app_data.completion_signature` at the database trigger layer.
+- Production currently has **0 completed Jobs without a signature**.
+- Owner integration alert Cron is active every 15 minutes; the latest observed Cron runs succeeded.
+- Supabase Edge error/fatal query for the checked recent window returned no matching errors.
+- Latest Vercel production deployments for the QA fixes are READY with no checked error/fatal runtime logs.
+- Security Advisor still reports the intentional tokenized public-invoice SECURITY DEFINER boundary, guarded signed-in SECURITY DEFINER RPCs, and the remaining actionable platform setting: **Leaked Password Protection disabled**.
+- Scheduled backup retention/PITR remains **VERIFY IN SUPABASE DASHBOARD** because connected tooling cannot enumerate the project's actual backup list or plan retention.
 
 ## 8-task release plan
 
