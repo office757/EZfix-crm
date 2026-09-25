@@ -42,6 +42,30 @@ Deno.serve(async (req) => {
   if (!["owner", "admin", "dispatcher"].includes(String(member.role || "").toLowerCase())) return json({ error: "forbidden" }, 403);
 
   const body = await req.json().catch(() => null);
+  const action = String(body?.action || "send").trim().toLowerCase();
+  const token = Deno.env.get("META_WHATSAPP_TOKEN") || "";
+  const phoneNumberId = Deno.env.get("META_WHATSAPP_PHONE_NUMBER_ID") || "";
+  const graphVersion = Deno.env.get("META_WHATSAPP_GRAPH_VERSION") || "";
+  const templateName = Deno.env.get("META_WHATSAPP_ASSIGNMENT_TEMPLATE_NAME") || "";
+  const templateLanguage = Deno.env.get("META_WHATSAPP_TEMPLATE_LANGUAGE") || "en_US";
+  const missingConfig = [
+    !token ? "META_WHATSAPP_TOKEN" : null,
+    !phoneNumberId ? "META_WHATSAPP_PHONE_NUMBER_ID" : null,
+    !graphVersion ? "META_WHATSAPP_GRAPH_VERSION" : null,
+    !templateName ? "META_WHATSAPP_ASSIGNMENT_TEMPLATE_NAME" : null,
+  ].filter(Boolean);
+
+  if (action === "status") {
+    return json({
+      ok: true,
+      provider: "meta_cloud_api",
+      configured: missingConfig.length === 0,
+      missing: missingConfig,
+      template_language: templateLanguage,
+    });
+  }
+  if (action !== "send") return json({ error: "unsupported_action" }, 400);
+
   const notificationId = String(body?.notification_id || body?.notificationId || "").trim();
   if (!notificationId) return json({ error: "notification_id_required" }, 400);
 
@@ -81,30 +105,15 @@ Deno.serve(async (req) => {
     await serverPatch(admin, notificationId, notification.app_data, { status: "blocked_no_opt_in", failure_reason: "WhatsApp assignment alerts require explicit technician opt-in" });
     return json({ success: false, status: "blocked_no_opt_in" }, 200);
   }
-  if (String(techData.whatsapp_status || "") !== "connected") {
-    await serverPatch(admin, notificationId, notification.app_data, { status: "not_connected", failure_reason: "WhatsApp Business connection is not active for this technician" });
-    return json({ success: false, status: "not_connected" }, 200);
-  }
-
   const recipient = cleanE164(techData.whatsapp_number);
   if (!recipient) {
     await serverPatch(admin, notificationId, notification.app_data, { status: "failed", failure_reason: "Technician WhatsApp number is missing or invalid", failed_at: new Date().toISOString() });
     return json({ error: "invalid_recipient" }, 409);
   }
 
-  const token = Deno.env.get("META_WHATSAPP_TOKEN") || "";
-  const phoneNumberId = Deno.env.get("META_WHATSAPP_PHONE_NUMBER_ID") || "";
-  const graphVersion = Deno.env.get("META_WHATSAPP_GRAPH_VERSION") || "";
-  const templateName = Deno.env.get("META_WHATSAPP_ASSIGNMENT_TEMPLATE_NAME") || "";
-  const templateLanguage = Deno.env.get("META_WHATSAPP_TEMPLATE_LANGUAGE") || "en_US";
-  if (!token || !phoneNumberId || !graphVersion || !templateName) {
+  if (missingConfig.length) {
     await serverPatch(admin, notificationId, notification.app_data, { status: "not_configured", recipient_phone: recipient, failure_reason: "Meta WhatsApp Business Platform credentials/template are not configured" });
-    return json({ success: false, status: "not_configured", missing: [
-      !token ? "META_WHATSAPP_TOKEN" : null,
-      !phoneNumberId ? "META_WHATSAPP_PHONE_NUMBER_ID" : null,
-      !graphVersion ? "META_WHATSAPP_GRAPH_VERSION" : null,
-      !templateName ? "META_WHATSAPP_ASSIGNMENT_TEMPLATE_NAME" : null,
-    ].filter(Boolean) }, 200);
+    return json({ success: false, status: "not_configured", missing: missingConfig }, 200);
   }
 
   const message = String(notification.message || notification.app_data?.message || "New EZfix assignment").slice(0, 1024);

@@ -4281,7 +4281,7 @@ function renderTeamDetail(content, actions, id) {
   const revenue = linkedInvoices.reduce((s,inv)=>s+invoiceTotal(inv),0);
   const collected = linkedInvoices.reduce((s,inv)=>s+paidTotal(inv),0);
   const avgJobValue = linkedInvoices.length ? revenue/linkedInvoices.length : 0;
-  const waStatus = m.whatsappStatus || 'not_connected';
+  const waReady = m.whatsappOptIn === true && !!normalizeToE164(m.whatsappNumber);
   const recentActivity = [...STORE.auditLog].filter(a =>
     (a.entityType==='team' && a.entityId===m.id) ||
     (a.entityType==='jobs' && jobIds.has(a.entityId))
@@ -4313,10 +4313,10 @@ function renderTeamDetail(content, actions, id) {
     </div></div>` : ''}
 
     <div class="panel" style="margin-bottom:16px">
-      <div class="panel-head"><h3>🟢 WhatsApp Integration</h3></div>
+      <div class="panel-head"><h3>🟢 WhatsApp Notifications</h3></div>
       <div class="panel-body pad">
-        <div class="kv"><div class="k">Status</div><div>${waStatus==='connected' ? '🟢 Connected' : '⚪ Not Connected'}</div></div>
-        <button class="btn btn-sm" onclick="connectTechWhatsApp('${m.id}')">${waStatus==='connected'?'Reconnect':'Connect WhatsApp'}</button>
+        <div class="kv"><div class="k">Recipient</div><div>${waReady ? '🟢 Ready' : '⚪ Needs number + opt-in'}</div></div>
+        <button class="btn btn-sm" onclick="openTeamModal('${m.id}')">Manage WhatsApp Alerts</button>
       </div>
     </div>
 
@@ -4394,9 +4394,11 @@ async function applyTechMapping(legacyName, technicianId) {
 window.applyTechMapping = applyTechMapping;
 function openTeamModal(id) {
   const m = id ? getOne('team', id) : null;
-  const waStatus = m?.whatsappStatus || 'not_connected';
-  const waIcon = waStatus==='connected' ? '🟢' : (waStatus==='error' ? '🔴' : '⚪');
-  const waLabel = waStatus==='connected' ? 'Connected' : (waStatus==='error' ? 'Connection Error' : 'Not Connected');
+  const waNumber = m?.whatsappNumber || '';
+  const waOptIn = m?.whatsappOptIn === true;
+  const waReady = !!normalizeToE164(waNumber) && waOptIn;
+  const waIcon = waReady ? '🟢' : '⚪';
+  const waLabel = waReady ? 'Recipient Ready' : (waOptIn ? 'Number Required' : 'Opt-in Required');
   const prefs = m?.notifyPrefs || {};
   const NOTIFY_EVENTS = [
     ['newLead','New Lead Assigned'], ['newJob','New Job Assigned'], ['scheduleChange','Job Schedule Changed'],
@@ -4428,19 +4430,23 @@ function openTeamModal(id) {
         <div class="panel-head"><h3>Integrations</h3></div>
         <div class="panel-body pad">
           <div style="font-weight:800;font-size:13px;margin-bottom:8px">🟢 WhatsApp Notifications</div>
-          <div class="kv"><div class="k">Status</div><div>${waIcon} ${waLabel}</div></div>
-          <label class="field"><span class="lbl">WhatsApp number</span><input type="tel" id="f_wanumber" value="${esc(m?.whatsappNumber)}" placeholder="+1 555 555 5555"></label>
+          <div class="kv"><div class="k">Recipient status</div><div>${waIcon} ${waLabel}</div></div>
+          <label class="field"><span class="lbl">WhatsApp number</span><input type="tel" id="f_wanumber" value="${esc(waNumber)}" placeholder="+1 555 555 5555"></label>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;margin:8px 0 10px">
+            <input type="checkbox" id="f_waoptin" style="width:auto;margin-top:2px" ${waOptIn?'checked':''}>
+            <span>I confirm this technician explicitly opted in to receive EZfix job/assignment alerts on this WhatsApp number.</span>
+          </label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px">
-            <button type="button" class="btn btn-sm" onclick="connectTechWhatsApp('${m.id}')">${waStatus==='connected'?'Reconnect':'Connect WhatsApp'}</button>
+            <button type="button" class="btn btn-sm" onclick="checkWhatsAppProvider()">Check Meta Provider</button>
             <button type="button" class="btn btn-sm" onclick="sendTestWhatsApp('${m.id}')">Send Test Message</button>
-            ${waStatus==='connected' ? `<button type="button" class="btn btn-sm btn-danger" onclick="disconnectTechWhatsApp('${m.id}')">Disconnect</button>` : ''}
+            ${waOptIn ? `<button type="button" class="btn btn-sm btn-danger" onclick="disconnectTechWhatsApp('${m.id}')">Disable Alerts</button>` : ''}
           </div>
           <div class="lbl" style="margin-bottom:6px">Notify me for:</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
             ${NOTIFY_EVENTS.map(([key,label])=>`<label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" class="notifyPrefCheck" data-key="${key}" style="width:auto" ${prefs[key]!==false?'checked':''}> ${label}</label>`).join('')}
           </div>
         </div>
-      </div>` : `<p class="muted" style="font-size:12px">Save this team member first, then reopen them to connect WhatsApp notifications.</p>`}
+      </div>` : `<p class="muted" style="font-size:12px">Save this team member first, then reopen them to configure WhatsApp notifications.</p>`}
 
       ${m ? `<button class="btn btn-danger btn-sm" onclick="confirmDelete('team','${m.id}','team')">Remove</button>` : ''}
     `,
@@ -4457,6 +4463,9 @@ function openTeamModal(id) {
       };
       if (m) {
         data.whatsappNumber = document.getElementById('f_wanumber').value.trim();
+        data.whatsappOptIn = !!document.getElementById('f_waoptin')?.checked;
+        if (data.whatsappOptIn && !normalizeToE164(data.whatsappNumber)) return toast('Enter a valid WhatsApp number before enabling alerts', true);
+        data.whatsappStatus = data.whatsappOptIn && normalizeToE164(data.whatsappNumber) ? 'ready' : 'not_connected';
         const newPrefs = {};
         document.querySelectorAll('.notifyPrefCheck').forEach(c => { newPrefs[c.dataset.key] = c.checked; });
         data.notifyPrefs = newPrefs;
@@ -4526,29 +4535,32 @@ window.openTeamLoginAccess = openTeamLoginAccess;
 // Legacy invitation-email flow removed. Technician credentials are Owner-managed via manage-team-login.
 
 /* ============================================================
-   WHATSAPP NOTIFICATION ARCHITECTURE
+   WHATSAPP NOTIFICATIONS — Meta Cloud API
    ------------------------------------------------------------
-   No WhatsApp Business API connector exists in this environment
-   (checked directly — the one messaging connector available here
-   supports Email/SMS/iMessage only, no WhatsApp channel). Per
-   instruction, this is the REAL architecture: a genuine
-   per-technician connection state, preferences, and a delivery
-   log — with status honestly staying "not_connected" rather than
-   faking a successful provider handshake.
-
-   REQUIRED FOR A REAL CONNECTION (not available here — needs a
-   real backend):
-   - A WhatsApp Business Platform account (via Meta directly, or
-     a BSP like Twilio/360dialog/MessageBird)
-   - A verified sending number + business profile approval
-   - An approved message template for business-initiated alerts
-     like "New Lead Assigned" (required for messages outside a
-     customer-initiated 24h session window)
-   - A server to hold the access token securely and make the API
-     calls — credentials must never live in this frontend code
-   - A webhook endpoint (Meta -> your server) for delivery status
-     (sent/delivered/read/failed), since this app cannot poll
+   Provider credentials/template live only in Supabase Edge
+   Function secrets. Per-technician CRM state stores only:
+   explicit opt-in, recipient number, and notification prefs.
    ============================================================ */
+async function callWhatsAppBackend(payload) {
+  const {data:{session}} = await SB.auth.getSession();
+  if (!session?.access_token) throw new Error('Please sign in again');
+  const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/send-whatsapp-notification`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`},
+    body:JSON.stringify(payload)
+  });
+  const result = await response.json().catch(()=>({}));
+  if (!response.ok) throw new Error(result.error || `WhatsApp action failed (${response.status})`);
+  return result;
+}
+async function checkWhatsAppProvider() {
+  try {
+    const result = await callWhatsAppBackend({action:'status'});
+    if (result.configured) toast('Meta WhatsApp provider is configured');
+    else toast('Meta WhatsApp setup incomplete: ' + (result.missing||[]).join(', '), true);
+  } catch(e) { toast(e.message,true); }
+}
+window.checkWhatsAppProvider = checkWhatsAppProvider;
 async function logWaNotification(technicianName, eventType, relatedType, relatedId, message) {
   const tech = STORE.team.find(t=>t.name===technicianName);
   const status = tech ? 'pending' : 'failed';
@@ -4560,16 +4572,11 @@ async function logWaNotification(technicianName, eventType, relatedType, related
       message, status, failureReason, providerMessageId: null,
     });
     if (!tech || !notificationId) return;
-    const {data:{session}} = await SB.auth.getSession();
-    if (!session?.access_token) return;
-    const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/send-whatsapp-notification`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`},
-      body:JSON.stringify({notification_id:notificationId})
-    });
-    const result = await response.json().catch(()=>({}));
+    const result = await callWhatsAppBackend({action:'send',notification_id:notificationId});
     await refreshCollection('waNotifications');
-    if (!response.ok) console.warn('WhatsApp notification failed', result);
+    if (!result.success && !['suppressed','blocked_no_opt_in','not_configured'].includes(result.status)) {
+      console.warn('WhatsApp notification was not accepted', result);
+    }
   } catch(e) { console.error('waNotification pipeline failed', e); }
 }
 function techWantsNotification(technicianName, eventKey) {
@@ -4579,36 +4586,34 @@ function techWantsNotification(technicianName, eventKey) {
 }
 window.techWantsNotification = techWantsNotification;
 window.logWaNotification = logWaNotification;
-function connectTechWhatsApp(teamId) {
-  showModal({
-    title: 'Connect WhatsApp',
-    body: `
-      <p>Real WhatsApp delivery needs a WhatsApp Business Platform connection, which requires:</p>
-      <ul style="margin:0 0 12px;padding-left:20px;font-size:13.5px;line-height:1.7">
-        <li>A verified WhatsApp Business sender (via Meta or a provider like Twilio)</li>
-        <li>An approved message template for business-initiated alerts</li>
-        <li>A backend server to hold the credentials and call the API — nothing like that exists in this chat/artifact environment</li>
-      </ul>
-      <p class="muted" style="font-size:12.5px">This can't be completed from inside the CRM right now — it needs that backend + provider account set up first. The number below will be saved and ready to use the moment that connection exists.</p>
-    `,
-    onSave: async () => { closeModal(); }
-  });
-  document.getElementById('modalSaveBtn').textContent = 'Got it';
-}
-window.connectTechWhatsApp = connectTechWhatsApp;
-function disconnectTechWhatsApp(teamId) {
-  dbSet('team', teamId, { whatsappStatus: 'not_connected' });
-  toast('Disconnected');
-  openTeamModal(teamId);
+async function disconnectTechWhatsApp(teamId) {
+  try {
+    await dbSet('team', teamId, { whatsappOptIn:false, whatsappStatus:'not_connected' });
+    toast('WhatsApp alerts disabled');
+    openTeamModal(teamId);
+  } catch(e) { toast(e.message,true); }
 }
 window.disconnectTechWhatsApp = disconnectTechWhatsApp;
-function sendTestWhatsApp(teamId) {
+async function sendTestWhatsApp(teamId) {
   const tech = getOne('team', teamId);
-  if (tech?.whatsappStatus === 'connected') {
-    toast('Sending is not available yet', true);
-    return;
-  }
-  toast('WhatsApp isn\'t connected yet for this technician — see "Connect WhatsApp" for what\'s needed', true);
+  if (!tech) return toast('Technician not found', true);
+  if (tech.whatsappOptIn !== true) return toast('Technician WhatsApp opt-in is required', true);
+  const recipient = normalizeToE164(tech.whatsappNumber);
+  if (!recipient) return toast('Save a valid WhatsApp number first', true);
+  if (!confirm(`Send a real WhatsApp test alert to ${tech.name}?`)) return;
+  try {
+    const notificationId = await dbAdd('waNotifications', {
+      technicianName:tech.name, recipientTeamId:tech.id,
+      eventType:'ownerMessage', kind:'ownerMessage',
+      relatedType:'team', relatedId:teamId,
+      message:'EZfix WhatsApp notification test — assignment alerts are enabled for this technician.',
+      status:'pending', failureReason:null, providerMessageId:null,
+    });
+    const result = await callWhatsAppBackend({action:'send',notification_id:notificationId});
+    await refreshCollection('waNotifications');
+    if (result.success) toast('Test WhatsApp accepted by Meta');
+    else toast('Test WhatsApp not sent: ' + (result.status||result.error||'unknown status'), true);
+  } catch(e) { toast(e.message,true); }
 }
 window.sendTestWhatsApp = sendTestWhatsApp;
 
@@ -5535,21 +5540,21 @@ const PRODUCTION_READINESS = {
   ],
   WHATSAPP: [
     ['Per-technician preferences, delivery log, event pipeline', '✅ READY'],
-    ['Real WhatsApp Business Platform connection', '🔴 BLOCKED — no provider connected, verified directly'],
+    ['Real WhatsApp Business Platform connection', '🟡 BACKEND LIVE — Meta Cloud API sender + webhook are deployed; technician recipients require explicit opt-in + a valid number, and provider secret/template readiness is checked separately'],
   ],
   AI: [
     ['Real Anthropic tool-calling core (Test Simulator + Assistant)', '✅ READY'],
     ['Permission levels (automatic/rules/confirm/never)', '✅ READY'],
-    ['Server-side execution of AI + tools', '🔴 BLOCKED — runs client-side today'],
+    ['Server-side execution of AI + tools', '✅ LIVE — Supabase Edge Functions execute protected AI/tool actions with permission and approval boundaries'],
   ],
   TELEPHONY: [
     ['TelephonyAdapter/VoiceAdapter interfaces', '✅ READY'],
     ['Existing T-Mobile number preservation plan', '🟡 PARTIAL — documented and honestly unconnected'],
-    ['Real provider connection', '⚪ NOT STARTED'],
+    ['Real provider connection', '🟡 LIVE for Inkbox inbound call/SMS events; CRM-triggered outbound voice remains pending'],
   ],
   REALTIME: [
     ['RealtimeChannel interface (pub/sub shape)', '✅ READY'],
-    ['Real backend push (WebSocket/SSE)', '⚪ NOT STARTED — nothing subscribed yet'],
+    ['Real backend push (WebSocket/SSE)', '✅ LIVE — Supabase Realtime postgres_changes channel refreshes CRM collections'],
   ],
   BACKUPS: [
     ['CSV export on every major module', '✅ READY'],
@@ -5636,13 +5641,13 @@ const DEV_CHECKLIST = [
   ['— Telephony provider','✅ Inkbox production call/SMS integration'],
   ['— Business phone routing','⬜'],
   ['— Incoming-call webhook','✅ Inkbox webhook deployed in Supabase; call events are persisted and processed'],
-  ['— Realtime frontend connection (WebSocket/SSE)','⬜ — RealtimeChannel interface is built, nothing is subscribed to yet'],
+  ['— Realtime frontend connection (WebSocket/SSE)','✅ Supabase Realtime postgres_changes channel is subscribed and refreshes CRM collections'],
   ['— Speech-to-text','⬜'],
   ['— Text-to-speech','⬜'],
   ['— AI API credentials (server-side)','⬜ — the API call itself already works from this artifact'],
   ['— Webhook verification','✅ Inkbox x-inkbox-signature/request-id/timestamp verified server-side'],
   ['— Call transfer configuration','⬜'],
-  ['— WhatsApp provider/configuration','⬜ — same blocker as the technician WhatsApp feature'],
+  ['— WhatsApp provider/configuration','🟡 Meta Cloud API sender/webhook backend deployed; technician number + explicit opt-in required, provider readiness checked in Team → WhatsApp'],
   ['— Environment secrets','⬜'],
   ['— HTTPS','✅ Vercel + Supabase production HTTPS'],
   ['— Logging/error monitoring','🟡 Supabase/Vercel production logs active; no external paging/alerting layer configured'],
@@ -5651,7 +5656,7 @@ const DEV_CHECKLIST = [
   ['— Test new lead','✅ Production calls have been linked/converted into CRM Leads through the server-side pipeline'],
   ['— Test scheduling','🟡 Appointment preference/request capture is live; definitive booking remains guarded by CRM availability/confirmation flow'],
   ['— Test human takeover','⬜ — UI/architecture only, no real call to take over yet'],
-  ['— Test technician notification','🟡 PARTIAL — logs correctly, blocked on the same WhatsApp provider gap'],
+  ['— Test technician notification','🟡 READY FOR ONBOARDING — Team → WhatsApp can check Meta readiness and send a confirmed real test after number + explicit opt-in are saved'],
   ['— Production activation','🟡 LIVE for inbound call/SMS → CRM workflows; business-number origination and CRM-triggered outbound voice remain pending'],
 ];
 function renderChecklist(content, actions) {
