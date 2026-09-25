@@ -46,9 +46,10 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-25.
 | `ai-approval-decision` | 2 | yes | `68784cc7549ed1aed1f81a941588a2e25d386ed15110bc5a8c1584471b090263` |
 | `ai-service-document-execute` | 2 | yes | `125c6313231f75ac8c306677d167c8a742e5b178d39a37c0a7707bb1e651954c` |
 | `place-inkbox-callback` | 1 | yes | `49c7d42c43c24513aab81693d30ec792d579287b0c9a9b510661c858d5a34a68` |
+| `integration-alert-digest` | 1 | no | `cf8176c50e12cab4777f406bebf2508b5b15d794c499f97e9914005dda12f074` |
 
 ## Source-sync status
 
-All 38 ACTIVE Edge Function slugs returned by Supabase on 2026-09-25 are represented under `supabase/functions/` with an `index.ts`.
+All 39 ACTIVE Edge Function slugs returned by Supabase on 2026-09-25 are represented under `supabase/functions/` with an `index.ts`.
 
 This manifest is a source-control audit record. Source synchronization does not redeploy or invoke live functions.
