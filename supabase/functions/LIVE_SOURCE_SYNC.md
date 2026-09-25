@@ -38,9 +38,9 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-25.
 | `resend-webhook` | 4 | no | `0b4fcc33f5db9c95ab2a4846162b6086e485c86ccf5e390d5cbd93aa6f520d29` |
 | `marketing-connector-readiness` | 3 | yes | `0768c268db37481cd9f59b62ebff9afad9307c5d0fbf910cd66a1a0c8b36d034` |
 | `marketing-oauth-start` | 3 | yes | `e9487010b76edd2120adcd985a990f34bb29bb9d3c2672eb3574010395302938` |
-| `marketing-oauth-callback` | 3 | no | `b12c2b97d625e258fdbbfe2c963d6701e75aa884f1e2a3b3a1ddb88cf1fcddf1` |
+| `marketing-oauth-callback` | 4 | no | `7fc5f13206b01df30afe3d30766c93297ec925fa36f8f3fc9cd29d05fe9ad760` |
 | `google-ads-discover-accounts` | 3 | yes | `c653d223797b297d42ad17b2741865ae62be3110ee4d9d8fcf6213de482e1b24` |
-| `marketing-integration-status` | 1 | yes | `525bd2afa0146ecc893677b90ac12ba06de249a4ea2f5ee3474045cef6aab2a4` |
+| `marketing-integration-status` | 2 | yes | `dc17a5aca80470d9a3e4513bb84dfa22437c303f8b3ad401d3b4da5c6320b23d` |
 | `google-ads-select-account` | 1 | yes | `ae1c70f1aa22825661562878ba15787ab4f6e1d0454b53258269c4cf195c3e29` |
 | `google-ads-sync-readonly` | 2 | yes | `440823e38b71974fbc66285a38348e65135626761290a022770af706b127f169` |
 | `ai-approval-decision` | 2 | yes | `68784cc7549ed1aed1f81a941588a2e25d386ed15110bc5a8c1584471b090263` |
