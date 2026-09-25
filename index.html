@@ -653,7 +653,7 @@ window.applyOfficialBrandLogo=applyOfficialBrandLogo;
 let DB = null;
 let dbReady = false;
 const STORE = { customers: [], leads: [], estimates: [], jobs: [], invoices: [], products: [], team: [], expenses: [], properties: [], tasks: [], warranties: [], suppliers: [], purchaseOrders: [], inspections: [], auditLog: [], galleryProjects: [], manufacturers: [], doorCollections: [], doorModels: [], savedDesigns: [], waNotifications: [], calls: [], inventoryAdjustments: [], smsMessages: [] };
-let SETTINGS = { stripeLink: '', googleReviewLink: '', ccSurchargePercent: 3.5, emailLogoUrl: '', inkboxPhone: { identity:'ashley-ezfixgaragedoorsinc', number:'+1 (413) 961-3223', phoneStatus:'active', smsStatus:'provider_delivery_issue', verifiedAt: Date.now() }, aiReceptionist: { businessKnowledge: '', pricingRules: [], serviceAreas: '', notifyPrefs: { newCall:true, newLead:true, appointmentBooked:true, appointmentCancelled:true, humanRequested:true, urgentCall:true, aiCouldNotResolve:true, commercialLead:true, missedCall:true } } };
+let SETTINGS = { stripeLink: '', googleReviewLink: '', ccSurchargePercent: 3.5, emailLogoUrl: '', inkboxPhone: { identity:'ashley-ezfixgaragedoorsinc', number:'+1 (508) 351-0523', phoneStatus:'active', smsStatus:'provider_delivery_issue', verifiedAt: Date.now() }, aiReceptionist: { businessKnowledge: '', pricingRules: [], serviceAreas: '', notifyPrefs: { newCall:true, newLead:true, appointmentBooked:true, appointmentCancelled:true, humanRequested:true, urgentCall:true, aiCouldNotResolve:true, commercialLead:true, missedCall:true } } };
 const unsub = [];
 let route = { page: "dashboard", id: null };
 let searchTerms = {};
@@ -801,7 +801,7 @@ async function refreshCollection(col){
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
   collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
 }
-async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (413) 961-3223',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
+async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (508) 351-0523',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
 function setSyncState(ok,labelText){ const dot=document.getElementById('syncDot'),label=document.getElementById('syncLabel'); if(dot) dot.classList.toggle('off',!ok); if(label) label.textContent=labelText; }
 async function showAuthGate(){
   let gate=document.getElementById('authGate'); if(gate) return;
@@ -2720,7 +2720,7 @@ function renderCommunications(content, actions) {
             <div style="font-size:10px;opacity:0.7;margin-top:2px">${fmtDate(t.createdAt)} · ${t.status==='delivered'?'Carrier reported delivered':t.status==='sent'?'Sent to carrier':t.status==='delivery_unconfirmed'?'Delivery unconfirmed':labelize(t.status)}</div>
           </div>`).join('')}
         </div>
-        <div style="font-size:11.5px;margin:0 0 7px;color:var(--muted)">Replying to <b style="color:var(--ink)">${esc(smsRec.remotePhoneNumber)}</b> from Ashley <b style="color:var(--ink)">+1 (413) 961-3223</b></div>
+        <div style="font-size:11.5px;margin:0 0 7px;color:var(--muted)">Replying to <b style="color:var(--ink)">${esc(smsRec.remotePhoneNumber)}</b> from Ashley <b style="color:var(--ink)">${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</b></div>
         <textarea id="smsComposerInput" placeholder="Type a reply…" oninput="updateSmsComposerCount()" style="width:100%;min-height:60px;margin-bottom:4px"></textarea>
         <div id="smsComposerCount" style="font-size:11px;opacity:.65;margin-bottom:8px">0 characters · 1 SMS part</div>
         <button id="smsComposerSendBtn" class="btn btn-primary" onclick="sendSmsFromComposer('${smsRec.remotePhoneNumber}', ${smsRec.customerId?`'${smsRec.customerId}'`:'null'}, ${smsRec.leadId?`'${smsRec.leadId}'`:'null'})">Send</button>
@@ -2761,7 +2761,7 @@ function openCustomerSmsComposer(customerId) {
   if (!normalized) return toast('Please save a valid customer phone number before sending SMS.', true);
   showModal({
     title: 'Text ' + (customer.name || normalized),
-    body: `<div class="muted" style="margin-bottom:8px">Sending from Ashley +1 (413) 961-3223 to <b>${esc(normalized)}</b></div>
+    body: `<div class="muted" style="margin-bottom:8px">Sending from Ashley ${esc(SETTINGS.inkboxPhone?.number||'Not configured')} to <b>${esc(normalized)}</b></div>
       <textarea id="customerSmsComposerInput" rows="5" placeholder="Type your message…"></textarea>
       <div class="muted" style="font-size:11.5px;margin-top:6px">The recipient must have opted in to SMS. Delivery is only shown as successful when Inkbox accepts the message.</div>`,
     onSave: async () => {
@@ -2777,7 +2777,7 @@ function openCustomerSmsComposer(customerId) {
         toast(chunks.length>1 ? `${chunks.length} SMS parts submitted to Inkbox` : 'Submitted to Inkbox — awaiting carrier delivery receipt');
         render();
       } catch (e) {
-        if (e.status === 409 && e.data?.code === 'SMS_OPT_IN_REQUIRED') toast('This customer must text START to +1 (413) 961-3223 before EZfix can text them.', true);
+        if (e.status === 409 && e.data?.code === 'SMS_OPT_IN_REQUIRED') toast(`This customer must text START to ${SETTINGS.inkboxPhone?.number||'the EZfix SMS number'} before EZfix can text them.`, true);
         else if (e.status === 409 && e.data?.code === 'SMS_OPTED_OUT') toast('This customer has opted out of SMS.', true);
         else toast('Send failed: ' + (e.message || 'unknown error'), true);
         throw markHandled(e);
@@ -3107,6 +3107,7 @@ function renderLeads(content, actions) {
   let list = STORE.leads.filter(l => !term || [(l.name||''),(l.phone||''),(l.email||'')].some(v=>v.toLowerCase().includes(term)));
   const pendingForMe = isTechnicianView() ? STORE.leads.filter(l=>l.assignedTechnician===VIEW_AS && l.assignmentStatus==='pending') : [];
   if (isTechnicianView()) list = list.filter(l=>l.assignedTechnician===VIEW_AS);
+  const requestedLeadId = route.page==='leads' ? route.id : null;
   content.innerHTML = `
     ${pendingForMe.length ? `
     <div class="panel" style="margin-bottom:16px;border-color:var(--orange)">
@@ -3145,6 +3146,12 @@ function renderLeads(content, actions) {
       </tbody></table>` : emptyState('🎯','No leads yet','Add a lead when a new inquiry comes in.')}
     </div></div>
   `;
+  if (requestedLeadId) {
+    const requestedLead = getOne('leads', requestedLeadId);
+    route.id = null;
+    if (requestedLead) setTimeout(() => openLeadModal(requestedLeadId), 0);
+    else setTimeout(() => toast('The linked lead could not be found. Refresh Leads and try again.', true), 0);
+  }
 }
 const CANCEL_REASONS = ['Price','No response','Competitor','Customer postponed','Duplicate','Outside service area','Parts unavailable','Other'];
 const ESTIMATE_OPTION_LABELS = ['','Option 1 — Repair','Option 2 — Recommended Repair','Option 3 — Replacement / Premium Solution'];
@@ -3262,10 +3269,13 @@ function openLeadModal(id) {
         serviceRequested: document.getElementById('f_service').value.trim(),
         estimatedValue: parseFloat(document.getElementById('f_value').value)||0,
         preferredAppointment: document.getElementById('f_preferred').value,
-        assignedTechnician: newTech, assignedTechnicianId: newTechId || null,
-        assignmentStatus: newTech ? (techChanged ? 'pending' : (l?.assignmentStatus||'pending')) : '',
-        lastContact: document.getElementById('f_lastcontact').value,
-        nextFollowUp: document.getElementById('f_nextfollowup').value,
+        ...(techChanged || !l ? {
+          assignedTechnician: newTech,
+          assignedTechnicianId: newTechId || null,
+          assignmentStatus: newTech ? (techChanged ? 'pending' : (l?.assignmentStatus||'pending')) : null,
+        } : {}),
+        lastContact: document.getElementById('f_lastcontact').value || null,
+        nextFollowUp: document.getElementById('f_nextfollowup').value || null,
         status: document.getElementById('f_status').value,
         notes: document.getElementById('f_notes').value.trim(),
         ...(docPhotosDirty || !l ? { photos: docPhotosDraft.filter(p=>!p.uploading) } : {}),
@@ -5856,7 +5866,7 @@ const PRODUCTION_READINESS = {
     ['Production integration health monitoring', '✅ LIVE — Dashboard surfaces WhatsApp/SMS/call/task/Square issues and a privacy-preserving Owner email digest runs every 15 minutes via Supabase Cron + Resend for new failures only'],
   ],
   DEPLOYMENT: [
-    ['Domain/hosting', '✅ LIVE — Vercel production hosting is active on protected vercel.app project domains; a custom branded CRM domain is optional and not configured yet'],
+    ['Domain/hosting', '⚪ NOT STARTED'],
     ['Environment/secrets architecture', '✅ READY — browser uses only Supabase public URL/publishable key; Square, Inkbox, Meta, Google OAuth/Ads, Resend and service-role credentials stay server-side in Edge Function environment variables; guarded by secrets-boundary audit'],
   ],
 };
@@ -7402,7 +7412,7 @@ function renderAiReceptionist(content, actions) {
       <div class="panel-body pad" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
           <b>📞 Ashley / Inkbox:</b> <span style="color:var(--success);font-weight:800">🟢 CRM BRIDGE CONNECTED</span>
-          &nbsp;·&nbsp; <b>Number:</b> <span class="badge badge-won">+1 (413) 961-3223</span> <span class="muted" style="font-size:11.5px">(calls/transcripts + SMS bridge; outbound SMS carrier delivery is under investigation)</span>
+          &nbsp;·&nbsp; <b>Number:</b> <span class="badge badge-won">${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</span> <span class="muted" style="font-size:11.5px">(calls/transcripts + SMS bridge; outbound SMS carrier delivery is under investigation)</span>
         </div>
         <button class="btn btn-sm" onclick="showReceptionistSetupInfo()">What's needed?</button>
       </div>
@@ -7426,18 +7436,18 @@ function renderAiReceptionist(content, actions) {
 function renderPhoneConnection(body) {
   const statusLabel = { not_configured:'⚪ Not Configured', setup_required:'🟡 Setup Required', connecting:'🟡 Connecting', connected:'🟢 Connected', error:'🔴 Error' };
   body.innerHTML = `
-    <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>Current Phone</h3></div>
+    <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>EZfix Business / Human Transfer</h3></div>
       <div class="panel-body pad">
         <div class="kv"><div class="k">Carrier</div><div>${esc(TelephonyAdapter.currentCarrier)}</div></div>
         <div class="kv"><div class="k">Number</div><div>${esc(TelephonyAdapter.businessNumber)} <span class="muted">(existing EZfix business number)</span></div></div>
         <div class="kv"><div class="k">Number Strategy</div><div>● Keep Existing Number</div></div>
         <div class="kv"><div class="k">AI Receptionist</div><div style="color:var(--success);font-weight:800">🟢 Ashley connected through Inkbox</div></div>
-        <div class="kv"><div class="k">Ashley Number</div><div>+1 (413) 961-3223</div></div>
+        <div class="kv"><div class="k">Human Transfer</div><div>${esc(SETTINGS.ai_receptionist?.humanTransferNumber||TelephonyAdapter.businessNumber)}</div></div>
         <p class="muted" style="font-size:12.5px;margin:10px 0 0">Your T-Mobile number is not touched by anything in this CRM. Nothing here can port, disconnect, or modify it — that only happens if you explicitly do it later, outside this app.</p>
       </div>
     </div>
 
-    <div class="panel" style="margin-bottom:16px;border-color:var(--orange)"><div class="panel-head"><h3>📱 Inkbox Dedicated Number (separate from T-Mobile)</h3></div>
+    <div class="panel" style="margin-bottom:16px;border-color:var(--orange)"><div class="panel-head"><h3>📱 Ashley AI / Inkbox</h3></div>
       <div class="panel-body pad">
         ${SETTINGS.inkboxPhone?.number ? `
         <div class="kv"><div class="k">Provider</div><div>Inkbox</div></div>
@@ -7455,7 +7465,7 @@ function renderPhoneConnection(body) {
 
     <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>Ashley Integration Architecture</h3></div>
       <div class="panel-body pad" style="font-size:13px;line-height:1.7">
-        <p style="margin-top:0"><b>Ashley / Inkbox · +1 (413) 961-3223</b> is the AI receptionist identity used for calls, SMS, call history and transcripts.</p>
+        <p style="margin-top:0"><b>Ashley / Inkbox · ${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</b> is the AI receptionist identity used for calls, SMS, call history and transcripts.</p>
         <p><b>EZfix T-Mobile · +1 (774) 244-5533</b> remains the existing business line and is not replaced, ported, or reconfigured by this CRM.</p>
         <p><b>Supabase backend</b> stores Inkbox webhook events, SMS lifecycle state, call records and transcripts. The browser receives CRM table changes through Supabase Realtime.</p>
       </div>
@@ -7478,7 +7488,7 @@ window.attemptConnectPhoneProvider = attemptConnectPhoneProvider;
 function showReceptionistSetupInfo() {
   showModal({
     title: 'Ashley / Inkbox connection',
-    body: `<div style="font-size:13.5px;line-height:1.8"><p><b>Ashley is the existing Inkbox AI receptionist.</b> Her dedicated number is +1 (413) 961-3223.</p><p>The CRM uses Supabase Edge Functions for Inkbox credentials/webhooks and Supabase Realtime for live CRM data updates. The existing +1 (774) 244-5533 T-Mobile business line stays separate.</p><p>Current open issue: Inkbox is returning carrier delivery receipts for outbound SMS that are not appearing on test handsets. Support escalation is in progress.</p></div>`,
+    body: `<div style="font-size:13.5px;line-height:1.8"><p><b>Ashley is the existing Inkbox AI receptionist.</b> Her dedicated number is ${esc(SETTINGS.inkboxPhone?.number||'not configured')}.</p><p>The CRM uses Supabase Edge Functions for Inkbox credentials/webhooks and Supabase Realtime for live CRM data updates. The existing +1 (774) 244-5533 T-Mobile business line stays separate.</p><p>Current open issue: Inkbox is returning carrier delivery receipts for outbound SMS that are not appearing on test handsets. Support escalation is in progress.</p></div>`,
     saveLabel: 'Close', onSave: async()=>closeModal()
   });
 }
@@ -7694,7 +7704,7 @@ window.ingestInkboxCall = ingestInkboxCall;
 function renderCallHistory(body) {
   const list = [...STORE.calls].sort((a,b)=>new Date(b.startedAt||b.createdAt||0)-new Date(a.startedAt||a.createdAt||0));
   body.innerHTML = `
-    ${IS_OWNER ? `<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>📞 Inkbox Call Sync</h3><button class="btn btn-sm btn-primary" onclick="syncCallsNow(this)">Sync calls now</button></div><div class="panel-body pad" style="font-size:12px;color:var(--muted)">Ashley AI Receptionist · +1 (413) 961-3223. Call history and transcripts sync securely from Inkbox. Completed calls are analyzed server-side and can automatically create or link CRM leads without exposing the Inkbox API key.</div></div>` : ''}
+    ${IS_OWNER ? `<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>📞 Inkbox Call Sync</h3><button class="btn btn-sm btn-primary" onclick="syncCallsNow(this)">Sync calls now</button></div><div class="panel-body pad" style="font-size:12px;color:var(--muted)">Ashley AI Receptionist · ${esc(SETTINGS.inkboxPhone?.number||'Not configured')}. Call history and transcripts sync securely from Inkbox. Completed calls are analyzed server-side and can automatically create or link CRM leads without exposing the Inkbox API key.</div></div>` : ''}
     <div class="panel"><div class="panel-body">
       ${list.length ? list.map(c=>`<div class="kv clickable" onclick="viewCallDetail('${c.id}')">
         <div class="k">${fmtDate(c.startedAt||c.createdAt)}</div>
@@ -7901,7 +7911,7 @@ function renderSettings(content, actions) {
   content.innerHTML = `
     <h3 class="section-label">Integrations — Inkbox SMS/Voice</h3>
     <div class="panel" style="margin-bottom:16px"><div class="panel-body pad">
-      <div class="kv"><div class="k">Inkbox Number</div><div>+1 (413) 961-3223</div></div>
+      <div class="kv"><div class="k">Inkbox Number</div><div>${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</div></div>
       <div class="kv"><div class="k">Bridge configured</div><div>${SupabaseCommunicationBridge.configured() ? '🟢 Yes' : '🔴 No — anon key not set (see Dev Checklist)'}</div></div>
       <div class="kv"><div class="k">Last inbound SMS received</div><div>${lastInboundSms ? fmtDate(lastInboundSms.receivedAt) : 'None yet'}</div></div>
       <div class="kv"><div class="k">Total SMS synced</div><div>${STORE.smsMessages.length}</div></div>
@@ -8554,7 +8564,6 @@ window.startOfWeek = startOfWeek; window.addDays = addDays;
 async function setJobStatus(jobId, status) {
   const j = getOne('jobs', jobId);
   if (!j) return;
-  if (status === 'completed') return signJobCompletion(jobId);
   await updateJobStatusWithHistory(jobId, status);
   logAudit('status_changed', `Status → ${labelize(status)}`, 'jobs', jobId);
   toast('Status: ' + labelize(status));
@@ -8618,7 +8627,7 @@ function openJobModal(id, presetCustomerId) {
       <label class="field"><span class="lbl">Technician</span>${technicianPickerHtml(j?.technicianId, j?.technician, 'f_tech')}</label>
       ${jobPhotoUploaderHtml()}
       <label class="field"><span class="lbl">Status</span>
-        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed').map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
+        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
       </label>
       <div id="cancelReasonWrap" style="display:${j?.status==='cancelled'?'block':'none'}">
         <label class="field"><span class="lbl">Cancellation reason</span>
