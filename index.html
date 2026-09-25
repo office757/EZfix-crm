@@ -4411,12 +4411,24 @@ function teamMemberPickerHtml(selectedId, selectedName, inputIdPrefix, roleFilte
 function technicianPickerHtml(selectedId, selectedName, inputIdPrefix) {
   return teamMemberPickerHtml(selectedId, selectedName, inputIdPrefix, 'Technician');
 }
+function whatsappRecipientState(member) {
+  const isTech = String(member?.role||'').toLowerCase()==='technician';
+  if (!isTech) return { ready:false, label:'—', badge:'draft' };
+  const optIn = member?.whatsappOptIn === true;
+  const number = normalizeToE164(member?.whatsappNumber);
+  if (optIn && number) return { ready:true, label:'Ready', badge:'won' };
+  if (optIn && !number) return { ready:false, label:'Number Required', badge:'lost' };
+  return { ready:false, label:'Opt-in Required', badge:'contacted' };
+}
 function renderTeam(content, actions) {
   if (isTechnicianView()) { go('dashboard'); return; }
   if (route.id) return renderTeamDetail(content, actions, route.id);
   actions.innerHTML = `<button class="btn btn-primary" onclick="openTeamModal()">+ Add team member</button>`;
   const list = [...STORE.team].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const migration = analyzeTechnicianMigration();
+  const techMembers = list.filter(m=>String(m.role||'').toLowerCase()==='technician');
+  const waReadyCount = techMembers.filter(m=>whatsappRecipientState(m).ready).length;
+  const waNeedsSetup = techMembers.length - waReadyCount;
   content.innerHTML = `
     <div class="panel" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="font-size:13px;line-height:1.6">
@@ -4424,13 +4436,19 @@ function renderTeam(content, actions) {
       </div>
     </div>
     ${(migration.safe.length || migration.unresolved.length || migration.ambiguous.length) ? renderTechMigrationPanel(migration) : ''}
+    <div class="stat-grid" style="margin-bottom:16px">
+      <div class="stat-card"><div class="label">Technicians</div><div class="value">${techMembers.length}</div></div>
+      <div class="stat-card"><div class="label">WhatsApp Ready</div><div class="value">${waReadyCount}</div></div>
+      <div class="stat-card ${waNeedsSetup?'accent':''}"><div class="label">Need WhatsApp Setup</div><div class="value">${waNeedsSetup}</div></div>
+    </div>
     <div class="panel"><div class="panel-body">
-      ${list.length ? `<table class="list"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Today</th><th>Upcoming</th><th>Phone</th></tr></thead><tbody>
+      ${list.length ? `<table class="list"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Today</th><th>Upcoming</th><th>Phone</th><th>WhatsApp</th></tr></thead><tbody>
         ${list.map(m=>{
           const isTech = m.role==='Technician';
           const myJobs = isTech ? STORE.jobs.filter(j => j.technicianId ? j.technicianId===m.id : j.technician===m.name) : [];
           const todayCount = myJobs.filter(j=>j.scheduledDate===todayISO() && j.status!=='cancelled').length;
           const upcomingCount = myJobs.filter(j=>j.scheduledDate>todayISO() && !['completed','cancelled'].includes(j.status)).length;
+          const wa = whatsappRecipientState(m);
           return `<tr class="clickable" onclick="go('team','${m.id}')">
           <td class="name-cell">${esc(m.name)}${techStatus(m)!=='Active'?` <span class="badge badge-contacted">${techStatus(m)}</span>`:''}</td>
           <td><span class="badge badge-scheduled">${esc(m.role||'—')}</span></td>
@@ -4438,6 +4456,7 @@ function renderTeam(content, actions) {
           <td>${isTech ? todayCount : '—'}</td>
           <td>${isTech ? upcomingCount : '—'}</td>
           <td>${esc(m.phone||'—')}</td>
+          <td><span class="badge badge-${wa.badge}">${esc(wa.label)}</span></td>
         </tr>`;
         }).join('')}
       </tbody></table>` : emptyState('👥','No team members listed yet','Add your office staff and technicians so you can assign jobs to them by name.')}
@@ -4572,7 +4591,7 @@ async function applyTechMapping(legacyName, technicianId) {
 window.applyTechMapping = applyTechMapping;
 function openTeamModal(id) {
   const m = id ? getOne('team', id) : null;
-  const waNumber = m?.whatsappNumber || '';
+  const waNumber = m?.whatsappNumber || normalizeToE164(m?.phone) || m?.phone || '';
   const waOptIn = m?.whatsappOptIn === true;
   const waReady = !!normalizeToE164(waNumber) && waOptIn;
   const waIcon = waReady ? '🟢' : '⚪';
