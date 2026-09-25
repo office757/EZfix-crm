@@ -8697,7 +8697,7 @@ function openJobModal(id, presetCustomerId) {
       const newDate = document.getElementById('f_date').value;
       const dateChanged = newDate !== (j?.scheduledDate||'');
       const data = {
-        jobNumber: j?.jobNumber || nextNumber('jobs','JOB'),
+        ...(j?.jobNumber ? { jobNumber: j.jobNumber } : {}),
         title, customerId, customerName: cust.name,
         scheduledDate: newDate,
         appointmentWindow: document.getElementById('f_window').value,

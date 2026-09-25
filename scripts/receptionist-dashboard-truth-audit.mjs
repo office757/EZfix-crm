@@ -16,5 +16,6 @@ ok(s.includes("86. INKBOX SMS ↔ SUPABASE ↔ CRM BRIDGE', '✅ LIVE"),'SMS che
 ok(s.includes("Production backend','✅ Supabase Edge Functions + PostgreSQL"),'production backend checklist reflects current stack');
 ok(s.includes("Incoming-call webhook','✅ Inkbox webhook deployed in Supabase"),'incoming webhook checklist reflects production');
 ok(s.includes("Webhook verification','✅ Inkbox x-inkbox-signature/request-id/timestamp verified server-side"),'webhook signature verification is documented');
-ok(s.includes("Production activation','🟡 LIVE for inbound call/SMS → CRM workflows"),'production activation distinguishes live inbound from pending outbound');
+ok(s.includes("Production activation','🟡 LIVE for inbound call/SMS → CRM and owner-controlled consent-gated AI callbacks"),'production activation reflects live inbound and consent-gated outbound callbacks');
+ok(s.includes('T-Mobile origination and live transfer/join remain pending'),'production activation keeps remaining telephony limits explicit');
 console.log(n+'/'+n+' receptionist dashboard truth assertions passed');
