@@ -5815,8 +5815,8 @@ const PRODUCTION_READINESS = {
   ],
   BACKUPS: [
     ['CSV export on every major module', '✅ READY'],
-    ['Automated database backups', '⚪ NOT STARTED'],
-    ['Migration rollback plan', '⚪ NOT STARTED'],
+    ['Automated database backups', '🟡 VERIFY IN SUPABASE — paid plans receive scheduled backups, but this connected tooling cannot enumerate the project backup list/retention; verify Database → Backups before relying on restore'],
+    ['Migration rollback plan', '✅ READY — docs/PRODUCTION_RECOVERY_RUNBOOK.md defines Vercel rollback, Edge Function redeploy, forward-fix migrations, DB restore/PITR criteria, Storage caveats and Owner approval boundaries'],
   ],
   MONITORING: [
     ['Audit Log (actor/action/entity/source/timestamp)', '✅ READY'],
