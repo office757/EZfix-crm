@@ -1528,19 +1528,20 @@ function renderDashboard(content, actions) {
   const overdueInvoices = STORE.invoices.filter(i=>balanceDue(i)>0 && i.dueTerm==='On Receipt' && i.date && i.date<today);
   const nextAppointment = [...STORE.jobs].filter(j=>j.scheduledDate && j.scheduledDate>=today && !['completed','cancelled'].includes(j.status)).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate))[0];
   const recentEvents = [...STORE.auditLog].sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
-  const callsToday = STORE.calls.filter(c=>c.createdAt && fmtDate(c.createdAt)===fmtDate(Date.now()));
-  const leadsFromCallsToday = STORE.leads.filter(l=>l.source==='AI Phone Receptionist' && l.createdAt && fmtDate(l.createdAt)===fmtDate(Date.now()));
-  const apptsFromAiToday = STORE.auditLog.filter(a=>a.source==='ai_receptionist' && a.action==='appointment_scheduled' && a.createdAt && fmtDate(a.createdAt)===fmtDate(Date.now()));
+  const callsToday = STORE.calls.filter(c=>c.providerCallId && c.createdAt && fmtDate(c.createdAt)===fmtDate(Date.now()));
+  const linkedLeadIdsToday = new Set(callsToday.map(c=>c.leadId).filter(Boolean));
+  const appointmentRequestsToday = callsToday.filter(c=>c.leadExtraction?.preferredServiceWindow || c.leadExtraction?.preferred_service_window);
+  const missedCallsToday = callsToday.filter(c=>String(c.outcome||'').toLowerCase()==='missed');
 
   content.innerHTML = `
     <div class="panel" style="margin-bottom:16px">
-      <div class="panel-head"><h3>📞 Phone</h3><span class="badge badge-quoted">🧪 Test Mode</span></div>
+      <div class="panel-head"><h3>📞 Phone</h3><span class="badge badge-paid">● Live Data</span></div>
       <div class="panel-body pad">
         <div class="stat-grid" style="margin-bottom:0">
           <div class="stat-card"><div class="label">Calls Today</div><div class="value">${callsToday.length}</div></div>
-          <div class="stat-card"><div class="label">New Leads From Calls</div><div class="value">${leadsFromCallsToday.length}</div></div>
-          <div class="stat-card"><div class="label">Appointments Booked</div><div class="value">${apptsFromAiToday.length}</div></div>
-          <div class="stat-card"><div class="label">Missed Calls</div><div class="value">0</div></div>
+          <div class="stat-card"><div class="label">Linked Leads</div><div class="value">${linkedLeadIdsToday.size}</div></div>
+          <div class="stat-card"><div class="label">Appointment Requests</div><div class="value">${appointmentRequestsToday.length}</div></div>
+          <div class="stat-card"><div class="label">Missed Calls</div><div class="value">${missedCallsToday.length}</div></div>
         </div>
         <div style="margin-top:10px"><button class="btn btn-sm" onclick="go('receptionist')">Open AI Receptionist →</button></div>
       </div>
@@ -5616,42 +5617,42 @@ const DEV_CHECKLIST = [
   ['63-64. Settings/Business Profile','🟡 PARTIAL — payment link settings exist; business info still hardcoded from original setup'],
   ['65. Branding','✅ COMPLETE — black/orange, real logo throughout'],
   ['66-67. Performance/Data Integrity','✅ COMPLETE for current scale — clean single-source-of-truth collections'],
-  ['68. Security','🔌 REQUIRES PRODUCTION BACKEND for true auth; uses Claude\'s real sharing/roles today'],
+  ['68. Security','✅ LIVE — Supabase Auth, RLS, server-side RPC/Edge Function authorization, signed webhooks, audit logging and production security regression checks are active.'],
   ['69-70. Backups/Export/Import','✅ COMPLETE — CSV export everywhere + CSV customer import with dedupe warning'],
-  ['71-72. AI Safety/Context','🔌 REQUIRES PRODUCTION BACKEND'],
+  ['71-72. AI Safety/Context','✅ LIVE — AI actions use server-side permissions, catalog-bound pricing, approval gates, role checks and audited execution paths.'],
   ['73-74. Command Bar/Quick Create','🟡 PARTIAL — Global search + Dashboard quick actions; not a unified command bar'],
   ['75-77. Empty States/Errors/Feedback','✅ COMPLETE — throughout'],
   ['78-79. Responsive/Accessibility','🟡 PARTIAL — responsive done; formal accessibility audit not performed'],
-  ['80. AI RECEPTIONIST — PRODUCTION CONNECTION','⬜ NOT STARTED — see checklist below; the AI core (test simulator, tool-calling, permissions, pricing rules) is ✅ COMPLETE and needs none of this to keep working'],
+  ['80. AI RECEPTIONIST — PRODUCTION CONNECTION','✅ LIVE — Supabase/Inkbox production call data is loaded into CRM, server-side call processing and lead/customer linking are active, and the simulator remains a separate test tool.'],
   ['81. VOICE AI (INKBOX) — BUSINESS NUMBER', '🟡 BLOCKED (no supported path found) — verified directly via inkbox_channel_status_get: phone.assigned=false, phone.number=null. A real test call\'s raw record shows origin="shared_imessage_number" and local_phone_number=null, confirming the test used a shared Inkbox number, not the EZfix T-Mobile line (774-244-5533). Researched Inkbox\'s own documentation directly (inkbox.ai/docs/api/phone, GitHub SDK/CLI repos): outbound calls support exactly two origination modes, dedicated_number (a NEW Inkbox-provisioned number) and shared_imessage_number — no mention of BYOC, SIP trunking, or external-carrier caller ID anywhere in real Inkbox docs. A dedicated search for Inkbox+BYOC/porting/SIP returned zero Inkbox-specific results. No porting, replacement, or disconnection of the T-Mobile number has occurred or is planned.'],
   ['82. VOICE AI (INKBOX) — CALL INITIATION', '🟡 REAL CAPABILITY EXISTS, NOT REACHABLE FROM THIS ENVIRONMENT — Inkbox\'s own CLI/SDK do support outbound call initiation (`inkbox phone call --hosted --reason "..."`, confirmed via inkbox-ai/inkbox on GitHub), but the Inkbox MCP surface connected to this chat exposes only inkbox_calls_list and inkbox_call_get (read-only) — verified by exhaustive tool search, no call-initiation tool of any kind is available here. An "AI Call" button needs a production backend holding a real Inkbox API key to call this.'],
-  ['83. VOICE AI (INKBOX) — CALL-TO-LEAD PIPELINE', '🟡 ARCHITECTURE READY, MANUAL IMPORT ONLY. Built and tested against a real captured call: normalizeInkboxCall(), extractLeadDraftFromCall() (never fabricates structured fields Inkbox doesn\'t provide), ingestInkboxCall() (idempotent, links existing customers, creates a real Lead, single notification). Confirmed via Inkbox\'s own documentation (inkbox.ai/docs/api/phone): a real Webhook Subscriptions API exists, and call.ended is delivered via a subscription on the agent identity, HMAC-signed with an Inkbox signing key — this is the correct production transport (`inkbox webhook subscription create --agent-identity-id <id> --url <backend-url> --event-type call.ended`). This artifact cannot host a real webhook receiver. Call History has a clearly-labeled "Manual Inkbox Import — Development Tool" for testing only.'],
-  ['84. VOICE AI (INKBOX) — APPROVED PRODUCTION CONNECTION PLAN', '🟡 PLAN APPROVED, NOT IMPLEMENTED. Backend design: POST /webhooks/inkbox (verifies HMAC via INKBOX_SIGNING_KEY, idempotent on providerCallId, calls the existing normalizeInkboxCall()/ingestInkboxCall() server-side — not reimplemented) and POST /api/voice/call (auth’d, scoped-context outbound call trigger via Inkbox\'s real API). INKBOX_API_KEY and INKBOX_SIGNING_KEY are backend-only secrets, never in frontend code. 9-step staged test plan defined (signature check through duplicate-webhook and no-lead-info cases) before LIVE is permitted. Current final states: VOICE → CRM LEAD: READY FOR CONNECTION. CRM → AI OUTBOUND CALL: READY FOR CONNECTION. EZFIX T-MOBILE NUMBER → INKBOX: BLOCKED / NO VERIFIED SUPPORTED PATH. PRODUCTION BACKEND: REQUIRED — NOT YET DEPLOYED. MANUAL INKBOX IMPORT: DEVELOPMENT/DIAGNOSTIC TOOL ONLY. Owner still needs to obtain an Inkbox API key, an Inkbox webhook signing key, and stand up a backend host — none of which exist yet.'],
-  ['85. TECHNICIAN AUTHENTICATION & AUTHORIZATION', '🔴 BLOCKED AT THE ENVIRONMENT LEVEL — verified by reading the exact code, not assumed. claude.use(\'user\') exposes only isOwner() and canEdit() — two booleans, no user ID, no email, no name. There is no way for this environment to tell one real technician session apart from another. Separately, DB = await claude.use(\'db\') is a direct client-side handle — every dbAdd/dbSet/get call goes straight from the browser to the database with no server-side authorization layer, so a client-side canViewX() check can gate this app\'s own UI but cannot stop a direct DB call. Built the honest, correct, parameterized authorization interface layer anyway (canViewJob/canViewLead/canViewCustomer/canViewCall/canViewCommunication) — real logic, fail-closed on missing identity, ready for a future real backend to reuse verbatim, but NOT wired to any real per-technician session today since none can exist here. Added an authUserId field to Team records, explicitly labeled "not functional yet." Relabeled VIEW_AS to "Preview as Technician (owner testing only — not a security control)" so it can never be mistaken for real authorization. Production requirement: real backend-based authentication (any provider) that issues a stable, distinct user ID per technician, plus server-side enforcement at the database layer — client-side checks alone cannot be the security boundary once that exists.'],
-  ['86. INKBOX SMS ↔ SUPABASE ↔ CRM BRIDGE', '🟡 CODE READY, OWNER ACTION REQUIRED, NOT YET REAL-WORLD TESTED. Real inbound SMS, outbound submission, text.sent, and text.delivered were all proven at the Supabase/Inkbox layer directly. This entry covers the NEW code connecting that proven infrastructure to the CRM itself: SupabaseCommunicationBridge (the one place in the CRM that knows Supabase exists), two new narrow Edge Functions (list-inkbox-events, ack-inkbox-event — service role stays server-side, RLS respected, never expose raw_event unnecessarily), a new minimal smsMessages collection (evolving lifecycle state genuinely needs mutable storage, unlike one-shot audit entries), phone normalization/matching (exact-match only, ambiguous cases flagged for owner review, never fuzzy), a status-precedence guard (terminal states like delivered/failed can never be downgraded by an out-of-order or duplicate event), and a real two-way SMS thread view wired into the existing Communications Center. OWNER ACTION REQUIRED: the Supabase anon/publishable key (from Settings -> API in the Supabase dashboard — safe to embed, this is its intended purpose, unlike the shared-secret approach correctly rejected earlier) needs to be added where SUPABASE_ANON_KEY is marked in the code before any of this can function. Polling is real but is periodic (every 20s while Communications is open, paused when the tab is hidden) — never labeled realtime.'],
+  ['83. VOICE AI (INKBOX) — CALL-TO-LEAD PIPELINE', '✅ LIVE — Inkbox events/calls are synchronized through Supabase, processed server-side, deduplicated by provider call identity, and linked to a unique Customer or Lead only when identity is unambiguous. Ambiguous cases fail closed for review.'],
+  ['84. VOICE AI (INKBOX) — PRODUCTION CONNECTION STATUS', '🟡 PARTIAL LIVE — inbound Inkbox webhook + call-ended ingestion + hosted-agent guardrail sync are deployed and signature-verified in Supabase. Call → CRM linking is live. Remaining gaps: CRM-initiated outbound voice calling is not wired to a callable backend action, and no verified supported path has been established for using the existing T-Mobile business number as Inkbox origination.'],
+  ['85. TECHNICIAN AUTHENTICATION & AUTHORIZATION', '✅ LIVE — Supabase Auth supplies stable user identities; Team rows are linked by auth_user_id; production currently has active Owner and Technician logins; RLS/RPC/Edge Function checks enforce server-side role and assignment boundaries. Owner preview-as-technician remains only a UI testing control.'],
+  ['86. INKBOX SMS ↔ SUPABASE ↔ CRM BRIDGE', '✅ LIVE — inbound and outbound SMS, delivery lifecycle, consent enforcement, exact phone matching, ambiguity handling, technician authorization and CRM thread display are active through Supabase/Inkbox. Provider rejection and unknown-delivery outcomes are tracked separately and duplicate/out-of-order events cannot downgrade terminal state.'],
 
-  ['— Production backend','⬜'],
-  ['— Database connection','⬜ (currently the artifact db — fine to keep, or migrate)'],
-  ['— Telephony provider (Twilio/Vonage/SIP)','⬜'],
+  ['— Production backend','✅ Supabase Edge Functions + PostgreSQL'],
+  ['— Database connection','✅ Supabase PostgreSQL production database'],
+  ['— Telephony provider','✅ Inkbox production call/SMS integration'],
   ['— Business phone routing','⬜'],
-  ['— Incoming-call webhook','⬜'],
+  ['— Incoming-call webhook','✅ Inkbox webhook deployed in Supabase; call events are persisted and processed'],
   ['— Realtime frontend connection (WebSocket/SSE)','⬜ — RealtimeChannel interface is built, nothing is subscribed to yet'],
   ['— Speech-to-text','⬜'],
   ['— Text-to-speech','⬜'],
   ['— AI API credentials (server-side)','⬜ — the API call itself already works from this artifact'],
-  ['— Webhook verification','⬜'],
+  ['— Webhook verification','✅ Inkbox x-inkbox-signature/request-id/timestamp verified server-side'],
   ['— Call transfer configuration','⬜'],
   ['— WhatsApp provider/configuration','⬜ — same blocker as the technician WhatsApp feature'],
   ['— Environment secrets','⬜'],
-  ['— HTTPS','⬜'],
-  ['— Logging/error monitoring','⬜'],
-  ['— Test incoming call','⬜'],
-  ['— Test existing customer recognition','✅ works today in the Test Simulator (find_customer_by_phone)'],
-  ['— Test new lead','✅ works today in the Test Simulator (create_lead)'],
-  ['— Test scheduling','✅ works today in the Test Simulator (get_schedule_availability + create_appointment)'],
+  ['— HTTPS','✅ Vercel + Supabase production HTTPS'],
+  ['— Logging/error monitoring','🟡 Supabase/Vercel production logs active; no external paging/alerting layer configured'],
+  ['— Test incoming call','✅ Real Inkbox provider calls are present in production Call History'],
+  ['— Test existing customer recognition','✅ Production calls have been linked to existing Customers using unique identity matching'],
+  ['— Test new lead','✅ Production calls have been linked/converted into CRM Leads through the server-side pipeline'],
+  ['— Test scheduling','🟡 Appointment preference/request capture is live; definitive booking remains guarded by CRM availability/confirmation flow'],
   ['— Test human takeover','⬜ — UI/architecture only, no real call to take over yet'],
   ['— Test technician notification','🟡 PARTIAL — logs correctly, blocked on the same WhatsApp provider gap'],
-  ['— Production activation','⬜'],
+  ['— Production activation','🟡 LIVE for inbound call/SMS → CRM workflows; business-number origination and CRM-triggered outbound voice remain pending'],
 ];
 function renderChecklist(content, actions) {
   if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
