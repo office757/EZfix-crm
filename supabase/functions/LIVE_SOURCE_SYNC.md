@@ -9,7 +9,7 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-25.
 | Function | Version | JWT | Live SHA-256 |
 | --- | ---: | :---: | --- |
 | `inkbox-webhook` | 14 | no | `ca78c6452ace9a92eae5c4b172daa4fd3100cafc95b5691b0efb3aeb0396a7d8` |
-| `hyper-action` | 4 | no | `d300f7c9e0db4ef4c32e02d29066794b80e37429b037475e77402b7922657def` |
+| `hyper-action` | 5 | yes | `84b23d68498a828874cd78349934acbefcdae561de55dfd86f293eca30c9c895` |
 | `send-inkbox-sms` | 22 | yes | `409e8de9c4e7b7ef6d010ca404af28deb9eee961a3e482ada62324304ae85993` |
 | `list-inkbox-events` | 6 | yes | `24bc8850c8ebd387c7c23310169f7929bfdfd7f81cb5c5947116a3d3fd8702ed` |
 | `ack-inkbox-event` | 6 | yes | `336de3a1ac41bc8f3c4d4a75542dd695528e2850bc78f9d416fa93e96f06a28d` |
@@ -21,13 +21,13 @@ Verified against Supabase project `fylbalenuqpovwncwbah` on 2026-09-25.
 | `ai-manager-tools` | 24 | yes | `5ee2fa373f5d1b4c24e90f33d8ae79b048bdd947046ae61b150d63c2c771bf50` |
 | `invoice-email-preview` | 12 | yes | `dfb53740ecb66ae58f7c5f68e52d5c61e28a56efaa37ffa4417ae04e3baefe1d` |
 | `invite-team-user` | 4 | yes | `378f65ed7afdf6d791ec96d577ffb95b594acb1740d9c037a1dfbd9fc86cce9c` |
-| `send-whatsapp-notification` | 3 | yes | `c087d69d81d2b059d562a8e8abcb14c9cba6445cbe52e45e2653aaf78bd1bc7f` |
+| `send-whatsapp-notification` | 4 | yes | `4c12f6d4f97980ed0cb7f28ca238dc53ae97d85ec3dd4d3f51bba87258757a0a` |
 | `whatsapp-webhook` | 10 | no | `99bba9393f08d95ffdd4045af5ab038a84461bb71455fbc01f497fddd67bae97` |
 | `record-website-sms-consent` | 3 | no | `db553e68a475a909d8b21dda793b1bfc9fd17a8f0ac66b04acb467c6409cee66` |
 | `google-ads-readonly` | 4 | yes | `c9333939f5368716417cd07cbcfbe47523492ea0c8fdd73d536c4246b7bf69b6` |
 | `ai-technician-assistant` | 10 | yes | `76ab88eb233820cb75ab2e7dd1305ecc79a641e0d5c3d81cd3880b3bbe96b1f8` |
 | `ai-service-document-approval` | 8 | yes | `4874e25e50047aa656036477aea3f3427d2bc709fcd5ad68a7d3a35896de6681` |
-| `website-lead-webhook` | 10 | no | `962439a29f1cf90b444bea4c67a434761b52514801c17a1f90438f36d3334f5f` |
+| `website-lead-webhook` | 11 | no | `5ab669dbc86238f90efc328682178cfd1a4812ae97abbaffc464e082921767a4` |
 | `manage-team-login` | 3 | yes | `37a48ec9d62c2e65e581daae3889cbfa5699295d615984cbecc9f52e479ea57e` |
 | `send-technician-assignment-sms` | 5 | yes | `48fd57403df57e34042a188c0a0cff59ba4313dbc631729fed1872fc20bb2866` |
 | `create-square-payment-link` | 4 | yes | `07f44489812cf388128bddc38442abf8b7cda39a659d779b0fa104045c5c44ce` |
