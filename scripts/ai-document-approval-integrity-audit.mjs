@@ -38,7 +38,7 @@ function validate(items, products, taxRate = 6.25, targetTotal) {
   if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 25) throw new Error('invalid tax rate');
   const tax = round2(taxable * taxRate / 100);
   const total = round2(round2(subtotal) + tax);
-  if (targetTotal !== undefined && Math.abs(total - targetTotal) >= 0.01) throw new Error('reconciliation failed');
+  if (targetTotal !== undefined && Math.round(total * 100) !== Math.round(Number(targetTotal) * 100)) throw new Error('reconciliation failed');
   return { subtotal: round2(subtotal), tax, total };
 }
 
