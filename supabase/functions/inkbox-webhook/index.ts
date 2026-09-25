@@ -90,10 +90,9 @@ async function resolveParty(remote: string | null) {
     ]);
     const cm = (cs ?? []).filter((x: any) => norm(x.phone) === remote);
     const lm = (ls ?? []).filter((x: any) => norm(x.phone) === remote);
-    if (cm.length === 1) customerId = cm[0].id;
-    else if (cm.length > 1) ambiguous = true;
-    else if (lm.length === 1) leadId = lm[0].id;
-    else if (lm.length > 1) ambiguous = true;
+    if (cm.length === 1 && lm.length === 0) customerId = cm[0].id;
+    else if (cm.length === 0 && lm.length === 1) leadId = lm[0].id;
+    else if (cm.length > 0 || lm.length > 0) ambiguous = true;
   }
   return { customerId, leadId, ambiguous };
 }

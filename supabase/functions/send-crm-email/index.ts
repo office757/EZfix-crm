@@ -11,7 +11,22 @@ Deno.serve(async(req)=>{
  const scoped=createClient(url,anon,{global:{headers:{Authorization:auth}}}); const {data:user}=await scoped.auth.getUser(auth.slice(7)); if(!user.user)return out({error:"unauthorized"},401);
  const admin=createClient(url,adminKey); const {data:member}=await admin.from("team").select("id,name,role,status").eq("auth_user_id",user.user.id).eq("status","active").maybeSingle(); if(!member)return out({error:"forbidden"},403);
  const body=await req.json().catch(()=>null); if(!body)return out({error:"bad request"},400);
- const approvalId=String(body.approval_id||"").trim(); const directOwner=String(member.role||"").toLowerCase()==="owner"; if(!approvalId&&!directOwner)return out({error:"owner permission or approved communication required"},403);
+ const approvalId=String(body.approval_id||"").trim(); const directOwner=String(member.role||"").toLowerCase()==="owner";
+ const entityType=String(body.entity_type||"").trim(), entityId=String(body.entity_id||"").trim();
+ let directTechnician=false;
+ if(!approvalId && String(member.role||"").toLowerCase()==="technician" && entityType==="invoices" && entityId){
+   const {data:inv}=await admin.from("invoices").select("id,customer_id,job_id,customer_email,app_data").eq("id",entityId).is("deleted_at",null).maybeSingle();
+   if(inv){
+     const target=String(body.to||"").trim().toLowerCase();
+     let recipientMatches=String(inv.customer_email||"").trim().toLowerCase()===target;
+     if(!recipientMatches && inv.customer_id){ const {data:cust}=await admin.from("customers").select("email").eq("id",inv.customer_id).is("deleted_at",null).maybeSingle(); recipientMatches=String(cust?.email||"").trim().toLowerCase()===target; }
+     let assigned=false;
+     if(inv.job_id){ const {data:job}=await admin.from("jobs").select("technician_id").eq("id",inv.job_id).is("deleted_at",null).maybeSingle(); assigned=job?.technician_id===member.id; }
+     const createdBy=inv.app_data?.createdByTechnicianId===member.id || inv.app_data?.created_by_technician_id===member.id;
+     directTechnician=recipientMatches && (assigned||createdBy);
+   }
+ }
+ if(!approvalId&&!directOwner&&!directTechnician)return out({error:"Technicians can only email invoices for their assigned work or invoices they created in Quick Pay."},403);
  const to=String(body.to||"").trim(),subject=String(body.subject||"").trim(),text=String(body.text||"").trim(),html=String(body.html||"").trim();
  if(!to.includes("@")||!subject||(!text&&!html))return out({error:"missing fields"},400);
  const attachments=normalizeAttachments(body.attachments); const attachmentHash=attachments.length?await hex(JSON.stringify(attachments)):null; let claimToken:string|null=null;
