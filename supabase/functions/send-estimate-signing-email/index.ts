@@ -4,7 +4,7 @@ const URL=Deno.env.get("SUPABASE_URL")!;
 const ANON=Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND=Deno.env.get("RESEND_API_KEY")!;
-const PUBLIC_BASE=(Deno.env.get("CRM_PUBLIC_BASE_URL")||"").replace(/\/$/,"");
+const PUBLIC_BASE=(Deno.env.get("CRM_PUBLIC_BASE_URL")||"https://ezfix-crm-sms-length-fixed.vercel.app").replace(/\/$/,"");
 const MAILBOX=["office","ezfixgaragedoorsinc.com"].join("@");
 const FROM="EZfix Garage Doors Inc <"+MAILBOX+">";
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
@@ -25,7 +25,6 @@ function estimateTotal(e:any){
 Deno.serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   if(req.method!=="POST")return out({ok:false,error:"Method not allowed"},405);
-  if(!PUBLIC_BASE)return out({ok:false,error:"CRM_PUBLIC_BASE_URL is not configured"},503);
 
   const auth=req.headers.get("authorization")||"";
   if(!auth.startsWith("Bearer "))return out({ok:false,error:"Unauthorized"},401);
@@ -43,7 +42,7 @@ Deno.serve(async(req)=>{
   if(!estimateId||estimateId.length>160)return out({ok:false,error:"estimate_id required"},400);
 
   const {data:estimate,error:estimateError}=await admin.from("estimates")
-    .select("id,number,customer_id,customer_name,customer_email,items,tax_rate,discount,deposit_required,status,deleted_at")
+    .select("id,number,customer_id,customer_name,customer_email,items,tax_rate,discount,deposit_required,status,deleted_at,converted_job_id")
     .eq("id",estimateId).is("deleted_at",null).maybeSingle();
   if(estimateError)return out({ok:false,error:"Could not load estimate"},500);
   if(!estimate)return out({ok:false,error:"Estimate not found"},404);
