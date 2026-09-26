@@ -321,7 +321,7 @@ begin
     v_est.id,
     'estimate_signing_token',
     v_token.id::text,
-    'public_signing',
+    'system',
     'normal',
     false,
     v_token.created_by_team_id,
