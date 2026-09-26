@@ -69,7 +69,7 @@ function totals(e){
  const items=Array.isArray(e.items)?e.items:[]; const subtotal=items.reduce((s,x)=>s+(Number(x.qty)||0)*(Number(x.rate)||0),0);
  const taxable=items.reduce((s,x)=>s+(x.taxable===false?0:(Number(x.qty)||0)*(Number(x.rate)||0)),0);
  const discount=Math.min(Number(e.discount)||0,subtotal), ratio=subtotal>0?(subtotal-discount)/subtotal:1;
- const tax=Math.round(taxable*ratio*(Number(e.tax_rate)||0))/100*100; return {subtotal,discount,tax:Math.round(tax*100)/100,total:Math.round((subtotal-discount+tax)*100)/100};
+ const tax=Math.round((taxable*ratio*((Number(e.tax_rate)||0)/100))*100)/100; return {subtotal,discount,tax,total:Math.round((subtotal-discount+tax)*100)/100};
 }
 let estimate=null,dirty=false;
 function showError(msg){$('loading').classList.add('hidden');$('app').classList.add('hidden');$('error').textContent=msg;$('error').classList.remove('hidden')}
