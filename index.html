@@ -752,7 +752,7 @@ function replaceStoreRecord(col, row) {
   // Keep the immediate post-save cache in the same display shape produced by
   // refreshCollection(), otherwise Team saves briefly expose raw DB values.
   if(col==='team'){
-    record.role=record.role==='owner'?'Owner/Admin':record.role==='technician'?'Technician':record.role==='office'?'Office':record.role;
+    record.role=record.role==='owner'?'Owner/Admin':record.role==='admin'?'Admin':record.role==='dispatcher'?'Dispatcher':record.role==='technician'?'Technician':record.role==='marketing_manager'?'Marketing Manager':record.role;
     record.status=record.status==='active'?'Active':record.status==='inactive'?'Inactive':record.status;
   }
   const list = STORE[col] || (STORE[col] = []);
@@ -799,7 +799,7 @@ async function refreshCollection(col){
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
   const records=rows.map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls));
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
-  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
+  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role==='marketing_manager'?'Marketing Manager':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
 }
 async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (508) 351-0523',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
 function setSyncState(ok,labelText){ const dot=document.getElementById('syncDot'),label=document.getElementById('syncLabel'); if(dot) dot.classList.toggle('off',!ok); if(label) label.textContent=labelText; }
@@ -810,18 +810,34 @@ async function showAuthGate(){
   document.body.appendChild(gate);
   gate.querySelector('#authBtn').onclick=async()=>{ const btn=gate.querySelector('#authBtn'); btn.disabled=true; gate.querySelector('#authError').textContent=''; const {error}=await SB.auth.signInWithPassword({email:gate.querySelector('#authEmail').value.trim(),password:gate.querySelector('#authPassword').value}); if(error){gate.querySelector('#authError').textContent=error.message;btn.disabled=false;return;} gate.remove(); await initDb(); await initUserRole(); };
 }
+async function resolveCurrentTeamMember(){
+  const {data:{user}}=await SB.auth.getUser();
+  if(!user) return null;
+  const {data:member,error}=await SB.from('team').select('id,name,role,status').eq('auth_user_id',user.id).eq('status','active').maybeSingle();
+  if(error) throw error;
+  CURRENT_TEAM_MEMBER=member||null; CAN_EDIT=!!member; IS_OWNER=member?.role==='owner';
+  return member||null;
+}
+function allowedCollectionsForRole(member){
+  if(member?.role==='marketing_manager') return ['customers','leads'];
+  return Object.keys(TABLE_MAP);
+}
 async function initDb(){
   setSyncState(false,'Connecting…');
   const session=await requireSession(); if(!session){ dbReady=false; setSyncState(false,'Sign in required'); await showAuthGate(); return; }
   try{
+    const member=await resolveCurrentTeamMember();
+    if(!member) throw new Error('CRM access not assigned.');
+    const allowedCollections=allowedCollectionsForRole(member);
     const {data:sv,error:svErr}=await SB.from('schema_version').select('version').order('version',{ascending:false}).limit(1).maybeSingle();
     if(svErr || !sv || Number(sv.version)!==1) throw new Error('CRM database schema mismatch. Expected schema version 1.');
-    await Promise.all(Object.keys(TABLE_MAP).map(refreshCollection)); await refreshSettings();
+    await Promise.all(allowedCollections.map(refreshCollection)); if(member.role!=='marketing_manager') await refreshSettings();
     DB={ productionSupabase:true }; dbReady=true; setSyncState(true,'Supabase • Live'); render();
     // Supabase is authoritative. localStorage is deliberately not loaded or written.
     const channel=SB.channel('ezfix-crm-live');
-    for(const [col,table] of Object.entries(TABLE_MAP)) channel.on('postgres_changes',{event:'*',schema:'public',table},async()=>{try{await refreshCollection(col);renderPreserveScroll();}catch(e){console.error('realtime refresh',col,e);}});
-    channel.on('postgres_changes',{event:'*',schema:'public',table:'settings'},async()=>{try{await refreshSettings();renderPreserveScroll();}catch(e){console.error(e);}}).subscribe((status)=>{ window.__crmRealtimeConnected = status==='SUBSCRIBED'; if(window.RealtimeChannel) window.RealtimeChannel.connected = window.__crmRealtimeConnected; });
+    for(const col of allowedCollections){ const table=TABLE_MAP[col]; channel.on('postgres_changes',{event:'*',schema:'public',table},async()=>{try{await refreshCollection(col);renderPreserveScroll();}catch(e){console.error('realtime refresh',col,e);}}); }
+    if(member.role!=='marketing_manager') channel.on('postgres_changes',{event:'*',schema:'public',table:'settings'},async()=>{try{await refreshSettings();renderPreserveScroll();}catch(e){console.error(e);}});
+    channel.subscribe((status)=>{ window.__crmRealtimeConnected = status==='SUBSCRIBED'; if(window.RealtimeChannel) window.RealtimeChannel.connected = window.__crmRealtimeConnected; });
     unsub.push(()=>SB.removeChannel(channel));
   }catch(e){ console.error('Supabase init failed',e); dbReady=false; setSyncState(false,'Supabase unavailable'); toast('Could not load CRM data from Supabase. No local writes are allowed.',true); }
 }
@@ -954,7 +970,7 @@ const CATEGORY_META = {
 
 function renderNav() {
   const el = document.getElementById('navList');
-  el.innerHTML = NAV.filter(n => n.sidebar!==false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView())).map(n => `
+  el.innerHTML = NAV.filter(n => n.sidebar!==false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || ['dashboard','leads','customers'].includes(n.key))).map(n => `
     <button class="nav-item ${route.page===n.key?'active':''}" onclick="go('${n.key}')" ${route.page===n.key?'aria-current="page"':''}>
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>
       ${n.label}
@@ -976,7 +992,13 @@ function closeSidebar(){
 function technicianAllowedPage(page) {
   return ['dashboard','calendar','jobs','customers','leads','estimates','invoices','quickpay','more'].includes(page);
 }
+function isMarketingManager(){ return CURRENT_TEAM_MEMBER?.role==='marketing_manager'; }
+function marketingAllowedPage(page){ return ['dashboard','leads','customers','more'].includes(page); }
 function go(page, id) {
+  if (isMarketingManager() && !marketingAllowedPage(page)) {
+    toast('This section is not available for Marketing Manager accounts.', true);
+    page='dashboard'; id=null;
+  }
   if (isTechnicianView()) {
     if (page === 'team' || !technicianAllowedPage(page)) {
       toast('This section is not available for technician accounts.', true);
@@ -1000,7 +1022,14 @@ function render() {
   renderNav();
   refreshNotifBadge();
   document.querySelectorAll('.bn-item').forEach(btn => {
-    const active = btn.dataset.page === route.page;
+    if(isMarketingManager()){
+      const map={dashboard:['dashboard','Home'],calendar:['leads','Leads'],invoices:['customers','Customers']};
+      const cfg=map[btn.dataset.page];
+      if(cfg){ btn.style.display='flex'; btn.dataset.marketingPage=cfg[0]; btn.onclick=()=>go(cfg[0]); const textNode=[...btn.childNodes].find(n=>n.nodeType===Node.TEXT_NODE); if(textNode) textNode.nodeValue=cfg[1]; }
+      else btn.style.display='none';
+    } else { btn.style.display='flex'; btn.dataset.marketingPage=''; }
+    const target=btn.dataset.marketingPage||btn.dataset.page;
+    const active = target === route.page;
     btn.classList.toggle('active', active);
     if (active) btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
@@ -1511,7 +1540,55 @@ function renderMoreScreen(content, actions) {
   actions.innerHTML = '';
   content.innerHTML = renderModuleLauncherHtml();
 }
+function renderMarketingDashboard(content, actions) {
+  actions.innerHTML = '';
+  const leads = STORE.leads.filter(l=>!l.deletedAt);
+  const customers = STORE.customers.filter(c=>!c.deletedAt);
+  const newLeads = leads.filter(l=>String(l.status||'new').toLowerCase()==='new').length;
+  const converted = leads.filter(l=>String(l.status||'').toLowerCase()==='converted').length;
+  const rate = leads.length ? Math.round((converted/leads.length)*100) : 0;
+  const today=todayISO();
+  const overdueFollowups=leads.filter(l=>l.nextFollowUp && l.nextFollowUp<today && !['converted','lost','cancelled'].includes(String(l.status||'').toLowerCase()));
+  const dueToday=leads.filter(l=>l.nextFollowUp===today && !['converted','lost','cancelled'].includes(String(l.status||'').toLowerCase()));
+  const missingSource=leads.filter(l=>!String(l.source||'').trim() || String(l.source||'').toLowerCase()==='other').length;
+  const staleNew=leads.filter(l=>String(l.status||'new').toLowerCase()==='new' && l.createdAt && (Date.now()-new Date(l.createdAt).getTime())>24*60*60*1000).length;
+  const sourceCounts = {};
+  leads.forEach(l=>{ const s=String(l.source||'Unknown').trim()||'Unknown'; sourceCounts[s]=(sourceCounts[s]||0)+1; });
+  const sources = Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  content.innerHTML = `
+    <div class="page-hero"><div><div class="eyebrow">MARKETING WORKSPACE</div><h1>Campaign Manager</h1><p>Lead and customer performance. Financial, payroll and owner-only data are not available in this workspace.</p></div></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Leads</div><div class="stat-value">${leads.length}</div></div>
+      <div class="stat-card"><div class="stat-label">New Leads</div><div class="stat-value">${newLeads}</div></div>
+      <div class="stat-card"><div class="stat-label">Converted Leads</div><div class="stat-value">${converted}</div></div>
+      <div class="stat-card"><div class="stat-label">Lead Conversion</div><div class="stat-value">${rate}%</div></div>
+      <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value">${customers.length}</div></div>
+    </div>
+    <div class="panel" style="margin-top:16px;border-color:var(--orange)"><div class="panel-head"><h3>Today · Needs Attention</h3></div><div class="panel-body pad">
+      ${newLeads ? `<div class="kv"><div><b>${newLeads} new lead${newLeads===1?'':'s'}</b><div class="muted">Waiting for first contact or review.</div></div><button class="btn btn-sm btn-primary" onclick="go('leads')">Open Leads</button></div>` : '<div class="muted">No new leads waiting right now.</div>'}
+      ${overdueFollowups.length ? `<div class="kv"><div><b>⚠️ ${overdueFollowups.length} overdue follow-up${overdueFollowups.length===1?'':'s'}</b><div class="muted">These leads are past their next follow-up date.</div></div><button class="btn btn-sm" onclick="go('leads')">Review</button></div>` : ''}
+      ${dueToday.length ? `<div class="kv"><div><b>📅 ${dueToday.length} follow-up${dueToday.length===1?'':'s'} due today</b></div><button class="btn btn-sm" onclick="go('leads')">Open</button></div>` : ''}
+      ${staleNew ? `<div class="kv"><div><b>⏱️ ${staleNew} new lead${staleNew===1?'':'s'} older than 24h</b><div class="muted">Check whether first contact was recorded.</div></div></div>` : ''}
+      ${missingSource ? `<div class="kv"><div><b>🏷️ ${missingSource} lead${missingSource===1?'':'s'} need source review</b><div class="muted">Better source data improves campaign attribution.</div></div></div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn btn-sm" onclick="go('leads')">🎯 Work Leads</button><button class="btn btn-sm" onclick="go('customers')">👤 Find Customer</button></div>
+    </div></div>
+    <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Marketing Quality</h3></div><div class="panel-body pad">
+      <div class="kv"><div class="k">Follow-up discipline</div><div><b>${overdueFollowups.length===0?'On track':overdueFollowups.length+' overdue'}</b></div></div>
+      <div class="kv"><div class="k">Source completeness</div><div><b>${leads.length?Math.round(((leads.length-missingSource)/leads.length)*100):100}%</b></div></div>
+      <div class="kv"><div class="k">New-lead freshness</div><div><b>${staleNew===0?'On track':staleNew+' need review'}</b></div></div>
+      <div class="kv"><div class="k">Conversion</div><div><b>${rate}%</b> <span class="muted">(${converted} of ${leads.length})</span></div></div>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">Quality indicators are based on CRM workflow data. They flag records that need attention; they are not employee ratings.</p>
+    </div></div>
+    <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Lead Sources</h3></div><div class="panel-body pad">
+      ${sources.length ? sources.map(([name,count])=>`<div class="kv"><div class="k">${esc(name)}</div><div><b>${count}</b> leads</div></div>`).join('') : '<p class="muted">No lead-source data yet.</p>'}
+    </div></div>
+    <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Marketing Access</h3></div><div class="panel-body pad">
+      <div class="kv"><div class="k">Available</div><div>Leads · Customers · campaign performance workspace</div></div>
+      <div class="kv"><div class="k">Restricted</div><div>Invoices · payments · expenses · payroll · owner settings · credentials</div></div>
+    </div></div>`;
+}
 function renderDashboard(content, actions) {
+  if (isMarketingManager()) return renderMarketingDashboard(content, actions);
   if (isTechnicianView()) return renderTechnicianDashboard(content, actions);
   const today = todayISO();
   const weekStart = dateNDaysAgo(6);
@@ -3207,6 +3284,7 @@ function openLeadModal(id) {
     title: l ? 'Edit lead' : 'New lead',
     wide: true,
     body: `
+      ${l && isMarketingManager() ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${l.phone?`<a class="btn btn-sm btn-primary" href="tel:${esc(l.phone)}">📞 Call</a><a class="btn btn-sm" href="sms:${esc(l.phone)}">💬 Text</a>`:''}${l.email?`<a class="btn btn-sm" href="mailto:${esc(l.email)}">✉️ Email</a>`:''}<button type="button" class="btn btn-sm" onclick="document.getElementById('f_nextfollowup').focus()">📅 Follow-up</button></div>` : ''}
       ${l && l.source==='Voice AI' ? `<div class="panel" style="margin-bottom:14px;background:var(--paper-2)"><div class="panel-body pad" style="font-size:12.5px">
         <div style="font-weight:800;margin-bottom:4px">📞 Source: Voice AI · ${esc(l.sourceChannel||'Phone')}${relatedCall?.startedAt ? ' · '+fmtDate(relatedCall.startedAt) : ''}</div>
         ${l.notes ? `<div class="muted" style="white-space:pre-wrap">${esc(l.notes)}</div>` : ''}
@@ -4371,7 +4449,7 @@ window.openExpenseModal = openExpenseModal;
    Who can actually open and edit this app is controlled by
    Claude's own Share dialog on this artifact, not by this list.)
    ============================================================ */
-const TEAM_ROLES = ['Owner','Admin','Dispatcher','Technician'];
+const TEAM_ROLES = ['Owner','Admin','Dispatcher','Technician','Marketing Manager'];
 /* ============================================================
    CANONICAL TECHNICIAN IDENTITY
    ------------------------------------------------------------
@@ -4680,7 +4758,7 @@ function openTeamModal(id) {
         <select id="f_techstatus">${['Active','Inactive','On Leave'].map(s=>`<option value="${s}" ${(m?.status||'Active')===s?'selected':''}>${s}</option>`).join('')}</select>
       </label>
       <p class="muted" style="font-size:12px;margin-top:-8px">Inactive/On Leave technicians keep all their historical jobs, payroll, and performance data — they just won't show up when assigning NEW work.</p>
-      <div class="field"><span class="lbl">Login Access</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge ${m?.authUserId?'badge-won':'badge-draft'}">${m?.authUserId?'Login linked':'Login not created'}</span>${m && IS_OWNER && m.role==='Technician' ? `<button type="button" class="btn btn-sm btn-primary" onclick="closeModal(); setTimeout(()=>openTeamLoginAccess('${m.id}'),50)">🔐 ${m.authUserId?'Manage Login':'Create Login & Password'}</button>` : ''}</div></div>
+      <div class="field"><span class="lbl">Login Access</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge ${m?.authUserId?'badge-won':'badge-draft'}">${m?.authUserId?'Login linked':'Login not created'}</span>${m && IS_OWNER && ['Technician','Marketing Manager'].includes(m.role) ? `<button type="button" class="btn btn-sm btn-primary" onclick="closeModal(); setTimeout(()=>openTeamLoginAccess('${m.id}'),50)">🔐 ${m.authUserId?'Manage Login':'Create Login & Password'}</button>` : ''}</div></div>
       <p class="muted" style="font-size:12px;margin-top:-8px">Owner-managed access. The Owner creates or changes the technician login and password; existing passwords are never displayed.</p>
       <label class="field"><span class="lbl">Default commission % <span class="muted" style="font-weight:400">(for payroll report — adjustable per report too)</span></span><input type="number" step="0.1" min="0" max="100" id="f_commission" value="${m?.commissionPercent ?? ''}" placeholder="e.g. 30"></label>
 
@@ -4714,10 +4792,10 @@ function openTeamModal(id) {
       if (!name) return toast('Name is required');
       const data = {
         name,
-        role: document.getElementById('f_role').value,
+        role: document.getElementById('f_role').value==='Marketing Manager'?'marketing_manager':document.getElementById('f_role').value.toLowerCase(),
         phone: document.getElementById('f_phone').value.trim(),
         email: document.getElementById('f_email').value.trim(),
-        status: document.getElementById('f_techstatus').value,
+        status: document.getElementById('f_techstatus').value.toLowerCase(),
         commissionPercent: parseFloat(document.getElementById('f_commission').value)||0,
       };
       if (m) {
@@ -4753,7 +4831,7 @@ async function callTeamLoginManager(payload) {
 async function openTeamLoginAccess(teamId) {
   if (!IS_OWNER) return toast('Owner access required', true);
   const member = getOne('team', teamId);
-  if (!member || member.role!=='Technician') return toast('Technician not found', true);
+  if (!member || !['Technician','Marketing Manager'].includes(member.role)) return toast('Login-managed team member not found', true);
   let status = { linked: !!member.authUserId, loginEmail: member.email||'', disabled:false, lastSignInAt:null };
   try { status = await callTeamLoginManager({action:'status',teamId}); } catch(e) { return toast(e.message,true); }
   showModal({
@@ -4778,7 +4856,7 @@ async function openTeamLoginAccess(teamId) {
       const email=document.getElementById('teamLoginEmail').value.trim();
       const password=document.getElementById('teamLoginPassword').value;
       await callTeamLoginManager({action:'create',teamId,email,password});
-      await refreshCollection('team'); closeModal(); toast('Technician login created'); render();
+      await refreshCollection('team'); closeModal(); toast(`${member.role} login created`); render();
     }
   });
   const save=document.getElementById('modalSaveBtn');
@@ -10080,7 +10158,7 @@ function renderViewAsOptions() {
     STORE.team.filter(m=>m.role==='Technician').map(m=>`<option value="${esc(m.name)}" ${VIEW_AS===m.name?'selected':''}>${esc(m.name)} — Technician</option>`).join('');
   sel.value = VIEW_AS;
 }
-function isTechnicianView() { return !IS_OWNER || !!VIEW_AS; }
+function isTechnicianView() { return CURRENT_TEAM_MEMBER?.role==='technician' || (IS_OWNER && !!VIEW_AS); }
 async function signOutCrm() {
   try {
     await SB.auth.signOut();
@@ -10100,7 +10178,7 @@ async function initUserRole() {
     if(error) throw error;
     CURRENT_TEAM_MEMBER=member||null;
     CAN_EDIT=!!member; IS_OWNER=member?.role==='owner';
-    const roleName=member?.role==='owner'?'Owner':member?.role==='admin'?'Admin':member?.role==='dispatcher'?'Dispatcher':member?.role==='technician'?'Technician':'Unassigned';
+    const roleName=member?.role==='owner'?'Owner':member?.role==='admin'?'Admin':member?.role==='dispatcher'?'Dispatcher':member?.role==='technician'?'Technician':member?.role==='marketing_manager'?'Marketing Manager':'Unassigned';
     if(!IS_OWNER){ VIEW_AS=''; try{localStorage.removeItem('ezfix_view_as');}catch(e){} }
     if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || 'User'} • ${roleName}` : 'Access not assigned';
     const signOutBtn=document.getElementById('signOutBtn'); if(signOutBtn) signOutBtn.style.display=member?'block':'none';
