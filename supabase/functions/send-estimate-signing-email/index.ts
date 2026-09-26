@@ -42,7 +42,7 @@ Deno.serve(async(req)=>{
   if(!estimateId||estimateId.length>160)return out({ok:false,error:"estimate_id required"},400);
 
   const {data:estimate,error:estimateError}=await admin.from("estimates")
-    .select("id,number,customer_id,customer_name,customer_email,items,tax_rate,discount,deposit_required,status,deleted_at")
+    .select("id,number,customer_id,customer_name,customer_email,items,tax_rate,discount,deposit_required,status,deleted_at,converted_job_id")
     .eq("id",estimateId).is("deleted_at",null).maybeSingle();
   if(estimateError)return out({ok:false,error:"Could not load estimate"},500);
   if(!estimate)return out({ok:false,error:"Estimate not found"},404);
