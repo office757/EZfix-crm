@@ -4730,7 +4730,7 @@ function openTeamModal(id) {
         <select id="f_techstatus">${['Active','Inactive','On Leave'].map(s=>`<option value="${s}" ${(m?.status||'Active')===s?'selected':''}>${s}</option>`).join('')}</select>
       </label>
       <p class="muted" style="font-size:12px;margin-top:-8px">Inactive/On Leave technicians keep all their historical jobs, payroll, and performance data — they just won't show up when assigning NEW work.</p>
-      <div class="field"><span class="lbl">Login Access</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge ${m?.authUserId?'badge-won':'badge-draft'}">${m?.authUserId?'Login linked':'Login not created'}</span>${m && IS_OWNER && m.role==='Technician' ? `<button type="button" class="btn btn-sm btn-primary" onclick="closeModal(); setTimeout(()=>openTeamLoginAccess('${m.id}'),50)">🔐 ${m.authUserId?'Manage Login':'Create Login & Password'}</button>` : ''}</div></div>
+      <div class="field"><span class="lbl">Login Access</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge ${m?.authUserId?'badge-won':'badge-draft'}">${m?.authUserId?'Login linked':'Login not created'}</span>${m && IS_OWNER && ['Technician','Marketing Manager'].includes(m.role) ? `<button type="button" class="btn btn-sm btn-primary" onclick="closeModal(); setTimeout(()=>openTeamLoginAccess('${m.id}'),50)">🔐 ${m.authUserId?'Manage Login':'Create Login & Password'}</button>` : ''}</div></div>
       <p class="muted" style="font-size:12px;margin-top:-8px">Owner-managed access. The Owner creates or changes the technician login and password; existing passwords are never displayed.</p>
       <label class="field"><span class="lbl">Default commission % <span class="muted" style="font-weight:400">(for payroll report — adjustable per report too)</span></span><input type="number" step="0.1" min="0" max="100" id="f_commission" value="${m?.commissionPercent ?? ''}" placeholder="e.g. 30"></label>
 
@@ -4803,7 +4803,7 @@ async function callTeamLoginManager(payload) {
 async function openTeamLoginAccess(teamId) {
   if (!IS_OWNER) return toast('Owner access required', true);
   const member = getOne('team', teamId);
-  if (!member || member.role!=='Technician') return toast('Technician not found', true);
+  if (!member || !['Technician','Marketing Manager'].includes(member.role)) return toast('Login-managed team member not found', true);
   let status = { linked: !!member.authUserId, loginEmail: member.email||'', disabled:false, lastSignInAt:null };
   try { status = await callTeamLoginManager({action:'status',teamId}); } catch(e) { return toast(e.message,true); }
   showModal({
@@ -4828,7 +4828,7 @@ async function openTeamLoginAccess(teamId) {
       const email=document.getElementById('teamLoginEmail').value.trim();
       const password=document.getElementById('teamLoginPassword').value;
       await callTeamLoginManager({action:'create',teamId,email,password});
-      await refreshCollection('team'); closeModal(); toast('Technician login created'); render();
+      await refreshCollection('team'); closeModal(); toast(`${member.role} login created`); render();
     }
   });
   const save=document.getElementById('modalSaveBtn');
