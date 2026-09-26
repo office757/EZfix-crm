@@ -9489,7 +9489,7 @@ function buildEmailHtml({ preheading, greeting, bodyLines, cardIcon, cardLabel, 
   </table>
   </td></tr></table>`;
 }
-function buildDocEmailHtml(type, doc) {
+function buildDocEmailHtml(type, doc, publicInvoiceUrl=null) {
   const isInvoice = type === 'invoice';
   const t = computeTotals(doc);
   const balance = isInvoice ? balanceDue(doc) : t.total;
@@ -9509,7 +9509,7 @@ function buildDocEmailHtml(type, doc) {
         footerLines,
       });
     }
-    const payUrl = PaymentProvider.createPaymentRequest(doc);
+    const payUrl = publicInvoiceUrl || PaymentProvider.createPaymentRequest(doc);
     return buildEmailHtml({
       preheading: 'Thank You for Choosing EZfix!',
       greeting: `Hi ${firstName},`,
@@ -9521,7 +9521,7 @@ function buildDocEmailHtml(type, doc) {
       cardIcon: '🧾', cardLabel: `Invoice ${doc.number}`,
       amountLabel: 'Amount Due', amount: money(balance),
       subLine: `Due: ${doc.dueTerm||'On Receipt'}`,
-      ctaLabel: payUrl ? `PAY NOW — ${money(balance)}` : null,
+      ctaLabel: payUrl ? (publicInvoiceUrl ? `VIEW INVOICE & PAY — ${money(balance)}` : `PAY NOW — ${money(balance)}`) : null,
       ctaUrl: payUrl,
       cardFeeLine: payUrl ? `Credit Card Fee: 3.5% (${money(cardPaymentAmounts(balance).fee)})` : null,
       cardTotalLine: payUrl ? `Total with Card: ${money(cardPaymentAmounts(balance).total)}` : null,
@@ -9540,7 +9540,7 @@ function buildDocEmailHtml(type, doc) {
     footerLines,
   });
 }
-function buildDocSummaryText(type, doc) {
+function buildDocSummaryText(type, doc, publicInvoiceUrl=null) {
   const isInvoice = type === 'invoice';
   const t = computeTotals(doc);
   const balance = isInvoice ? balanceDue(doc) : t.total;
@@ -9565,10 +9565,10 @@ function buildDocSummaryText(type, doc) {
     (doc.payments||[]).forEach(p => lines.push(`Payment (${p.method}${p.date?', '+fmtDate(p.date):''}): -${money(paymentAppliedAmount(p))}`));
     lines.push(`Balance due: ${money(balance)}`);
     lines.push(`Due: ${doc.dueTerm||'On Receipt'}`);
-    const payUrl = PaymentProvider.createPaymentRequest(doc);
+    const payUrl = publicInvoiceUrl || PaymentProvider.createPaymentRequest(doc);
     if (balance > 0 && payUrl) {
       lines.push('');
-      lines.push(`Pay online: ${payUrl}`);
+      lines.push(`${publicInvoiceUrl?'View invoice & pay':'Pay online'}: ${payUrl}`);
     }
   } else {
     lines.push('This estimate is valid until approved. Reply to this message to approve or ask questions.');
@@ -9956,8 +9956,13 @@ async function emailDocument(type, id) {
   const email = doc.customerEmail || cust?.email;
   if (!email) return promptContactInfo(type, id, 'email');
   const subject = `${type==='invoice'?'Invoice':'Estimate'} ${doc.number} from ${COMPANY.name}`;
-  const body = buildDocSummaryText(type, doc);
-  const htmlBody = buildDocEmailHtml(type, doc);
+  let publicInvoiceUrl = null;
+  if (type==='invoice') {
+    try { publicInvoiceUrl = await createPublicInvoiceUrl(id); }
+    catch(e) { console.error('Could not create secure public invoice URL for email', e); }
+  }
+  const body = buildDocSummaryText(type, doc, publicInvoiceUrl);
+  const htmlBody = buildDocEmailHtml(type, doc, publicInvoiceUrl);
   let attachment = null;
   try {
     const pdf = await buildPdfDoc(type, doc);
