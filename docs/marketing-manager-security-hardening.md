@@ -3,14 +3,14 @@
 This note records a live-schema finding discovered during QA. It intentionally does not mutate production.
 
 ## Finding
-Supabase Security Advisor flags `public.marketing_manager_metrics` because the view currently runs with `security_invoker=false`. The source table `public.marketing_daily_metrics` has RLS enabled and authenticated SELECT privilege, but currently has no row-level policies. Therefore, simply switching the view to `security_invoker=true` would break Marketing Manager access rather than safely fix the warning.
+Supabase Security Advisor flags `public.marketing_manager_metrics` because the view currently runs with `security_invoker=false`. The source table `public.marketing_daily_metrics` has RLS enabled. Its current Marketing Manager SELECT policy is deliberately `USING (false)`, while owner access is allowed separately. Therefore, simply switching the view to `security_invoker=true` would break Marketing Manager access rather than safely fix the warning.
 
 `public.is_marketing_manager()` is a SECURITY DEFINER helper and is currently executable by `anon` and `authenticated`. Anonymous execution is unnecessary.
 
 ## Safe migration sequence
 Create a migration with Supabase migration tooling and validate it inside BEGIN/ROLLBACK before applying:
 
-1. Add SELECT policy on `public.marketing_daily_metrics` for authenticated users where `public.is_owner() OR public.is_marketing_manager()`.
+1. Replace the current Marketing Manager `USING (false)` SELECT policy on `public.marketing_daily_metrics` with a narrowly scoped Marketing Manager SELECT policy using `public.is_marketing_manager()`. Keep the separate owner policy unchanged.
 2. Keep INSERT/UPDATE/DELETE unavailable to Marketing Manager unless a separate workflow explicitly requires them.
 3. Set `public.marketing_manager_metrics` to `security_invoker=true`.
 4. Revoke EXECUTE on `public.is_marketing_manager()` from PUBLIC and anon.
