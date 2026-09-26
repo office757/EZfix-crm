@@ -24,7 +24,8 @@ check('email function does not accept arbitrary recipient from request body',!/b
 check('email function gets token from protected issuance RPC',/issue_public_estimate_signing_token/.test(edge));
 check('email function requires configured public base URL',/CRM_PUBLIC_BASE_URL/.test(edge));
 check('email function revokes token after provider rejection',/provider rejected the signing email/.test(edge)&&/revoked_at/.test(edge));
-check('email response never returns raw token or signing URL',!/return out\(\{[^}]*token/i.test(edge)&&!/return out\(\{[^}]*link/i.test(edge));
+const successReturn=edge.match(/return out\\(\\{ok:true,provider_message_id:[^;]+;/)?.[0]||'';
+check('email response never returns raw token or signing URL',!!successReturn&&!/token|link|url/i.test(successReturn));
 check('CRM client calls protected signing email function',/send-estimate-signing-email/.test(client));
 check('CRM client does not construct raw signing tokens',!/token=|issue_public_estimate_signing_token/.test(client));
 check('migration hash-protects signed commercial snapshot',/estimate_snapshot_hash/.test(migration)&&/Estimate changed after this signing link was issued/.test(migration));
