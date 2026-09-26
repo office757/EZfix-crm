@@ -9185,6 +9185,7 @@ function renderDocumentView(type, id) {
   const custEmail = doc.customerEmail || docCust?.email;
   const custPhone = doc.customerPhone || docCust?.phone;
   const emailBtn = `<button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); emailDocument('${type}','${doc.id}')">✉ Email to customer</button>`;
+  const signingEmailBtn = !isInvoice && !doc.signature ? `<button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); sendEstimateForSigning('${doc.id}')">✍ Email secure signing link</button>` : '';
   const textBtn = `<button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); textDocument('${type}','${doc.id}')">💬 Text to customer</button>`;
   let payBtn = '';
   if (isInvoice && balance > 0) {
@@ -9239,6 +9240,7 @@ function renderDocumentView(type, id) {
             <button class="btn btn-sm" onclick="toggleDocMenu(event)">⋯ More</button>
             <div id="docActionsMenu" class="dropdown-menu" style="display:none">
               ${emailBtn}
+              ${signingEmailBtn}
               ${textBtn}
               <button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); copyDocSummary('${type}','${doc.id}')">📋 Copy text</button>
               <button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); downloadDocPdf('${type}','${doc.id}')">⬇ Download PDF</button>
@@ -9896,6 +9898,30 @@ window.exportJobsCSV = exportJobsCSV;
 window.exportEstimatesCSV = exportEstimatesCSV;
 window.exportInvoicesCSV = exportInvoicesCSV;
 window.exportInventoryCSV = exportInventoryCSV;
+async function sendEstimateForSigning(id) {
+  const doc = getOne('estimates', id);
+  if (!doc) return;
+  if (doc.signature) return toast('This estimate is already signed.', true);
+  const cust = getOne('customers', doc.customerId);
+  const email = doc.customerEmail || cust?.email;
+  if (!email) return promptContactInfo('estimate', id, 'email');
+  try {
+    const { data:{ session } } = await SB.auth.getSession();
+    if (!session?.access_token) throw new Error('Your CRM session expired. Please sign in again.');
+    const { data, error } = await SB.functions.invoke('send-estimate-signing-email', {
+      body: { estimate_id:id },
+      headers: { Authorization:`Bearer ${session.access_token}` }
+    });
+    if (error || !data?.ok) throw error || new Error(data?.error || 'Could not send signing email.');
+    await logAudit('estimate_signing_email_sent', `Secure signing link sent for estimate ${doc.number} to ${email}`, 'estimates', id, 'resend_message', data.provider_message_id||null);
+    toast('Secure signing link emailed to customer');
+  } catch(e) {
+    console.error('sendEstimateForSigning failed', e);
+    toast(e?.message || 'Could not send signing link', true);
+  }
+}
+window.sendEstimateForSigning = sendEstimateForSigning;
+
 async function emailDocument(type, id) {
   const col = type === 'estimate' ? 'estimates' : 'invoices';
   const doc = getOne(col, id);
