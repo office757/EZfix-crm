@@ -7447,6 +7447,16 @@ function renderPhoneConnection(body) {
       </div>
     </div>
 
+    <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>🕒 Call Routing Schedule <span class="muted" style="font-size:11px;font-weight:500">(internal only)</span></h3></div>
+      <div class="panel-body pad">
+        <div class="kv"><div class="k">8:00 PM – 10:00 AM</div><div><b>Ashley AI</b> · ${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</div></div>
+        <div class="kv"><div class="k">10:00 AM – 8:00 PM</div><div><b>EZfix / David</b> · ${esc(TelephonyAdapter.businessNumber)}</div></div>
+        <div class="kv"><div class="k">Routing Method</div><div>T-Mobile call forwarding · MacroDroid schedule on business phone</div></div>
+        <div class="kv"><div class="k">CRM Control</div><div>Monitoring / documentation only — forwarding is executed on the T-Mobile phone</div></div>
+        <p class="muted" style="font-size:12px;margin:10px 0 0">Internal operations note. This schedule is not shown on customer documents, emails, SMS messages, estimates, invoices or receipts.</p>
+      </div>
+    </div>
+
     <div class="panel" style="margin-bottom:16px;border-color:var(--orange)"><div class="panel-head"><h3>📱 Ashley AI / Inkbox</h3></div>
       <div class="panel-body pad">
         ${SETTINGS.inkboxPhone?.number ? `
