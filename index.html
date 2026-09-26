@@ -1022,7 +1022,14 @@ function render() {
   renderNav();
   refreshNotifBadge();
   document.querySelectorAll('.bn-item').forEach(btn => {
-    const active = btn.dataset.page === route.page;
+    if(isMarketingManager()){
+      const map={dashboard:['dashboard','Home'],calendar:['leads','Leads'],invoices:['customers','Customers']};
+      const cfg=map[btn.dataset.page];
+      if(cfg){ btn.style.display='flex'; btn.dataset.marketingPage=cfg[0]; btn.onclick=()=>go(cfg[0]); const textNode=[...btn.childNodes].find(n=>n.nodeType===Node.TEXT_NODE); if(textNode) textNode.nodeValue=cfg[1]; }
+      else btn.style.display='none';
+    } else { btn.style.display='flex'; btn.dataset.marketingPage=''; }
+    const target=btn.dataset.marketingPage||btn.dataset.page;
+    const active = target === route.page;
     btn.classList.toggle('active', active);
     if (active) btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
@@ -1540,6 +1547,11 @@ function renderMarketingDashboard(content, actions) {
   const newLeads = leads.filter(l=>String(l.status||'new').toLowerCase()==='new').length;
   const converted = leads.filter(l=>String(l.status||'').toLowerCase()==='converted').length;
   const rate = leads.length ? Math.round((converted/leads.length)*100) : 0;
+  const today=todayISO();
+  const overdueFollowups=leads.filter(l=>l.nextFollowUp && l.nextFollowUp<today && !['converted','lost','cancelled'].includes(String(l.status||'').toLowerCase()));
+  const dueToday=leads.filter(l=>l.nextFollowUp===today && !['converted','lost','cancelled'].includes(String(l.status||'').toLowerCase()));
+  const missingSource=leads.filter(l=>!String(l.source||'').trim() || String(l.source||'').toLowerCase()==='other').length;
+  const staleNew=leads.filter(l=>String(l.status||'new').toLowerCase()==='new' && l.createdAt && (Date.now()-new Date(l.createdAt).getTime())>24*60*60*1000).length;
   const sourceCounts = {};
   leads.forEach(l=>{ const s=String(l.source||'Unknown').trim()||'Unknown'; sourceCounts[s]=(sourceCounts[s]||0)+1; });
   const sources = Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
@@ -1552,6 +1564,21 @@ function renderMarketingDashboard(content, actions) {
       <div class="stat-card"><div class="stat-label">Lead Conversion</div><div class="stat-value">${rate}%</div></div>
       <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value">${customers.length}</div></div>
     </div>
+    <div class="panel" style="margin-top:16px;border-color:var(--orange)"><div class="panel-head"><h3>Today · Needs Attention</h3></div><div class="panel-body pad">
+      ${newLeads ? `<div class="kv"><div><b>${newLeads} new lead${newLeads===1?'':'s'}</b><div class="muted">Waiting for first contact or review.</div></div><button class="btn btn-sm btn-primary" onclick="go('leads')">Open Leads</button></div>` : '<div class="muted">No new leads waiting right now.</div>'}
+      ${overdueFollowups.length ? `<div class="kv"><div><b>⚠️ ${overdueFollowups.length} overdue follow-up${overdueFollowups.length===1?'':'s'}</b><div class="muted">These leads are past their next follow-up date.</div></div><button class="btn btn-sm" onclick="go('leads')">Review</button></div>` : ''}
+      ${dueToday.length ? `<div class="kv"><div><b>📅 ${dueToday.length} follow-up${dueToday.length===1?'':'s'} due today</b></div><button class="btn btn-sm" onclick="go('leads')">Open</button></div>` : ''}
+      ${staleNew ? `<div class="kv"><div><b>⏱️ ${staleNew} new lead${staleNew===1?'':'s'} older than 24h</b><div class="muted">Check whether first contact was recorded.</div></div></div>` : ''}
+      ${missingSource ? `<div class="kv"><div><b>🏷️ ${missingSource} lead${missingSource===1?'':'s'} need source review</b><div class="muted">Better source data improves campaign attribution.</div></div></div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn btn-sm" onclick="go('leads')">🎯 Work Leads</button><button class="btn btn-sm" onclick="go('customers')">👤 Find Customer</button></div>
+    </div></div>
+    <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Marketing Quality</h3></div><div class="panel-body pad">
+      <div class="kv"><div class="k">Follow-up discipline</div><div><b>${overdueFollowups.length===0?'On track':overdueFollowups.length+' overdue'}</b></div></div>
+      <div class="kv"><div class="k">Source completeness</div><div><b>${leads.length?Math.round(((leads.length-missingSource)/leads.length)*100):100}%</b></div></div>
+      <div class="kv"><div class="k">New-lead freshness</div><div><b>${staleNew===0?'On track':staleNew+' need review'}</b></div></div>
+      <div class="kv"><div class="k">Conversion</div><div><b>${rate}%</b> <span class="muted">(${converted} of ${leads.length})</span></div></div>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">Quality indicators are based on CRM workflow data. They flag records that need attention; they are not employee ratings.</p>
+    </div></div>
     <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Lead Sources</h3></div><div class="panel-body pad">
       ${sources.length ? sources.map(([name,count])=>`<div class="kv"><div class="k">${esc(name)}</div><div><b>${count}</b> leads</div></div>`).join('') : '<p class="muted">No lead-source data yet.</p>'}
     </div></div>
@@ -3257,6 +3284,7 @@ function openLeadModal(id) {
     title: l ? 'Edit lead' : 'New lead',
     wide: true,
     body: `
+      ${l && isMarketingManager() ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${l.phone?`<a class="btn btn-sm btn-primary" href="tel:${esc(l.phone)}">📞 Call</a><a class="btn btn-sm" href="sms:${esc(l.phone)}">💬 Text</a>`:''}${l.email?`<a class="btn btn-sm" href="mailto:${esc(l.email)}">✉️ Email</a>`:''}<button type="button" class="btn btn-sm" onclick="document.getElementById('f_nextfollowup').focus()">📅 Follow-up</button></div>` : ''}
       ${l && l.source==='Voice AI' ? `<div class="panel" style="margin-bottom:14px;background:var(--paper-2)"><div class="panel-body pad" style="font-size:12.5px">
         <div style="font-weight:800;margin-bottom:4px">📞 Source: Voice AI · ${esc(l.sourceChannel||'Phone')}${relatedCall?.startedAt ? ' · '+fmtDate(relatedCall.startedAt) : ''}</div>
         ${l.notes ? `<div class="muted" style="white-space:pre-wrap">${esc(l.notes)}</div>` : ''}
@@ -10130,7 +10158,7 @@ function renderViewAsOptions() {
     STORE.team.filter(m=>m.role==='Technician').map(m=>`<option value="${esc(m.name)}" ${VIEW_AS===m.name?'selected':''}>${esc(m.name)} — Technician</option>`).join('');
   sel.value = VIEW_AS;
 }
-function isTechnicianView() { return !IS_OWNER || !!VIEW_AS; }
+function isTechnicianView() { return CURRENT_TEAM_MEMBER?.role==='technician' || (IS_OWNER && !!VIEW_AS); }
 async function signOutCrm() {
   try {
     await SB.auth.signOut();
