@@ -752,7 +752,7 @@ function replaceStoreRecord(col, row) {
   // Keep the immediate post-save cache in the same display shape produced by
   // refreshCollection(), otherwise Team saves briefly expose raw DB values.
   if(col==='team'){
-    record.role=record.role==='owner'?'Owner/Admin':record.role==='technician'?'Technician':record.role==='office'?'Office':record.role;
+    record.role=record.role==='owner'?'Owner/Admin':record.role==='admin'?'Admin':record.role==='dispatcher'?'Dispatcher':record.role==='technician'?'Technician':record.role==='marketing_manager'?'Marketing Manager':record.role;
     record.status=record.status==='active'?'Active':record.status==='inactive'?'Inactive':record.status;
   }
   const list = STORE[col] || (STORE[col] = []);
@@ -799,7 +799,7 @@ async function refreshCollection(col){
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
   const records=rows.map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls));
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
-  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
+  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role==='marketing_manager'?'Marketing Manager':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
 }
 async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (508) 351-0523',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
 function setSyncState(ok,labelText){ const dot=document.getElementById('syncDot'),label=document.getElementById('syncLabel'); if(dot) dot.classList.toggle('off',!ok); if(label) label.textContent=labelText; }
@@ -4421,7 +4421,7 @@ window.openExpenseModal = openExpenseModal;
    Who can actually open and edit this app is controlled by
    Claude's own Share dialog on this artifact, not by this list.)
    ============================================================ */
-const TEAM_ROLES = ['Owner','Admin','Dispatcher','Technician'];
+const TEAM_ROLES = ['Owner','Admin','Dispatcher','Technician','Marketing Manager'];
 /* ============================================================
    CANONICAL TECHNICIAN IDENTITY
    ------------------------------------------------------------
@@ -4764,10 +4764,10 @@ function openTeamModal(id) {
       if (!name) return toast('Name is required');
       const data = {
         name,
-        role: document.getElementById('f_role').value,
+        role: document.getElementById('f_role').value==='Marketing Manager'?'marketing_manager':document.getElementById('f_role').value.toLowerCase(),
         phone: document.getElementById('f_phone').value.trim(),
         email: document.getElementById('f_email').value.trim(),
-        status: document.getElementById('f_techstatus').value,
+        status: document.getElementById('f_techstatus').value.toLowerCase(),
         commissionPercent: parseFloat(document.getElementById('f_commission').value)||0,
       };
       if (m) {
