@@ -9186,6 +9186,7 @@ function renderDocumentView(type, id) {
   const custPhone = doc.customerPhone || docCust?.phone;
   const emailBtn = `<button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); emailDocument('${type}','${doc.id}')">✉ Email to customer</button>`;
   const signingEmailBtn = !isInvoice && !doc.signature ? `<button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); sendEstimateForSigning('${doc.id}')">✍ Email secure signing link</button>` : '';
+  const publicInvoiceBtn = isInvoice ? `<button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); openPublicInvoicePage('${doc.id}')">🌐 Open customer invoice page</button>` : '';
   const textBtn = `<button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); textDocument('${type}','${doc.id}')">💬 Text to customer</button>`;
   let payBtn = '';
   if (isInvoice && balance > 0) {
@@ -9241,6 +9242,7 @@ function renderDocumentView(type, id) {
             <div id="docActionsMenu" class="dropdown-menu" style="display:none">
               ${emailBtn}
               ${signingEmailBtn}
+              ${publicInvoiceBtn}
               ${textBtn}
               <button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); copyDocSummary('${type}','${doc.id}')">📋 Copy text</button>
               <button class="btn btn-sm" style="width:100%;text-align:left" onclick="closeDocMenu(); downloadDocPdf('${type}','${doc.id}')">⬇ Download PDF</button>
@@ -9921,6 +9923,25 @@ async function sendEstimateForSigning(id) {
   }
 }
 window.sendEstimateForSigning = sendEstimateForSigning;
+
+async function createPublicInvoiceUrl(id) {
+  const doc=getOne('invoices',id);
+  if(!doc) throw new Error('Invoice not found');
+  const {data,error}=await SB.rpc('issue_public_invoice_access_token',{p_invoice_id:id});
+  if(error) throw error;
+  const payload=Array.isArray(data)?data[0]:data;
+  const token=payload?.token;
+  if(!/^[0-9a-fA-F]{64}$/.test(token||'')) throw new Error('Could not create secure invoice link');
+  return new URL('invoice-pay.html?invoice='+encodeURIComponent(id)+'&token='+encodeURIComponent(token),location.origin).toString();
+}
+async function openPublicInvoicePage(id){
+  try{
+    const url=await createPublicInvoiceUrl(id);
+    window.open(url,'_blank','noopener');
+    await logAudit('public_invoice_link_opened','Secure customer invoice page opened','invoices',id,'public_invoice_access',null);
+  }catch(e){console.error('openPublicInvoicePage failed',e);toast(e?.message||'Could not open customer invoice page',true);}
+}
+window.openPublicInvoicePage=openPublicInvoicePage;
 
 async function emailDocument(type, id) {
   const col = type === 'estimate' ? 'estimates' : 'invoices';
