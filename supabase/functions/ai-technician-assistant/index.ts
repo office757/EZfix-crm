@@ -21,7 +21,7 @@ function parseMoney(request: string, explicit: any) {
   if (Number.isFinite(supplied) && supplied > 0) return round2(supplied);
   const patterns = [
     /[$₪]\s*([0-9][0-9,]*(?:\.\d{1,2})?)/,
-    /\b([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:dollars?|total|including\s+tax|incl\.?\s*tax)\b/i,
+    /\b(?:for|total(?:\s+of)?|amount(?:\s+of)?|at)\s*[$]?\s*([0-9][0-9,]*(?:\.\d{1,2})?)\b/i,\n    /\b([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:dollars?|total|including\s+(?:tax|labor)|incl\.?\s*(?:tax|labor))\b/i,
     /(?:סה["״']?כ|סכום|בסך|כולל\s+(?:מס|מיסים)|עם\s+(?:מס|מיסים))\s*(?:של)?\s*(?:ב)?\s*[:\-]?\s*[$₪]?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i,
     /(?:^|\s)ב\s*([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:₪|ש["״']?ח)?(?:\s|$)/i,
   ];
@@ -41,7 +41,7 @@ function inferService(request: string) {
   if (extension && spring) return { category: "springs", kind: "extension", pair };
   if (torsion && spring) return { category: "springs", kind: "torsion", pair };
   if (spring) return { category: "springs", kind: "spring", pair };
-  if (/opener|liftmaster|motor|פותחן|מנוע|ליפטמאסטר/.test(value)) return { category: "openers", kind: "opener", pair: false };
+  if (/garage\s*door|\bdoor\b|16\s*[x\/]\s*7|9\s*[x\/]\s*7|דלת\s*(?:מוסך)?/.test(value)) return { category: "doors", kind: "garage door", pair: false };\n  if (/opener|liftmaster|motor|פותחן|מנוע|ליפטמאסטר/.test(value)) return { category: "openers", kind: "opener", pair: false };
   if (/cable|כבל|כבלים/.test(value)) return { category: "cables", kind: "cable", pair: false };
   if (/roller|רולר|רולרים/.test(value)) return { category: "rollers", kind: "roller", pair: false };
   if (/weather|seal|אטם|גומי/.test(value)) return { category: "weather_seal", kind: "weather seal", pair: false };
