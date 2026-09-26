@@ -657,7 +657,6 @@ let SETTINGS = { stripeLink: '', googleReviewLink: '', ccSurchargePercent: 3.5, 
 const unsub = [];
 let route = { page: "dashboard", id: null };
 let searchTerms = {};
-let marketingLeadFilter = 'all';
 let globalSearchQuery = '';
 
 function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -1556,22 +1555,6 @@ function renderMarketingDashboard(content, actions) {
   const sourceCounts = {};
   leads.forEach(l=>{ const s=String(l.source||'Unknown').trim()||'Unknown'; sourceCounts[s]=(sourceCounts[s]||0)+1; });
   const sources = Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const funnelStages=[
-    ['New',leads.filter(l=>String(l.status||'new').toLowerCase()==='new').length],
-    ['Contacted',leads.filter(l=>['contacted','follow_up'].includes(String(l.status||'').toLowerCase())).length],
-    ['Appointment',leads.filter(l=>String(l.status||'').toLowerCase()==='appointment_scheduled').length],
-    ['Estimate',leads.filter(l=>['estimate_needed','estimate_sent','approved'].includes(String(l.status||'').toLowerCase())).length],
-    ['Converted',converted]
-  ];
-  const weekStart=dateNDaysAgo(6), prevWeekStart=dateNDaysAgo(13), prevWeekEnd=dateNDaysAgo(7);
-  const leadsThisWeek=leads.filter(l=>l.createdAt && String(l.createdAt).slice(0,10)>=weekStart).length;
-  const leadsPrevWeek=leads.filter(l=>{const d=l.createdAt&&String(l.createdAt).slice(0,10);return d&&d>=prevWeekStart&&d<=prevWeekEnd;}).length;
-  const convertedThisWeek=leads.filter(l=>String(l.status||'').toLowerCase()==='converted' && l.updatedAt && String(l.updatedAt).slice(0,10)>=weekStart).length;
-  const marketingInsights=[];
-  if(overdueFollowups.length) marketingInsights.push({icon:'⚠️',title:'Follow-ups need attention',detail:`${overdueFollowups.length} lead${overdueFollowups.length===1?' is':'s are'} past the next follow-up date.`});
-  if(staleNew) marketingInsights.push({icon:'⏱️',title:'New leads waiting',detail:`${staleNew} new lead${staleNew===1?' has':'s have'} been open more than 24 hours.`});
-  if(missingSource) marketingInsights.push({icon:'🏷️',title:'Attribution can improve',detail:`${missingSource} lead${missingSource===1?' needs':'s need'} a clearer source.`});
-  if(!marketingInsights.length) marketingInsights.push({icon:'✓',title:'Workflow is up to date',detail:'No overdue follow-ups, stale new leads, or source gaps are currently flagged.'});
   content.innerHTML = `
     <div class="page-hero"><div><div class="eyebrow">MARKETING WORKSPACE</div><h1>Campaign Manager</h1><p>Lead and customer performance. Financial, payroll and owner-only data are not available in this workspace.</p></div></div>
     <div class="stats-grid">
@@ -1589,9 +1572,6 @@ function renderMarketingDashboard(content, actions) {
       ${missingSource ? `<div class="kv"><div><b>🏷️ ${missingSource} lead${missingSource===1?'':'s'} need source review</b><div class="muted">Better source data improves campaign attribution.</div></div></div>` : ''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn btn-sm" onclick="go('leads')">🎯 Work Leads</button><button class="btn btn-sm" onclick="go('customers')">👤 Find Customer</button></div>
     </div></div>
-    <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Insights</h3></div><div class="panel-body pad">${marketingInsights.map(x=>`<div class="kv"><div><b>${x.icon} ${x.title}</b><div class="muted">${x.detail}</div></div></div>`).join('')}<p class="muted" style="font-size:12px;margin:10px 0 0">Insights use CRM workflow facts only; campaign recommendations will be added after ad-platform data is connected.</p></div></div>
-    <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>This Week</h3></div><div class="panel-body pad"><div class="kv"><div class="k">New leads</div><div><b>${leadsThisWeek}</b> <span class="muted">vs ${leadsPrevWeek} previous 7 days</span></div></div><div class="kv"><div class="k">Converted this week</div><div><b>${convertedThisWeek}</b></div></div></div></div>
-    <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Lead Funnel</h3></div><div class="panel-body pad">${funnelStages.map(([label,count])=>`<div class="kv"><div class="k">${label}</div><div><b>${count}</b></div></div>`).join('')}</div></div>
     <div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Marketing Quality</h3></div><div class="panel-body pad">
       <div class="kv"><div class="k">Follow-up discipline</div><div><b>${overdueFollowups.length===0?'On track':overdueFollowups.length+' overdue'}</b></div></div>
       <div class="kv"><div class="k">Source completeness</div><div><b>${leads.length?Math.round(((leads.length-missingSource)/leads.length)*100):100}%</b></div></div>
@@ -3202,12 +3182,6 @@ function renderLeads(content, actions) {
     : `<button class="btn btn-sm" onclick="exportLeadsCSV()">⬇ CSV</button><button class="btn btn-primary" onclick="openLeadModal()">+ New lead</button>`;
   const term = (searchTerms.leads||'').toLowerCase();
   let list = STORE.leads.filter(l => !term || [(l.name||''),(l.phone||''),(l.email||'')].some(v=>v.toLowerCase().includes(term)));
-  if(isMarketingManager()){
-    const today=todayISO();
-    if(marketingLeadFilter==='new') list=list.filter(l=>String(l.status||'new').toLowerCase()==='new');
-    if(marketingLeadFilter==='followup') list=list.filter(l=>l.nextFollowUp && l.nextFollowUp<=today && !['converted','lost','cancelled'].includes(String(l.status||'').toLowerCase()));
-    if(marketingLeadFilter==='source') list=list.filter(l=>!String(l.source||'').trim() || String(l.source||'').toLowerCase()==='other');
-  }
   const pendingForMe = isTechnicianView() ? STORE.leads.filter(l=>l.assignedTechnician===VIEW_AS && l.assignmentStatus==='pending') : [];
   if (isTechnicianView()) list = list.filter(l=>l.assignedTechnician===VIEW_AS);
   const requestedLeadId = route.page==='leads' ? route.id : null;
@@ -3225,7 +3199,6 @@ function renderLeads(content, actions) {
         </div>`).join('')}
       </div>
     </div>` : ''}
-    ${isMarketingManager()?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${[['all','All'],['new','New'],['followup','Follow-up Due'],['source','Source Review']].map(([k,label])=>`<button class="btn btn-sm ${marketingLeadFilter===k?'btn-primary':''}" onclick="marketingLeadFilter=\'${k}\';renderPreserveScroll()">${label}</button>`).join('')}</div>`:''}
     <div class="toolbar">
       <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
         <input id="searchInput" placeholder="Search leads…" value="${esc(searchTerms.leads||'')}" oninput="searchTerms.leads=this.value; renderPreserveScroll()">
@@ -3302,9 +3275,6 @@ async function convertLead(id) {
 }
 window.convertLead = convertLead;
 
-function setMarketingFollowup(days){ const el=document.getElementById('f_nextfollowup'); if(!el)return; const d=new Date(); d.setDate(d.getDate()+Number(days||0)); el.value=d.toISOString().slice(0,10); }
-function markMarketingContacted(){ const d=todayISO(); const last=document.getElementById('f_lastcontact'),status=document.getElementById('f_status'); if(last)last.value=d; if(status && status.value==='new')status.value='contacted'; toast('Marked contacted today'); }
-window.setMarketingFollowup=setMarketingFollowup; window.markMarketingContacted=markMarketingContacted;
 function openLeadModal(id) {
   const l = id ? getOne('leads', id) : null;
   docPhotosDraft = l?.photos ? JSON.parse(JSON.stringify(l.photos)) : [];
@@ -3341,17 +3311,16 @@ function openLeadModal(id) {
       </div>
       <div class="field-row">
         <label class="field"><span class="lbl">Service requested</span><input type="text" id="f_service" value="${esc(l?.serviceRequested)}" placeholder="e.g. Spring replacement"></label>
-        <label class="field" style="${isMarketingManager()?'display:none':''}"><span class="lbl">Estimated value ($)</span><input type="number" step="0.01" id="f_value" value="${l?.estimatedValue ?? ''}"></label>
+        <label class="field"><span class="lbl">Estimated value ($)</span><input type="number" step="0.01" id="f_value" value="${l?.estimatedValue ?? ''}"></label>
       </div>
       <div class="field-row">
         <label class="field"><span class="lbl">Preferred appointment</span><input type="date" id="f_preferred" value="${l?.preferredAppointment||''}"></label>
-        <label class="field" style="${isMarketingManager()?'display:none':''}"><span class="lbl">Assigned technician</span>${technicianPickerHtml(l?.assignedTechnicianId, l?.assignedTechnician, 'f_leadtech')}</label>
+        <label class="field"><span class="lbl">Assigned technician</span>${technicianPickerHtml(l?.assignedTechnicianId, l?.assignedTechnician, 'f_leadtech')}</label>
       </div>
       <div class="field-row">
         <label class="field"><span class="lbl">Last contact</span><input type="date" id="f_lastcontact" value="${l?.lastContact||''}"></label>
         <label class="field"><span class="lbl">Next follow-up</span><input type="date" id="f_nextfollowup" value="${l?.nextFollowUp||''}"></label>
       </div>
-      ${l && isMarketingManager()?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 14px"><button type="button" class="btn btn-sm" onclick="setMarketingFollowup(1)">Tomorrow</button><button type="button" class="btn btn-sm" onclick="setMarketingFollowup(3)">+3 Days</button><button type="button" class="btn btn-sm" onclick="setMarketingFollowup(7)">+7 Days</button><button type="button" class="btn btn-sm btn-primary" onclick="markMarketingContacted()">✓ Contacted Today</button></div>`:''}
       <label class="field"><span class="lbl">Status</span>
         <select id="f_status">${LEAD_STATUSES.map(s=>`<option value="${s}" ${l?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
       </label>
