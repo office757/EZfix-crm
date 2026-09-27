@@ -23,5 +23,3 @@ check('CSS is local-only and scoped to picker/catalog classes',()=>{assert.doesN
 check('Existing line-item add path remains present',()=>assert.match(source,/function addFromCatalog\(productId\)/));
 check('Existing product picker remains present for all other categories',()=>assert.match(js,/baseRenderProductPicker\(\)/));
 console.log('Product catalog UI audit: '+n+'/'+n+' PASS');
-
-[executed on device: DESKTOP-1E5RUBH (4ce28b28-6a84-43a7-ad22-df40b4da76cb)]
