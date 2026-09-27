@@ -496,7 +496,7 @@
   .cal-title-block{text-align:center;min-width:180px}
   .cal-title{font-size:18px;font-weight:800;letter-spacing:-.01em}
   .cal-title-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
-  .cal-filter-block{display:flex;justify-content:flex-end}
+  .cal-filter-block{display:flex;justify-content:flex-end;gap:8px;align-items:center;flex-wrap:wrap}
   .cal-filter-block select{max-width:210px}
   .cal-week-grid{margin-top:14px;overflow-x:auto;padding-bottom:4px}
   .cal-hour-board{min-width:980px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
@@ -8919,11 +8919,14 @@ function renderCalendarWeek(content) {
   const days = Array.from({length:7}, (_,i)=>addDays(calendarWeekStart, i));
   const techFilter = searchTerms.calendarTech || '';
   const techOptions = calendarTechFilterOptions();
+  const jobTypeFilter = searchTerms.calendarJobType || '';
   const jobsForDay = d => STORE.jobs.filter(j=>j.scheduledDate===d && jobMatchesTechFilter(j, techFilter))
+    .filter(j => !jobTypeFilter || String(j.title||'').toLowerCase().includes(jobTypeFilter))
     .filter(j => !isTechnicianView() || j.technician===VIEW_AS)
     .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
   const today=todayISO(), firstObj=new Date(days[0]+'T00:00:00'), lastObj=new Date(days[6]+'T00:00:00');
   const rangeLabel=firstObj.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+lastObj.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const jobTypeOptions=[...new Set(STORE.jobs.map(j=>String(j.title||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).slice(0,30);
   const hours=Array.from({length:11},(_,i)=>i+8);
   const parseClock=v=>{ const m=String(v||'').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i); if(!m)return null; let h=+m[1],min=+(m[2]||0); if(/PM/i.test(m[3])&&h<12)h+=12;if(/AM/i.test(m[3])&&h===12)h=0;return h+min/60; };
   const windowTimes=j=>{ const ms=String(j.appointmentWindow||'').match(/\d{1,2}(?::\d{2})?\s*(?:AM|PM)/ig)||[]; const st=parseClock(ms[0]), en=parseClock(ms[1]); return {start:st??8,end:en&&en>(st??8)?en:(st??8)+1}; };
@@ -8943,7 +8946,7 @@ function renderCalendarWeek(content) {
     <div class="cal-week-toolbar">
       <div class="cal-nav-group"><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,-7);saveUiState();render()" aria-label="Previous week">‹</button><button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO());saveUiState();render()">Today</button><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,7);saveUiState();render()" aria-label="Next week">›</button></div>
       <div class="cal-title-block"><div class="cal-title">${rangeLabel}</div><div class="cal-title-sub">${weekJobs.length} scheduled jobs</div></div>
-      <div class="cal-filter-block">${!isTechnicianView()&&techOptions.length?`<select class="select-compact" onchange="searchTerms.calendarTech=this.value;saveUiState();render()"><option value="">All technicians</option>${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`:''}</div>
+      <div class="cal-filter-block">${!isTechnicianView()&&techOptions.length?`<select class="select-compact" onchange="searchTerms.calendarTech=this.value;saveUiState();render()"><option value="">All technicians</option>${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`:''}<select class="select-compact" onchange="searchTerms.calendarJobType=this.value;saveUiState();render()"><option value="">All job types</option>${jobTypeOptions.map(v=>`<option value="${esc(v.toLowerCase())}" ${jobTypeFilter===v.toLowerCase()?'selected':''}>${esc(v)}</option>`).join('')}</select></div>
     </div>
     <div class="cal-schedule-layout"><div class="cal-schedule-main">
       <div style="overflow-x:auto">
