@@ -8877,45 +8877,45 @@ function renderCalendarWeek(content) {
   const today = todayISO();
   const firstObj=new Date(days[0]+'T00:00:00'), lastObj=new Date(days[6]+'T00:00:00');
   const rangeLabel=firstObj.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+lastObj.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  content.innerHTML = \`
+  content.innerHTML = `
     <div class="cal-week-toolbar">
       <div class="cal-nav-group">
         <button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,-7); saveUiState(); render()" aria-label="Previous week">‹</button>
         <button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO()); saveUiState(); render()">Today</button>
         <button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,7); saveUiState(); render()" aria-label="Next week">›</button>
       </div>
-      <div class="cal-title-block"><div class="cal-title">\${rangeLabel}</div><div class="cal-title-sub">\${days.reduce((n,d)=>n+jobsForDay(d).length,0)} scheduled jobs</div></div>
+      <div class="cal-title-block"><div class="cal-title">${rangeLabel}</div><div class="cal-title-sub">${days.reduce((n,d)=>n+jobsForDay(d).length,0)} scheduled jobs</div></div>
       <div class="cal-filter-block">
-        \${!isTechnicianView() && techOptions.length ? \`<select class="select-compact" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()">
+        ${!isTechnicianView() && techOptions.length ? `<select class="select-compact" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()">
           <option value="">All technicians</option>
-          \${techOptions.map(o=>\`<option value="\${esc(o.value)}" \${techFilter===o.value?'selected':''}>\${esc(o.label)}</option>\`).join('')}
-        </select>\` : ''}
+          ${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}
+        </select>` : ''}
       </div>
     </div>
     <div class="cal-week-grid">
-      \${days.map(d => {
+      ${days.map(d => {
         const jobs=jobsForDay(d), isToday=d===today, dObj=new Date(d+'T00:00:00');
-        return \`<section class="cal-week-day \${isToday?'is-today':''}">
+        return `<section class="cal-week-day ${isToday?'is-today':''}">
           <div class="cal-week-day-head">
-            <button class="cal-week-date-btn" onclick="searchTerms.calendarSelectedDate='\${d}';calendarViewMode='day';saveUiState();render()">
-              <span class="cal-week-dow">\${dObj.toLocaleDateString('en-US',{weekday:'short'})}</span>
-              <span class="cal-week-num">\${dObj.getDate()}</span>
+            <button class="cal-week-date-btn" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()">
+              <span class="cal-week-dow">${dObj.toLocaleDateString('en-US',{weekday:'short'})}</span>
+              <span class="cal-week-num">${dObj.getDate()}</span>
             </button>
-            <span class="cal-week-count">\${jobs.length}</span>
-            \${!isTechnicianView()? \`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('\${d}')">+</button>\`:''}
+            <span class="cal-week-count">${jobs.length}</span>
+            ${!isTechnicianView()? `<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')">+</button>`:''}
           </div>
           <div class="cal-week-jobs">
-            \${jobs.length ? jobs.map((j,idx)=>\`<button class="cal-week-job cal-job-tone-\${idx%4}" style="--cal-accent:\${jobStatusAccent(j.status)}" onclick="go('jobs','\${j.id}')">
-              <span class="cal-week-job-time">\${esc(j.appointmentWindow||'Time TBD')}</span>
-              <span class="cal-week-job-customer">\${esc(j.customerName||'Customer')}</span>
-              <span class="cal-week-job-title">\${esc(j.title||'Garage door service')}</span>
-              <span class="cal-week-job-tech">👷 \${esc(j.technician||'Unassigned')}</span>
-            </button>\`).join('') : '<div class="cal-week-empty">No jobs</div>'}
+            ${jobs.length ? jobs.map((j,idx)=>`<button class="cal-week-job cal-job-tone-${idx%4}" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')">
+              <span class="cal-week-job-time">${esc(j.appointmentWindow||'Time TBD')}</span>
+              <span class="cal-week-job-customer">${esc(j.customerName||'Customer')}</span>
+              <span class="cal-week-job-title">${esc(j.title||'Garage door service')}</span>
+              <span class="cal-week-job-tech">👷 ${esc(j.technician||'Unassigned')}</span>
+            </button>`).join('') : '<div class="cal-week-empty">No jobs</div>'}
           </div>
-        </section>\`;
+        </section>`;
       }).join('')}
     </div>
-  \`;
+  `;
 }
 function renderCalendarDay(content) {
   const dateStr=searchTerms.calendarSelectedDate||todayISO();
@@ -8927,40 +8927,40 @@ function renderCalendarDay(content) {
     .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
   const dObj=new Date(dateStr+'T00:00:00');
   const prev=addDays(dateStr,-1), next=addDays(dateStr,1);
-  content.innerHTML=\`
+  content.innerHTML=`
     <div class="cal-day-toolbar">
       <div class="cal-nav-group">
-        <button class="btn btn-sm cal-nav-btn" onclick="searchTerms.calendarSelectedDate='\${prev}';saveUiState();render()" aria-label="Previous day">‹</button>
+        <button class="btn btn-sm cal-nav-btn" onclick="searchTerms.calendarSelectedDate='${prev}';saveUiState();render()" aria-label="Previous day">‹</button>
         <button class="btn btn-sm" onclick="searchTerms.calendarSelectedDate=todayISO();saveUiState();render()">Today</button>
-        <button class="btn btn-sm cal-nav-btn" onclick="searchTerms.calendarSelectedDate='\${next}';saveUiState();render()" aria-label="Next day">›</button>
+        <button class="btn btn-sm cal-nav-btn" onclick="searchTerms.calendarSelectedDate='${next}';saveUiState();render()" aria-label="Next day">›</button>
       </div>
       <div class="cal-title-block">
-        <div class="cal-title">\${dObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
-        <div class="cal-title-sub">\${jobs.length} scheduled job\${jobs.length===1?'':'s'}</div>
+        <div class="cal-title">${dObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
+        <div class="cal-title-sub">${jobs.length} scheduled job${jobs.length===1?'':'s'}</div>
       </div>
       <div class="cal-filter-block">
-        \${!isTechnicianView() && techOptions.length ? \`<select class="select-compact" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()"><option value="">All technicians</option>\${techOptions.map(o=>\`<option value="\${esc(o.value)}" \${techFilter===o.value?'selected':''}>\${esc(o.label)}</option>\`).join('')}</select>\` : ''}
+        ${!isTechnicianView() && techOptions.length ? `<select class="select-compact" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()"><option value="">All technicians</option>${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>` : ''}
       </div>
     </div>
     <div class="cal-day-view">
       <div class="cal-day-list">
-        \${jobs.length ? jobs.map(j=>{
+        ${jobs.length ? jobs.map(j=>{
           const cust=getOne('customers',j.customerId);
-          return \`<article class="cal-day-job" style="--cal-accent:\${jobStatusAccent(j.status)}">
-            <div class="cal-day-time">\${esc(j.appointmentWindow||'Time TBD')}</div>
+          return `<article class="cal-day-job" style="--cal-accent:${jobStatusAccent(j.status)}">
+            <div class="cal-day-time">${esc(j.appointmentWindow||'Time TBD')}</div>
             <div class="cal-day-main">
-              <div class="cal-day-customer">\${esc(j.customerName||'Customer')}</div>
-              <div class="cal-day-service">\${esc(j.title||'Garage door service')}</div>
-              \${cust?.address?\`<div class="cal-day-address">\${esc(cust.address)}</div>\`:''}
-              <div class="cal-day-tech">👷 \${esc(j.technician||'Unassigned')}</div>
+              <div class="cal-day-customer">${esc(j.customerName||'Customer')}</div>
+              <div class="cal-day-service">${esc(j.title||'Garage door service')}</div>
+              ${cust?.address?`<div class="cal-day-address">${esc(cust.address)}</div>`:''}
+              <div class="cal-day-tech">👷 ${esc(j.technician||'Unassigned')}</div>
             </div>
-            <div class="cal-day-side"><span class="badge badge-\${j.status}">\${labelize(j.status)}</span><button class="btn btn-sm" onclick="go('jobs','\${j.id}')">Open</button></div>
-          </article>\`;
+            <div class="cal-day-side"><span class="badge badge-${j.status}">${labelize(j.status)}</span><button class="btn btn-sm" onclick="go('jobs','${j.id}')">Open</button></div>
+          </article>`;
         }).join('') : '<div class="cal-day-empty">No jobs scheduled for this day.</div>'}
       </div>
-      \${!isTechnicianView()? \`<button class="btn btn-primary cal-day-create" onclick="openJobModalForDate('\${dateStr}')">+ Add Job</button>\`:''}
+      ${!isTechnicianView()? `<button class="btn btn-primary cal-day-create" onclick="openJobModalForDate('${dateStr}')">+ Add Job</button>`:''}
     </div>
-  \`;
+  `;
 }
 function openJobModalForDate(dateStr) {
   openJobModal();
