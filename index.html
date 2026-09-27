@@ -1321,8 +1321,8 @@ async function quickPayCreateInvoice(options={}){
     c={...c,phone:normalizedPhone};
     if(c.id && normalizedPhone && getOne('customers',c.id)?.phone!==normalizedPhone){
       await dbSet('customers',c.id,{phone:normalizedPhone});
-      c=getOne('customers',c.id)||c;
     }
+    c={...c,phone:normalizedPhone};
     const note=document.getElementById('qpNote')?.value.trim()||'Quick Payment';
     const items=quickPayLines.map(x=>({...x,details:x.details||note}));
     const partsCost=Math.max(0,Number(document.getElementById('qpPartsCost')?.value)||0);
@@ -1330,7 +1330,7 @@ async function quickPayCreateInvoice(options={}){
     const {data:rid,error}=await SB.rpc('technician_create_quickpay_invoice',{
       p_customer_id:c.id||null,
       p_customer_name:c.name||'',
-      p_customer_phone:c.phone||'',
+      p_customer_phone:normalizedPhone||'',
       p_customer_email:c.email||'',
       p_customer_address:c.address||'',
       p_items:items,
