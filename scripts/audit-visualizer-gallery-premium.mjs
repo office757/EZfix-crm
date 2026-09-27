@@ -23,4 +23,6 @@ check('Runtime does not create a second database client or call external APIs di
 check('CSS is local-only',()=>assert.doesNotMatch(css,/@import|url\s*\(/i));
 check('Responsive tablet/mobile rules exist',()=>{assert.match(css,/max-width:1050px/);assert.match(css,/max-width:700px/);});
 check('Reduced motion is respected',()=>assert.match(css,/prefers-reduced-motion/));
+check('Saved Designs library can resume persisted design state',()=>{assert.match(js,/resumeSavedVisualizerDesign/);assert.match(js,/STORE\.savedDesigns/);assert.match(js,/designName/);assert.match(js,/previewImageUrl/);});
+check('Saved Design delete remains Owner-only in UI',()=>{assert.match(js,/if\(!IS_OWNER\)return toast\('Owner access required'/);assert.match(js,/dbDelete\('savedDesigns'/);});
 console.log('Visualizer/Gallery premium audit: '+n+'/'+n+' PASS');
