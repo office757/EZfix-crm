@@ -21,5 +21,6 @@ check('Extension filters expose length, weight, color and door height',()=>{asse
 check('Exact spring size remains optional',()=>assert.match(js,/Size Not Specified/));
 check('CSS is local-only and scoped to picker/catalog classes',()=>{assert.doesNotMatch(css,/@import|url\s*\(/i);assert.match(css,/#pickerOverlay|\.gd-catalog|\.spring-/)});
 check('Existing line-item add path remains present',()=>assert.match(source,/function addFromCatalog\(productId\)/));
+check('Reference catalog stays isolated from the normal active-product search',()=>{assert.match(js,/const activeProducts=STORE\.products\.filter\(p=>p\.active!==false\)/);assert.match(js,/renderGarageDoors\(body,STORE\.products\)/);assert.match(js,/renderSpringSizes\(body,STORE\.products/);assert.doesNotMatch(js,/const active=STORE\.products\.filter\(p=>p\.active!==false&&valueOf\(p,'catalogKind'\)==='spring_size'/)});
 check('Existing product picker remains present for all other categories',()=>assert.match(js,/baseRenderProductPicker\(\)/));
 console.log('Product catalog UI audit: '+n+'/'+n+' PASS');
