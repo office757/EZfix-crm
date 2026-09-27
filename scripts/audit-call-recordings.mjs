@@ -8,7 +8,14 @@ const storage=readFileSync(new URL('../supabase/migrations/20260927185635_restri
 let n=0; const check=(name,fn)=>{fn();n++;console.log('PASS '+name)};
 
 check('Call recording fallback marker is installed once',()=>assert.equal((html.match(/EZFIX_CALL_RECORDING_FALLBACK_V1/g)||[]).length,1));
-check('recording_asset is loaded from calls',()=>assert.match(html,/recording_url','recording_asset','provider_data/));
+check('Original recording columns remain loaded from calls',()=>{
+  assert.match(html,/recording_url','recording_asset'/);
+  assert.match(html,/recording_asset'[\s\S]{0,500}'provider_data'/);
+});
+check('Synthetic transcript replay remains a separate call column',()=>{
+  assert.match(html,/transcript_replay_asset/);
+  assert.doesNotMatch(html,/recording_asset\s*:\s*c\.transcriptReplayAsset/);
+});
 check('Private recording asset URL is renewed on calls refresh',()=>assert.match(html,/recordingAsset\?\.url/));
 check('Provider recording URL remains fallback',()=>assert.match(html,/recordingAsset\?\.url \|\| c\?\.recordingUrl/));
 check('Upload uses isolated call-recordings folder',()=>assert.match(html,/uploadAsset\(file,'call-recordings'\)/));
