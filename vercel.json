@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/audit-calendar-overlap.mjs && node scripts/build-calendar-overlap.mjs && node scripts/audit-calendar-premium.mjs && node scripts/build-calendar-premium.mjs",
+  "buildCommand": "node scripts/test-public-routes.mjs && node scripts/audit-public-routes.mjs && node scripts/audit-calendar-overlap.mjs && node scripts/build-calendar-overlap.mjs && node scripts/audit-calendar-premium.mjs && node scripts/build-calendar-premium.mjs",
   "outputDirectory": ".",
   "cleanUrls": true,
   "redirects": [
@@ -8,7 +8,7 @@
   ],
   "rewrites": [
     { "source": "/", "destination": "/auth-shell" },
-    { "source": "/crm", "destination": "/index.html" }
+    { "source": "/crm", "destination": "/index" }
   ],
   "headers": [
     {
