@@ -16,4 +16,7 @@ check('Consent evidence text and version are persisted',()=>{
   assert.match(src,/form_submission_id:"web:"\+leadId/);
 });
 check('No historical lead backfill exists in webhook',()=>assert.doesNotMatch(src,/update\s+public\.sms_consent|from\("leads"\).*sms_consent/i));
+check('Landing/referrer URL attribution fallback is present',()=>{assert.match(src,/const attributionFromUrl=/);assert.match(src,/attributionFromUrl\(landingPage\)/);});
+check('Explicit attribution fields take precedence over URL fallback',()=>{assert.match(src,/attr\(b,\["gclid","GCLID"\]\)\|\|urlAttr\.gclid/);assert.match(src,/attr\(b,\["utm_source","utm-source"\]\)\|\|urlAttr\.utm_source/);});
+check('URL fallback includes Google click IDs and UTM fields',()=>{for(const key of ['gclid','gbraid','wbraid','utm_source','utm_medium','utm_campaign','utm_term','utm_content'])assert.ok(src.includes('"'+key+'"'),key);});
 console.log('Website SMS consent audit: '+n+'/'+n+' PASS');
