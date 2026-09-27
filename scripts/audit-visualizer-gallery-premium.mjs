@@ -25,4 +25,6 @@ check('Responsive tablet/mobile rules exist',()=>{assert.match(css,/max-width:10
 check('Reduced motion is respected',()=>assert.match(css,/prefers-reduced-motion/));
 check('Saved Designs library can resume persisted design state',()=>{assert.match(js,/resumeSavedVisualizerDesign/);assert.match(js,/STORE\.savedDesigns/);assert.match(js,/designName/);assert.match(js,/previewImageUrl/);});
 check('Saved Design delete remains Owner-only in UI',()=>{assert.match(js,/if\(!IS_OWNER\)return toast\('Owner access required'/);assert.match(js,/dbDelete\('savedDesigns'/);});
+check('Visualizer Catalog Admin manages reference overlays without duplicate catalog rows',()=>{assert.match(js,/renderVisCatalog=function/);assert.match(js,/Reference Door Readiness/);assert.match(js,/clearVisualizerOverlay/);assert.match(js,/uploadVisualizerOverlay/);assert.doesNotMatch(js,/openManufacturerModal\(/);});
+check('Visualizer Catalog readiness filters are present',()=>{assert.match(js,/readiness:'all'/);assert.match(js,/Missing Overlay/);assert.match(js,/Visualizer Ready/);});
 console.log('Visualizer/Gallery premium audit: '+n+'/'+n+' PASS');
