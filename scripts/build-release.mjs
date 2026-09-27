@@ -14,6 +14,8 @@ const scripts = [
   'build-product-catalog-ui.mjs',
   'audit-visualizer-gallery-premium.mjs',
   'build-visualizer-gallery-premium.mjs',
+  'audit-marketing-connections-ui.mjs',
+  'build-marketing-connections-ui.mjs',
   'audit-assignment-whatsapp.mjs',
   'build-assignment-whatsapp.mjs',
   'audit-call-recordings.mjs',
@@ -24,6 +26,7 @@ const scripts = [
   'audit-ui-state.mjs',
   'audit-product-catalog-ui.mjs',
   'audit-visualizer-gallery-premium.mjs',
+  'audit-marketing-connections-ui.mjs',
   'audit-assignment-whatsapp.mjs',
   'audit-call-recordings.mjs'
 ];
