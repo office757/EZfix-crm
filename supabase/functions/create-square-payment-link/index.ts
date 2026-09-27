@@ -4,6 +4,14 @@ const SQUARE_VERSION="2026-09-16";
 const CRM_PUBLIC_URL="https://ezfix-crm-sms-length-fixed.vercel.app/";
 function round2(n:number){return Math.round((n+Number.EPSILON)*100)/100;}
 function appliedAmount(p:any){const n=Number(p?.appliedAmount ?? p?.amount ?? 0);return Number.isFinite(n)?Math.max(0,n):0;}
+function normalizeUsPhone(value:any){
+ const raw=String(value??"").trim(); if(!raw)return null;
+ const digits=raw.replace(/\D/g,"");
+ if(digits.length===10)return "+1"+digits;
+ if(digits.length===11&&digits.startsWith("1"))return "+"+digits;
+ if(raw.startsWith("+")&&digits.length>=8&&digits.length<=15)return "+"+digits;
+ return null;
+}
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  try{
@@ -21,8 +29,10 @@ Deno.serve(async(req)=>{
   const fee=round2(base*0.035),total=round2(base+fee); const redirectUrl=`${CRM_PUBLIC_URL}?customer_invoice=${encodeURIComponent(inv.id)}&square_return=1`;
   const idempotencyKey=`inv-${inv.id}-${Number(inv.row_version)||1}-${Math.round(total*100)}`.slice(0,45);
   const body:any={idempotency_key:idempotencyKey,quick_pay:{name:"EZfix Invoice "+inv.number,price_money:{amount:Math.round(total*100),currency:"USD"},location_id:locationId},checkout_options:{ask_for_shipping_address:false,redirect_url:redirectUrl},payment_note:"Invoice "+inv.number+" | balance "+base.toFixed(2)+" + card fee "+fee.toFixed(2)};
-  const pre:any={}; if(inv.customer_email)pre.buyer_email=String(inv.customer_email); if(inv.customer_phone)pre.buyer_phone_number=String(inv.customer_phone); if(Object.keys(pre).length)body.pre_populated_data=pre;
-  const sq=await fetch("https://connect.squareup.com/v2/online-checkout/payment-links",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Square-Version":SQUARE_VERSION},body:JSON.stringify(body)}); const out=await sq.json(); if(!sq.ok)throw new Error(out?.errors?.[0]?.detail||"Square payment link creation failed");
+  const pre:any={}; if(inv.customer_email)pre.buyer_email=String(inv.customer_email).trim(); const phone=normalizeUsPhone(inv.customer_phone); if(phone)pre.buyer_phone_number=phone; if(Object.keys(pre).length)body.pre_populated_data=pre;
+  const sq=await fetch("https://connect.squareup.com/v2/online-checkout/payment-links",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Square-Version":SQUARE_VERSION},body:JSON.stringify(body)});
+  const out=await sq.json().catch(()=>({}));
+  if(!sq.ok){const first=out?.errors?.[0]||{}; const safe={status:sq.status,code:String(first.code||"UNKNOWN"),category:String(first.category||"UNKNOWN"),detail:String(first.detail||"Square payment link creation failed")}; console.error("Square payment link error",safe); return Response.json({ok:false,error:safe.detail,square_status:safe.status,square_code:safe.code,square_category:safe.category},{status:400,headers:{...cors,"Content-Type":"application/json"}});}
   const checkout=out?.payment_link?.url; if(!checkout||!checkout.startsWith("https://square.link/"))throw new Error("Square returned an unexpected checkout URL");
   const admin=createClient(url,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!); await admin.from("invoices").update({payment_provider:"square",payment_link:checkout,app_data:{...(inv.app_data||{}),squarePaymentLinkId:out?.payment_link?.id||null,squareOrderId:out?.payment_link?.order_id||null,squareCardBase:base,squareCardFee:fee,squareCardTotal:total,squareInvoiceTotal:invoiceTotal,squarePaidBeforeLink:paid,squareInvoiceRowVersionAtLink:Number(inv.row_version)||1,squareSyncStatus:"awaiting_payment",squareLinkCreatedAt:new Date().toISOString()}}).eq("id",inv.id);
   return Response.json({ok:true,configured:true,invoice_id:inv.id,invoice_number:inv.number,checkout_url:checkout,redirect_url:redirectUrl,invoice_total:invoiceTotal,paid_before_link:paid,base,card_fee:fee,total},{headers:{...cors,"Content-Type":"application/json"}});
