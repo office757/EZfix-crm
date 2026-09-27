@@ -498,7 +498,23 @@
   .cal-title-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
   .cal-filter-block{display:flex;justify-content:flex-end}
   .cal-filter-block select{max-width:210px}
-  .cal-week-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;margin-top:14px;overflow-x:auto;padding-bottom:4px}
+  .cal-week-grid{margin-top:14px;overflow-x:auto;padding-bottom:4px}
+  .cal-hour-board{min-width:980px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+  .cal-hour-head{display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));background:var(--paper-2);border-bottom:1px solid var(--line)}
+  .cal-hour-corner{padding:12px 6px;text-align:center;font-size:10px;font-weight:800;color:var(--muted)}
+  .cal-hour-dayhead{border-left:1px solid var(--line);padding:9px 6px;text-align:center;cursor:pointer}
+  .cal-hour-dayhead.is-today{background:rgba(247,148,29,.10)}
+  .cal-hour-dow{font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted)}
+  .cal-hour-num{font-size:18px;font-weight:850;margin-top:2px}
+  .cal-hour-dayhead.is-today .cal-hour-num{color:var(--orange-dark)}
+  .cal-hour-body{display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));min-height:660px}
+  .cal-hour-times{background:var(--paper-2);border-right:1px solid var(--line)}
+  .cal-hour-time{height:60px;border-bottom:1px solid var(--line);padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:var(--muted)}
+  .cal-hour-column{position:relative;border-right:1px solid var(--line);background:repeating-linear-gradient(to bottom,transparent 0,transparent 59px,var(--line) 60px);min-height:660px}
+  .cal-hour-job{position:absolute;left:6px;right:6px;min-height:48px;border:1px solid rgba(0,0,0,.06);border-left:4px solid var(--cal-accent);border-radius:9px;padding:6px 7px;background:var(--card);box-shadow:0 3px 10px rgba(15,23,42,.09);overflow:hidden;text-align:left;cursor:pointer;color:var(--ink)}
+  .cal-hour-job-time{font-size:9px;font-weight:800;color:var(--orange-dark)}
+  .cal-hour-job-customer{font-size:10.5px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-hour-job-meta{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cal-week-day{background:var(--card);border:1px solid var(--line);border-radius:12px;min-height:220px;overflow:hidden;box-shadow:var(--shadow)}
   .cal-week-day.is-today{border-color:rgba(247,148,29,.85);box-shadow:0 0 0 2px rgba(247,148,29,.14)}
   .cal-week-day-head{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:5px;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--paper-2)}
@@ -8874,48 +8890,22 @@ function renderCalendarWeek(content) {
   const jobsForDay = d => STORE.jobs.filter(j=>j.scheduledDate===d && jobMatchesTechFilter(j, techFilter))
     .filter(j => !isTechnicianView() || j.technician===VIEW_AS)
     .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
-  const today = todayISO();
-  const firstObj=new Date(days[0]+'T00:00:00'), lastObj=new Date(days[6]+'T00:00:00');
+  const today=todayISO(), firstObj=new Date(days[0]+'T00:00:00'), lastObj=new Date(days[6]+'T00:00:00');
   const rangeLabel=firstObj.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+lastObj.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  content.innerHTML = `
+  const hours=Array.from({length:11},(_,i)=>i+8);
+  const parseStart=j=>{ const m=String(j.appointmentWindow||'').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i); if(!m)return 8; let h=+m[1],min=+(m[2]||0); if(/PM/i.test(m[3])&&h<12)h+=12;if(/AM/i.test(m[3])&&h===12)h=0;return h+min/60; };
+  content.innerHTML=`
     <div class="cal-week-toolbar">
-      <div class="cal-nav-group">
-        <button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,-7); saveUiState(); render()" aria-label="Previous week">‹</button>
-        <button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO()); saveUiState(); render()">Today</button>
-        <button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,7); saveUiState(); render()" aria-label="Next week">›</button>
-      </div>
+      <div class="cal-nav-group"><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,-7);saveUiState();render()" aria-label="Previous week">‹</button><button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO());saveUiState();render()">Today</button><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,7);saveUiState();render()" aria-label="Next week">›</button></div>
       <div class="cal-title-block"><div class="cal-title">${rangeLabel}</div><div class="cal-title-sub">${days.reduce((n,d)=>n+jobsForDay(d).length,0)} scheduled jobs</div></div>
-      <div class="cal-filter-block">
-        ${!isTechnicianView() && techOptions.length ? `<select class="select-compact" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()">
-          <option value="">All technicians</option>
-          ${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}
-        </select>` : ''}
+      <div class="cal-filter-block">${!isTechnicianView()&&techOptions.length?`<select class="select-compact" onchange="searchTerms.calendarTech=this.value;saveUiState();render()"><option value="">All technicians</option>${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`:''}</div>
+    </div>
+    <div class="cal-week-grid"><div class="cal-hour-board">
+      <div class="cal-hour-head"><div class="cal-hour-corner">TIME</div>${days.map(d=>{const x=new Date(d+'T00:00:00'),it=d===today;return `<div class="cal-hour-dayhead ${it?'is-today':''}" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()"><div class="cal-hour-dow">${x.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="cal-hour-num">${x.getDate()}</div></div>`}).join('')}</div>
+      <div class="cal-hour-body"><div class="cal-hour-times">${hours.map(h=>`<div class="cal-hour-time">${h===12?'12 PM':h>12?(h-12)+' PM':h+' AM'}</div>`).join('')}</div>
+      ${days.map(d=>`<div class="cal-hour-column" data-date="${d}" ondragover="event.preventDefault()" ondrop="handleJobDrop(event,'${d}')">${jobsForDay(d).map(j=>{const st=Math.max(8,Math.min(18.25,parseStart(j))),top=(st-8)*60;return `<button class="cal-hour-job" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time">${esc(j.appointmentWindow||'Time TBD')}</div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')} · ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
       </div>
-    </div>
-    <div class="cal-week-grid">
-      ${days.map(d => {
-        const jobs=jobsForDay(d), isToday=d===today, dObj=new Date(d+'T00:00:00');
-        return `<section class="cal-week-day ${isToday?'is-today':''}">
-          <div class="cal-week-day-head">
-            <button class="cal-week-date-btn" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()">
-              <span class="cal-week-dow">${dObj.toLocaleDateString('en-US',{weekday:'short'})}</span>
-              <span class="cal-week-num">${dObj.getDate()}</span>
-            </button>
-            <span class="cal-week-count">${jobs.length}</span>
-            ${!isTechnicianView()? `<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')">+</button>`:''}
-          </div>
-          <div class="cal-week-jobs">
-            ${jobs.length ? jobs.map((j,idx)=>`<button class="cal-week-job cal-job-tone-${idx%4}" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')">
-              <span class="cal-week-job-time">${esc(j.appointmentWindow||'Time TBD')}</span>
-              <span class="cal-week-job-customer">${esc(j.customerName||'Customer')}</span>
-              <span class="cal-week-job-title">${esc(j.title||'Garage door service')}</span>
-              <span class="cal-week-job-tech">👷 ${esc(j.technician||'Unassigned')}</span>
-            </button>`).join('') : '<div class="cal-week-empty">No jobs</div>'}
-          </div>
-        </section>`;
-      }).join('')}
-    </div>
-  `;
+    </div></div>`;
 }
 function renderCalendarDay(content) {
   const dateStr=searchTerms.calendarSelectedDate||todayISO();
