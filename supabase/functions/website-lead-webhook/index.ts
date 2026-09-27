@@ -9,7 +9,7 @@ const parseDate=(v:string)=>{const s=clean(v,30);let m=s.match(/^(\d{1,2})\/(\d{
 const attr=(b:any,n:string[],m=500)=>clean(pick(b,n),m)||null;
 const CURRENT_SMS_DISCLOSURE="I agree to receive SMS messages from EZfix Garage Doors Inc regarding my service request, appointments, technician updates, estimates, invoices, payment links, and customer support. Message frequency varies. Msg & data rates may apply. Reply HELP for help and STOP to opt out. Consent is not a condition of purchase. Privacy Policy: https://ezfixgaragedoorsinc.com/privacy-policy/";
 const consentChecked=(b:any)=>{
- const raw=clean(pick(b,["sms_consent","sms-consent","smsConsent","SMS Consent","sms_opt_in","sms-opt-in","consent_sms","consent-sms"]),1200);
+ const raw=clean(pick(b,["sms_consent","sms_consent[]","sms-consent","smsConsent","SMS Consent","sms_opt_in","sms-opt-in","consent_sms","consent-sms"]),1200);
  if(!raw)return false;
  const v=raw.toLowerCase();
  return ["1","true","yes","on","checked","accepted"].includes(v)||v.includes("i agree to receive sms");
