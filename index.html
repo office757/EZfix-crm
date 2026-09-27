@@ -918,7 +918,7 @@ const KNOWN_COLUMNS = {
  suppliers:['id','name','email','phone','address','notes','created_at','updated_at','row_version','app_data'], purchaseOrders:['id','supplier_id','status','line_items','created_at','updated_at','row_version','deleted_at','app_data'],
  inspections:['id','customer_id','job_id','notes','status','created_at','updated_at','row_version','app_data'], galleryProjects:['id','title','category','city','description','cover_photo_id','photos','tags','door_collection','door_color','door_manufacturer','install_date','insulation','panel_style','window_style','sort_order','created_at','updated_at','row_version','app_data'],
  manufacturers:['id','name','created_at','updated_at','row_version','app_data'], doorCollections:['id','name','manufacturer_id','created_at','updated_at','row_version','app_data'], doorModels:['id','name','door_collection_id','details','created_at','updated_at','row_version','app_data'], savedDesigns:['id','customer_id','design_data','created_at','updated_at','row_version','app_data'], waNotifications:['id','recipient_team_id','kind','entity_type','entity_id','message','read','created_at','app_data'],
- auditLog:['id','action','summary','entity_type','entity_id','related_type','related_id','source','priority','read','created_by_team_id','created_at'], calls:['id','mode','outcome','summary','duration_sec','transcript','lead_id','customer_id','provider_call_id','direction','remote_number','local_number','status','started_at','ended_at','recording_url','provider_data','lead_extraction_status','lead_extraction','lead_extracted_at','created_at'], inventoryAdjustments:['id','product_id','product_name','qty_before','qty_after','delta','type','reason','source','created_by_team_id','created_at'], smsMessages:['id','provider','channel','provider_event_ids','provider_message_id','provider_conversation_id','direction','local_phone_number','remote_phone_number','normalized_remote_phone','message_text','message_type','provider_status','customer_id','lead_id','match_ambiguous','provider_created_at','received_at','sent_at','delivered_at','failed_at','failure_reason','created_at','updated_at','row_version']
+ auditLog:['id','action','summary','entity_type','entity_id','related_type','related_id','source','priority','read','created_by_team_id','created_at'], calls:['id','mode','outcome','summary','duration_sec','transcript','lead_id','customer_id','provider_call_id','direction','remote_number','local_number','status','started_at','ended_at','recording_url','recording_asset','provider_data','lead_extraction_status','lead_extraction','lead_extracted_at','created_at'], inventoryAdjustments:['id','product_id','product_name','qty_before','qty_after','delta','type','reason','source','created_by_team_id','created_at'], smsMessages:['id','provider','channel','provider_event_ids','provider_message_id','provider_conversation_id','direction','local_phone_number','remote_phone_number','normalized_remote_phone','message_text','message_type','provider_status','customer_id','lead_id','match_ambiguous','provider_created_at','received_at','sent_at','delivered_at','failed_at','failure_reason','created_at','updated_at','row_version']
 };
 const ASSET_BUCKET='crm-assets';
 // Writes and refreshes can be triggered by a form save, an audit entry and a
@@ -988,7 +988,7 @@ async function refreshCollection(col){
     if(page.length<pageSize) break;
   }
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
-  const records=rows.map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls));
+  const records=rows.map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls)); if(col==='calls') records.forEach(r=>{ if(r?.recordingAsset?.url) r.recordingUrl=r.recordingAsset.url; });
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
   collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role==='marketing_manager'?'Marketing Manager':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
 }
@@ -8088,10 +8088,58 @@ async function syncCallsNow(btn){
   catch(e){const detail=(e&&e.data&&((e.data.error||'')+(e.data.details?' · '+JSON.stringify(e.data.details):'')))||(e&&e.message)||String(e)||'unknown error';toast('Call sync failed: '+detail,true);console.error('Call sync failed',e);if(btn){btn.disabled=false;btn.textContent='Sync calls now';}}
 }
 window.syncCallsNow=syncCallsNow;
+/* EZFIX_CALL_RECORDING_FALLBACK_V1 */
+function canManageCallRecording(){ return !!(IS_OWNER || CURRENT_TEAM_MEMBER?.role==='admin'); }
+function callRecordingUrl(c){ return c?.recordingAsset?.url || c?.recordingUrl || ''; }
+function callRecordingFileOk(file){
+  const name=String(file?.name||'').toLowerCase(), type=String(file?.type||'').toLowerCase();
+  return type.startsWith('audio/') || /\.(m4a|mp3|wav|aac|ogg|oga|opus|webm|mp4)$/i.test(name);
+}
+async function attachCallRecording(callId,file){
+  if(!canManageCallRecording()) return toast('Owner/Admin access required',true);
+  if(!file) return;
+  if(file.size<=0 || file.size>104857600) return toast('Recording must be between 1 byte and 100 MB',true);
+  if(!callRecordingFileOk(file)) return toast('Choose an audio recording file',true);
+  const call=getOne('calls',callId); if(!call) return toast('Call not found',true);
+  const previousPath=call.recordingAsset?.path||''; let uploaded=null;
+  try{
+    uploaded=await uploadAsset(file,'call-recordings');
+    const asset={id:uploaded.id,path:uploaded.path,name:file.name||'Call recording',size:file.size,contentType:file.type||'application/octet-stream'};
+    const {error}=await SB.rpc('set_call_recording_asset',{p_call_id:callId,p_recording_asset:asset});
+    if(error) throw error;
+    if(previousPath && previousPath!==uploaded.path) SB.storage.from(ASSET_BUCKET).remove([previousPath]).catch(()=>{});
+    await refreshCollection('calls'); toast('Call recording attached'); viewCallDetail(callId);
+  }catch(e){
+    if(uploaded?.path) SB.storage.from(ASSET_BUCKET).remove([uploaded.path]).catch(()=>{});
+    toast(e?.message||'Could not attach recording',true);
+  }
+}
+function promptCallRecordingUpload(callId){
+  if(!canManageCallRecording()) return toast('Owner/Admin access required',true);
+  const input=document.createElement('input'); input.type='file';
+  input.accept='audio/*,.m4a,.mp3,.wav,.aac,.ogg,.oga,.opus,.webm,.mp4';
+  input.onchange=()=>attachCallRecording(callId,input.files?.[0]||null); input.click();
+}
+async function removeCallRecording(callId){
+  if(!canManageCallRecording()) return toast('Owner/Admin access required',true);
+  const call=getOne('calls',callId); if(!call?.recordingAsset) return;
+  if(!confirm('Remove the attached call recording?')) return;
+  const path=call.recordingAsset.path||'';
+  try{
+    const {error}=await SB.rpc('set_call_recording_asset',{p_call_id:callId,p_recording_asset:null});
+    if(error) throw error;
+    if(path) await SB.storage.from(ASSET_BUCKET).remove([path]).catch(()=>{});
+    await refreshCollection('calls'); toast('Call recording removed'); viewCallDetail(callId);
+  }catch(e){ toast(e?.message||'Could not remove recording',true); }
+}
+window.promptCallRecordingUpload=promptCallRecordingUpload;
+window.removeCallRecording=removeCallRecording;
 function viewCallDetail(id) {
   const c = getOne('calls', id); if (!c) return;
   const transcript=(c.transcript||[]).map(t=>`<div style="margin-bottom:10px"><b style="font-size:11px;text-transform:uppercase;color:var(--muted)">${esc(t.speaker||t.party||'speaker')}</b><div style="font-size:13.5px">${esc(t.text||'')}</div></div>`).join('') || '<p class="muted">No transcript recorded yet.</p>';
-  const audio=c.recordingUrl?`<div style="margin-bottom:14px"><b style="font-size:12px">Call recording</b><audio controls preload="metadata" style="width:100%;margin-top:6px" src="${esc(c.recordingUrl)}"></audio></div>`:'';
+  const recordingUrl=callRecordingUrl(c);
+  const recordingButtons=canManageCallRecording()?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn btn-sm" onclick="promptCallRecordingUpload('${esc(c.id)}')">${c.recordingAsset?'Replace':'Attach'} recording</button>${c.recordingAsset?`<button type="button" class="btn btn-sm btn-danger" onclick="removeCallRecording('${esc(c.id)}')">Remove</button>`:''}</div>`:'';
+  const audio=recordingUrl?`<div style="margin-bottom:14px"><b style="font-size:12px">Call recording</b><audio controls preload="metadata" style="width:100%;margin-top:6px" src="${esc(recordingUrl)}"></audio>${recordingButtons}</div>`:(canManageCallRecording()?`<div class="panel" style="margin-bottom:14px"><div class="panel-body pad"><b style="font-size:12px">Call recording</b><div class="muted" style="font-size:12px;margin:5px 0 9px">Inkbox has not supplied a recording for this call. You can attach an audio file manually.</div>${recordingButtons}</div></div>`:'');
   const lead = c.leadId ? getOne('leads', c.leadId) : null;
   const extracted = c.leadExtraction && typeof c.leadExtraction==='object' ? c.leadExtraction : {};
   const leadPanel = `<div class="panel" style="margin-bottom:14px"><div class="panel-body pad"><b>Lead intake</b><div class="muted" style="font-size:12px;margin-top:5px">${lead ? `Linked to ${esc(lead.name||'lead')}` : c.leadExtractionStatus==='needs_review' ? 'Needs review — Ashley did not capture enough structured information to create a lead safely.' : 'Processing / no linked lead yet.'}</div>${lead?`<button class="btn btn-sm btn-primary" style="margin-top:9px" onclick="closeModal();go('leads','${lead.id}')">Open lead</button>`:''}${Object.values(extracted).some(Boolean)?`<div style="font-size:12px;margin-top:10px">${extracted.name?`<div><b>Name:</b> ${esc(extracted.name)}</div>`:''}${extracted.phone?`<div><b>Phone:</b> ${esc(extracted.phone)}</div>`:''}${extracted.email?`<div><b>Email:</b> ${esc(extracted.email)}</div>`:''}${extracted.address?`<div><b>Address:</b> ${esc(extracted.address)}</div>`:''}${extracted.service_requested?`<div><b>Service:</b> ${esc(extracted.service_requested)}</div>`:''}</div>`:''}</div></div>`;

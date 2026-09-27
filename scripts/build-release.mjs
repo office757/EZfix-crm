@@ -16,6 +16,7 @@ const scripts = [
   'build-visualizer-gallery-premium.mjs',
   'audit-assignment-whatsapp.mjs',
   'build-assignment-whatsapp.mjs',
+  'audit-call-recordings.mjs',
   'audit-calendar-overlap.mjs',
   'build-calendar-overlap.mjs',
   'audit-calendar-premium.mjs',
@@ -23,7 +24,8 @@ const scripts = [
   'audit-ui-state.mjs',
   'audit-product-catalog-ui.mjs',
   'audit-visualizer-gallery-premium.mjs',
-  'audit-assignment-whatsapp.mjs'
+  'audit-assignment-whatsapp.mjs',
+  'audit-call-recordings.mjs'
 ];
 const root = fileURLToPath(new URL('../', import.meta.url));
 for (const script of scripts) {
