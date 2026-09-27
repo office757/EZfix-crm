@@ -9924,8 +9924,20 @@ async function sendEstimateForSigning(id) {
 }
 window.sendEstimateForSigning = sendEstimateForSigning;
 
+async function ensureInvoiceSquareLink(id) {
+  let doc=getOne('invoices',id);
+  if(!doc) throw new Error('Invoice not found');
+  if(balanceDue(doc)<=0) return doc;
+  const existing=PaymentProvider.createPaymentRequest(doc);
+  if(!existing){
+    await PaymentProvider.createPaymentLink(id);
+    doc=getOne('invoices',id);
+    if(!PaymentProvider.createPaymentRequest(doc)) throw new Error('Square payment link was not saved to this invoice');
+  }
+  return doc;
+}
 async function createPublicInvoiceUrl(id) {
-  const doc=getOne('invoices',id);
+  const doc=await ensureInvoiceSquareLink(id);
   if(!doc) throw new Error('Invoice not found');
   const {data,error}=await SB.rpc('issue_public_invoice_access_token',{p_invoice_id:id});
   if(error) throw error;
