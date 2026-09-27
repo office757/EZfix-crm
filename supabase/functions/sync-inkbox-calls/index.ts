@@ -36,6 +36,50 @@ function findRecordingUrl(...sources:any[]): string | null {
   for(const source of sources){const hit=walk(source,"provider",0);if(hit)return hit;}
   return null;
 }
+
+function safeRecordingUrl(value:string|null): string | null {
+  if(!value)return null;
+  try{
+    const u=new URL(value);
+    if(u.protocol!=="https:")return null;
+    const h=u.hostname.toLowerCase();
+    if(h==="localhost"||h==="127.0.0.1"||h==="::1"||h.endsWith(".local"))return null;
+    if(/^10\.|^192\.168\.|^169\.254\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(h))return null;
+    return u.toString();
+  }catch{return null}
+}
+function recordingExt(url:string,contentType:string){
+  const byType:Record<string,string>={"audio/mpeg":"mp3","audio/mp3":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/mp4":"m4a","audio/aac":"aac","audio/ogg":"ogg","audio/opus":"opus","audio/webm":"webm","video/webm":"webm","video/mp4":"mp4"};
+  const base=String(contentType||"").split(";")[0].trim().toLowerCase();
+  if(byType[base])return byType[base];
+  try{const m=new URL(url).pathname.toLowerCase().match(/\.([a-z0-9]{2,5})$/);if(m&&["mp3","wav","m4a","aac","ogg","oga","opus","webm","mp4"].includes(m[1]))return m[1]}catch{}
+  return "bin";
+}
+async function ingestProviderRecording(db:any,callId:string,recordingUrl:string|null){
+  const safe=safeRecordingUrl(recordingUrl); if(!safe)return null;
+  const {data:existing}=await db.from("calls").select("id,recording_asset").eq("provider_call_id",callId).maybeSingle();
+  if(existing?.recording_asset?.path)return existing.recording_asset;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  try{
+    const r=await fetch(safe,{signal:controller.signal,redirect:"follow"});
+    if(!r.ok)throw new Error("recording download HTTP "+r.status);
+    const declared=Number(r.headers.get("content-length")||0);
+    if(Number.isFinite(declared)&&declared>104857600)throw new Error("recording exceeds 100 MB");
+    const bytes=new Uint8Array(await r.arrayBuffer());
+    if(!bytes.length||bytes.length>104857600)throw new Error("recording size invalid");
+    const contentType=String(r.headers.get("content-type")||"application/octet-stream").split(";")[0].trim().toLowerCase();
+    const ext=recordingExt(safe,contentType);
+    if(ext==="bin"&&!contentType.startsWith("audio/")&&!contentType.startsWith("video/"))throw new Error("recording content type not audio/video");
+    const path=`call-recordings/provider/${callId}/${crypto.randomUUID()}.${ext}`;
+    const {error:upErr}=await db.storage.from("crm-assets").upload(path,bytes,{contentType:contentType||"application/octet-stream",upsert:false});
+    if(upErr)throw upErr;
+    const asset={id:"crm-assets/"+path,path,name:"Inkbox call recording."+ext,size:bytes.length,contentType,source:"inkbox_provider",sourceUrlHost:new URL(safe).hostname,attachedAt:new Date().toISOString()};
+    const {error:saveErr}=await db.from("calls").update({recording_asset:asset}).eq("provider_call_id",callId);
+    if(saveErr){await db.storage.from("crm-assets").remove([path]).catch(()=>{});throw saveErr}
+    return asset;
+  }finally{clearTimeout(timer)}
+}
+
 function stripManagedGuardrails(current:string){
   let s=String(current||"");
   const b=s.indexOf(BEGIN_TAG), e=s.indexOf(END_TAG);
@@ -81,12 +125,12 @@ Deno.serve(async(req:Request)=>{
     const dur=started&&ended?Math.max(0,Math.round((new Date(ended).getTime()-new Date(started).getTime())/1000)):null;
     const summary=transcript.map((x:any)=>`${x.party||"speaker"}: ${x.text}`).join("\n").slice(0,2000)||(c.reason||null);
     const providerCallId=String(c.id);
-    const {data:existing,error:readErr}=await db.from("calls").select("id,lead_id,lead_extraction_status,outcome,recording_url").eq("provider_call_id",providerCallId).maybeSingle(); if(readErr)throw readErr;
-    const providerFields={provider_call_id:providerCallId,mode:c.mode||"inkbox",summary,duration_sec:dur,transcript,direction:c.direction||null,remote_number:c.remotePhoneNumber||c.remote_phone_number||null,local_number:c.localPhoneNumber||c.local_phone_number||null,status:c.status||null,started_at:started,ended_at:ended,recording_url:findRecordingUrl(c)||existing?.recording_url||null,provider_data:c};
+    const {data:existing,error:readErr}=await db.from("calls").select("id,lead_id,lead_extraction_status,outcome,recording_url,recording_asset").eq("provider_call_id",providerCallId).maybeSingle(); if(readErr)throw readErr;
+    let detail:any=null;try{detail=await inkbox.calls.get(providerCallId)}catch{} const discoveredRecording=findRecordingUrl(detail,c)||existing?.recording_url||null; const providerFields={provider_call_id:providerCallId,mode:c.mode||"inkbox",summary,duration_sec:dur,transcript,direction:c.direction||null,remote_number:c.remotePhoneNumber||c.remote_phone_number||null,local_number:c.localPhoneNumber||c.local_phone_number||null,status:c.status||null,started_at:started,ended_at:ended,recording_url:discoveredRecording,provider_data:detail||c};
     let error:any;
     if(existing){({error}=await db.from("calls").update(providerFields).eq("id",existing.id));}
     else {({error}=await db.from("calls").insert({id:`inkbox_${providerCallId}`,...providerFields,lead_id:null,created_at:started||new Date().toISOString()}));}
-    if(error)throw error;synced++;
+    if(error)throw error; if(!existing?.recording_asset&&discoveredRecording){try{await ingestProviderRecording(db,providerCallId,discoveredRecording)}catch(e){console.error("automatic recording ingestion failed",providerCallId,e)}} synced++;
    }catch(e:any){failed++;errors.push({call_id:String(c?.id||""),error:e?.message||String(e)});}
   }
   if(failed&&synced===0)return out({ok:false,error:"Inkbox calls were fetched but could not be saved",synced,failed,guardrailsUpdated,guardrailsVersion:"V3",details:errors.slice(0,5)},500);

@@ -53,6 +53,50 @@ const BEGIN_TAG = "[EZFIX_CRM_GUARDRAILS_BEGIN]";
 const END_TAG = "[EZFIX_CRM_GUARDRAILS_END]";
 const VERSION_TAG = "[EZFIX_CRM_GUARDRAILS_V3]";
 const legacyTail = "- Never claim a payment, booking, technician assignment, or transfer succeeded unless the connected system actually confirms it.";
+
+function safeRecordingUrl(value:string|null): string | null {
+  if(!value)return null;
+  try{
+    const u=new URL(value);
+    if(u.protocol!=="https:")return null;
+    const h=u.hostname.toLowerCase();
+    if(h==="localhost"||h==="127.0.0.1"||h==="::1"||h.endsWith(".local"))return null;
+    if(/^10\.|^192\.168\.|^169\.254\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(h))return null;
+    return u.toString();
+  }catch{return null}
+}
+function recordingExt(url:string,contentType:string){
+  const byType:Record<string,string>={"audio/mpeg":"mp3","audio/mp3":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/mp4":"m4a","audio/aac":"aac","audio/ogg":"ogg","audio/opus":"opus","audio/webm":"webm","video/webm":"webm","video/mp4":"mp4"};
+  const base=String(contentType||"").split(";")[0].trim().toLowerCase();
+  if(byType[base])return byType[base];
+  try{const m=new URL(url).pathname.toLowerCase().match(/\.([a-z0-9]{2,5})$/);if(m&&["mp3","wav","m4a","aac","ogg","oga","opus","webm","mp4"].includes(m[1]))return m[1]}catch{}
+  return "bin";
+}
+async function ingestProviderRecording(db:any,callId:string,recordingUrl:string|null){
+  const safe=safeRecordingUrl(recordingUrl); if(!safe)return null;
+  const {data:existing}=await db.from("calls").select("id,recording_asset").eq("provider_call_id",callId).maybeSingle();
+  if(existing?.recording_asset?.path)return existing.recording_asset;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  try{
+    const r=await fetch(safe,{signal:controller.signal,redirect:"follow"});
+    if(!r.ok)throw new Error("recording download HTTP "+r.status);
+    const declared=Number(r.headers.get("content-length")||0);
+    if(Number.isFinite(declared)&&declared>104857600)throw new Error("recording exceeds 100 MB");
+    const bytes=new Uint8Array(await r.arrayBuffer());
+    if(!bytes.length||bytes.length>104857600)throw new Error("recording size invalid");
+    const contentType=String(r.headers.get("content-type")||"application/octet-stream").split(";")[0].trim().toLowerCase();
+    const ext=recordingExt(safe,contentType);
+    if(ext==="bin"&&!contentType.startsWith("audio/")&&!contentType.startsWith("video/"))throw new Error("recording content type not audio/video");
+    const path=`call-recordings/provider/${callId}/${crypto.randomUUID()}.${ext}`;
+    const {error:upErr}=await db.storage.from("crm-assets").upload(path,bytes,{contentType:contentType||"application/octet-stream",upsert:false});
+    if(upErr)throw upErr;
+    const asset={id:"crm-assets/"+path,path,name:"Inkbox call recording."+ext,size:bytes.length,contentType,source:"inkbox_provider",sourceUrlHost:new URL(safe).hostname,attachedAt:new Date().toISOString()};
+    const {error:saveErr}=await db.from("calls").update({recording_asset:asset}).eq("provider_call_id",callId);
+    if(saveErr){await db.storage.from("crm-assets").remove([path]).catch(()=>{});throw saveErr}
+    return asset;
+  }finally{clearTimeout(timer)}
+}
+
 function stripManagedGuardrails(current: string) {
   let s = String(current || "");
   const b = s.indexOf(BEGIN_TAG), e = s.indexOf(END_TAG);
@@ -207,7 +251,7 @@ async function processEnded(event: any) {
   const ink = await new Inkbox({ apiKey: key }).ready();
   const identity = await ink.getIdentity(IDENTITY);
   const calls: any[] = await identity.listCalls({ limit: 50, offset: 0 });
-  const c = calls.find((x: any) => String(x.id) === callId) || cd;
+  let detail:any=null; try{detail=await ink.calls.get(callId)}catch{} const c = detail || calls.find((x: any) => String(x.id) === callId) || cd;
   let segs: any[] = [];
   try { segs = await identity.listTranscripts(callId); } catch {}
   const transcript = segs.map((s: any) => ({ party: s.party || null, text: s.text || "", createdAt: s.createdAt || s.created_at || null }));
@@ -216,7 +260,7 @@ async function processEnded(event: any) {
   const dur = started && ended ? Math.max(0, Math.round((new Date(ended).getTime() - new Date(started).getTime()) / 1000)) : null;
   const summary = transcript.map((x: any) => `${x.party || "speaker"}: ${x.text}`).join("\n").slice(0, 2000) || (c.reason || null);
   const recordingUrl = findRecordingUrl(c, cd, event);
-  const { data: existing } = await db.from("calls").select("id,outcome,recording_url").eq("provider_call_id", callId).maybeSingle();
+  const { data: existing } = await db.from("calls").select("id,outcome,recording_url,recording_asset").eq("provider_call_id", callId).maybeSingle();
   const providerFields: any = {
     provider_call_id: callId, mode: c.mode || "inkbox", summary, duration_sec: dur, transcript,
     direction: c.direction || null, remote_number: c.remotePhoneNumber || c.remote_phone_number || null,
@@ -224,7 +268,7 @@ async function processEnded(event: any) {
     recording_url: recordingUrl || existing?.recording_url || null, provider_data: c,
   };
   const x = existing ? await db.from("calls").update(providerFields).eq("id", existing.id) : await db.from("calls").insert({ id: `inkbox_${callId}`, ...providerFields, created_at: started || new Date().toISOString() });
-  if (x.error) throw x.error;
+  if (x.error) throw x.error; if(!existing?.recording_asset&&recordingUrl){try{await ingestProviderRecording(db,callId,recordingUrl)}catch(err){console.error("automatic recording ingestion failed",callId,err)}}
 }
 
 Deno.serve(async req => {
