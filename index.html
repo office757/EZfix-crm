@@ -720,6 +720,9 @@ function restoreUiState(){
       month:s.calendarMonthCursor||null,
       week:s.calendarWeekStart||null
     };
+    if(typeof calendarViewMode!=='undefined') calendarViewMode=s.calendarViewMode||'month';
+    if(typeof calendarMonthCursor!=='undefined') calendarMonthCursor=s.calendarMonthCursor||null;
+    if(typeof calendarWeekStart!=='undefined') calendarWeekStart=s.calendarWeekStart||null;
   }catch(e){}
 }
 function validateRestoredRoute(){
