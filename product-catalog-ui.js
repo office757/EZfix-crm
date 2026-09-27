@@ -45,14 +45,14 @@
       .sort((a,b)=>String(a.manufacturer||'').localeCompare(String(b.manufacturer||''))||String(valueOf(a,'collection')).localeCompare(String(valueOf(b,'collection')))||String(a.model||a.name||'').localeCompare(String(b.model||b.name||'')));
     const shown=filtered.slice(0,120);
     body.innerHTML=backButton("pickerState.view='categories';pickerState.categoryId=null;pickerState.search='';renderProductPicker()")+
-      '<div class="catalog-special-head"><div><h3>Garage Doors</h3><div class="muted">Search current verified residential models</div></div></div>'+
+      '<div class="catalog-special-head"><div><h3>Garage Doors</h3><div class="muted">Reference catalog · set the selling price on the line item</div></div></div>'+
       '<div class="search-box" style="margin:12px 0"><input id="pickerSearchInput" placeholder="Search Garage Doors" value="'+esc(query)+'" oninput="pickerState.search=this.value;renderProductPickerKeepFocus()"></div>'+
       '<div class="catalog-filter-row"><select onchange="pickerState.doorManufacturer=this.value;pickerState.doorCollection=\'\';renderProductPicker()">'+optionList(makers,maker,'All manufacturers')+'</select>'+
       '<select onchange="pickerState.doorCollection=this.value;renderProductPicker()">'+optionList(collections,pickerState.doorCollection,'All collections')+'</select></div>'+
       resultCount(shown.length,filtered.length)+shown.map(renderDoorCard).join('')+pickerCustomItemButton();
   }
   function renderSpringHome(body){
-    const active=STORE.products.filter(p=>p.active!==false&&valueOf(p,'catalogKind')==='spring_size');
+    const active=STORE.products.filter(p=>valueOf(p,'catalogKind')==='spring_size');
     const torsion=active.filter(p=>valueOf(p,'springType')==='torsion'&&!valueOf(p,'sizeOptional')).length;
     const extension=active.filter(p=>valueOf(p,'springType')==='extension'&&!valueOf(p,'sizeOptional')).length;
     body.innerHTML=backButton("pickerState.view='categories';pickerState.categoryId=null;renderProductPicker()")+
@@ -87,7 +87,7 @@
     }
     const shown=filtered.slice(0,100), label=type==='torsion'?'Torsion Springs':'Extension Springs';
     body.innerHTML=backButton("pickerState.view='items';pickerState.search='';renderProductPicker()")+
-      '<div class="catalog-special-head"><div><h3>'+label+'</h3><div class="muted">Select an exact size, or leave size unspecified</div></div></div>'+
+      '<div class="catalog-special-head"><div><h3>'+label+'</h3><div class="muted">Reference catalog · select a size, then set the selling price on the line item</div></div></div>'+
       (unspecified?'<div style="margin:10px 0">'+renderSpringCard(unspecified,type)+'</div>':'')+
       '<div class="search-box" style="margin:12px 0"><input id="pickerSearchInput" placeholder="'+(type==='torsion'?'Search wire, ID, length, or full size':'Search size, length, color, weight, or SKU')+'" value="'+esc(query)+'" oninput="pickerState.search=this.value;renderProductPickerKeepFocus()"></div>'+
       filters+resultCount(shown.length,filtered.length)+shown.map(p=>renderSpringCard(p,type)).join('');
@@ -95,9 +95,9 @@
   renderProductPicker = function(){
     const body=document.getElementById('pickerBody'); if(!body)return;
     const activeProducts=STORE.products.filter(p=>p.active!==false);
-    if(pickerState.categoryId==='garage_doors'&&pickerState.view==='items') return renderGarageDoors(body,activeProducts);
+    if(pickerState.categoryId==='garage_doors'&&pickerState.view==='items') return renderGarageDoors(body,STORE.products);
     if(pickerState.categoryId==='springs'&&pickerState.view==='items') return renderSpringHome(body);
-    if(pickerState.categoryId==='springs'&&pickerState.view==='spring_sizes') return renderSpringSizes(body,activeProducts,pickerState.springType==='extension'?'extension':'torsion');
+    if(pickerState.categoryId==='springs'&&pickerState.view==='spring_sizes') return renderSpringSizes(body,STORE.products,pickerState.springType==='extension'?'extension':'torsion');
     const term=String(pickerState.search||'').trim();
     if(term){
       const results=activeProducts.filter(p=>matchesSearch(p,term)).sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0)||String(a.name||'').localeCompare(String(b.name||'')));
