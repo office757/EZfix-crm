@@ -515,6 +515,31 @@
   .cal-hour-job-time{font-size:9px;font-weight:800;color:var(--orange-dark)}
   .cal-hour-job-customer{font-size:10.5px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cal-hour-job-meta{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-hour-job.tone-0{background:#eef7ff}.cal-hour-job.tone-1{background:#effbf4}.cal-hour-job.tone-2{background:#fff7dc}.cal-hour-job.tone-3{background:#fff0f2}.cal-hour-job.tone-4{background:#f5efff}
+  .cal-schedule-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;align-items:start;margin-top:14px}
+  .cal-schedule-main{min-width:0}
+  .cal-all-day{display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));min-width:980px;border:1px solid var(--line);border-bottom:0;border-radius:14px 14px 0 0;overflow:hidden;background:var(--card)}
+  .cal-all-day-label{padding:9px 5px;text-align:center;font-size:10px;font-weight:800;color:var(--muted);background:var(--paper-2)}
+  .cal-all-day-cell{min-height:40px;padding:5px;border-left:1px solid var(--line);display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .cal-all-day-pill{max-width:100%;border:1px solid var(--line);border-left:3px solid var(--cal-accent);background:var(--paper-2);border-radius:7px;padding:4px 6px;font-size:9.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .cal-week-grid.with-all-day{margin-top:0}.cal-week-grid.with-all-day .cal-hour-board{border-radius:0 0 14px 14px}
+  .cal-side-stack{display:flex;flex-direction:column;gap:12px;position:sticky;top:96px}
+  .cal-side-card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .cal-side-head{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:850}
+  .cal-side-body{padding:10px 12px}
+  .cal-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+  .cal-mini-dow{font-size:9px;font-weight:800;color:var(--muted);padding:3px 0}
+  .cal-mini-day{border:0;background:transparent;border-radius:50%;aspect-ratio:1;display:grid;place-items:center;font-size:10px;color:var(--ink);cursor:pointer}
+  .cal-mini-day:hover{background:var(--paper-2)}.cal-mini-day.is-today{background:var(--orange);color:#201400;font-weight:900}.cal-mini-day.is-week{box-shadow:inset 0 0 0 1px rgba(247,148,29,.35)}
+  .cal-today-row{display:grid;grid-template-columns:46px 4px 1fr auto;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line)}
+  .cal-today-row:last-child{border-bottom:0}.cal-today-time{font-size:10px;font-weight:800}.cal-today-bar{width:3px;min-height:34px;border-radius:4px;background:var(--cal-accent)}
+  .cal-today-name{font-size:11px;font-weight:850}.cal-today-meta{font-size:9.5px;color:var(--muted);line-height:1.35}
+  .cal-tech-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:7px 0}
+  .cal-tech-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--paper-2);font-size:9px;font-weight:900}.cal-tech-name{font-size:11px;font-weight:800}.cal-tech-count{font-size:10px;color:var(--muted)}
+  .cal-week-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+  .cal-week-stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;box-shadow:var(--shadow)}.cal-week-stat-value{font-size:20px;font-weight:900}.cal-week-stat-label{font-size:10px;color:var(--muted);margin-top:2px}
+  @media(max-width:1180px){.cal-schedule-layout{grid-template-columns:1fr}.cal-side-stack{position:static;display:grid;grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:860px){.cal-side-stack{grid-template-columns:1fr}.cal-week-stats{grid-template-columns:repeat(2,1fr)}}
   .cal-week-day{background:var(--card);border:1px solid var(--line);border-radius:12px;min-height:220px;overflow:hidden;box-shadow:var(--shadow)}
   .cal-week-day.is-today{border-color:rgba(247,148,29,.85);box-shadow:0 0 0 2px rgba(247,148,29,.14)}
   .cal-week-day-head{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:5px;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--paper-2)}
@@ -8893,19 +8918,46 @@ function renderCalendarWeek(content) {
   const today=todayISO(), firstObj=new Date(days[0]+'T00:00:00'), lastObj=new Date(days[6]+'T00:00:00');
   const rangeLabel=firstObj.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+lastObj.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const hours=Array.from({length:11},(_,i)=>i+8);
-  const parseStart=j=>{ const m=String(j.appointmentWindow||'').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i); if(!m)return 8; let h=+m[1],min=+(m[2]||0); if(/PM/i.test(m[3])&&h<12)h+=12;if(/AM/i.test(m[3])&&h===12)h=0;return h+min/60; };
+  const parseClock=v=>{ const m=String(v||'').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i); if(!m)return null; let h=+m[1],min=+(m[2]||0); if(/PM/i.test(m[3])&&h<12)h+=12;if(/AM/i.test(m[3])&&h===12)h=0;return h+min/60; };
+  const windowTimes=j=>{ const ms=String(j.appointmentWindow||'').match(/\d{1,2}(?::\d{2})?\s*(?:AM|PM)/ig)||[]; const st=parseClock(ms[0]), en=parseClock(ms[1]); return {start:st??8,end:en&&en>(st??8)?en:(st??8)+1}; };
+  const weekJobs=days.flatMap(d=>jobsForDay(d));
+  const timed=d=>jobsForDay(d).filter(j=>parseClock(j.appointmentWindow)!=null);
+  const allDay=d=>jobsForDay(d).filter(j=>parseClock(j.appointmentWindow)==null);
+  const todayJobs=jobsForDay(today).slice(0,6);
+  const monthCursor=new Date((searchTerms.calendarSelectedDate||today)+'T00:00:00');
+  const miniYear=monthCursor.getFullYear(), miniMonth=monthCursor.getMonth(), miniFirst=new Date(miniYear,miniMonth,1), miniStart=new Date(miniFirst); miniStart.setDate(1-miniFirst.getDay());
+  const miniDays=Array.from({length:42},(_,i)=>{const x=new Date(miniStart);x.setDate(miniStart.getDate()+i);return x;});
+  const techRows=calendarTechFilterOptions().map(o=>{const t=getTechnicianById(o.value);const name=o.label;const initials=name.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();const count=weekJobs.filter(j=>jobMatchesTechFilter(j,o.value)).length;return {value:o.value,name,initials,count};}).filter(x=>x.count||!techFilter).slice(0,8);
+  const estimates=weekJobs.filter(j=>/estimate/i.test(j.title||'')).length, installs=weekJobs.filter(j=>/install/i.test(j.title||'')).length, maintenance=weekJobs.filter(j=>/maint/i.test(j.title||'')).length, unassigned=weekJobs.filter(j=>!j.technician&&!j.technicianId).length;
   content.innerHTML=`
     <div class="cal-week-toolbar">
       <div class="cal-nav-group"><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,-7);saveUiState();render()" aria-label="Previous week">‹</button><button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO());saveUiState();render()">Today</button><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,7);saveUiState();render()" aria-label="Next week">›</button></div>
-      <div class="cal-title-block"><div class="cal-title">${rangeLabel}</div><div class="cal-title-sub">${days.reduce((n,d)=>n+jobsForDay(d).length,0)} scheduled jobs</div></div>
+      <div class="cal-title-block"><div class="cal-title">${rangeLabel}</div><div class="cal-title-sub">${weekJobs.length} scheduled jobs</div></div>
       <div class="cal-filter-block">${!isTechnicianView()&&techOptions.length?`<select class="select-compact" onchange="searchTerms.calendarTech=this.value;saveUiState();render()"><option value="">All technicians</option>${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`:''}</div>
     </div>
-    <div class="cal-week-grid"><div class="cal-hour-board">
-      <div class="cal-hour-head"><div class="cal-hour-corner">TIME</div>${days.map(d=>{const x=new Date(d+'T00:00:00'),it=d===today;return `<div class="cal-hour-dayhead ${it?'is-today':''}" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()"><div class="cal-hour-dow">${x.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="cal-hour-num">${x.getDate()}</div></div>`}).join('')}</div>
-      <div class="cal-hour-body"><div class="cal-hour-times">${hours.map(h=>`<div class="cal-hour-time">${h===12?'12 PM':h>12?(h-12)+' PM':h+' AM'}</div>`).join('')}</div>
-      ${days.map(d=>`<div class="cal-hour-column" data-date="${d}" ondragover="event.preventDefault()" ondrop="handleJobDrop(event,'${d}')">${jobsForDay(d).map(j=>{const st=Math.max(8,Math.min(18.25,parseStart(j))),top=(st-8)*60;return `<button class="cal-hour-job" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time">${esc(j.appointmentWindow||'Time TBD')}</div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')} · ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
+    <div class="cal-schedule-layout"><div class="cal-schedule-main">
+      <div style="overflow-x:auto">
+        <div class="cal-all-day"><div class="cal-all-day-label">ALL DAY</div>${days.map(d=>`<div class="cal-all-day-cell">${allDay(d).map(j=>`<button class="cal-all-day-pill" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')">${esc(j.customerName||j.title||'Job')}</button>`).join('')}</div>`).join('')}</div>
+        <div class="cal-week-grid with-all-day"><div class="cal-hour-board">
+          <div class="cal-hour-head"><div class="cal-hour-corner">TIME</div>${days.map(d=>{const x=new Date(d+'T00:00:00'),it=d===today;return `<div class="cal-hour-dayhead ${it?'is-today':''}" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()"><div class="cal-hour-dow">${x.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="cal-hour-num">${x.getDate()}</div><div style="font-size:9px;color:var(--muted);font-weight:750">${jobsForDay(d).length} job${jobsForDay(d).length===1?'':'s'}</div></div>`}).join('')}</div>
+          <div class="cal-hour-body"><div class="cal-hour-times">${hours.map(h=>`<div class="cal-hour-time">${h===12?'12 PM':h>12?(h-12)+' PM':h+' AM'}</div>`).join('')}</div>
+          ${days.map(d=>`<div class="cal-hour-column" data-date="${d}" ondragover="event.preventDefault()" ondrop="handleJobDrop(event,'${d}')">${timed(d).map((j,idx)=>{const wt=windowTimes(j),st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end)),top=(st-8)*60,height=Math.max(48,(en-st)*60-6);return `<button class="cal-hour-job tone-${idx%5}" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;height:${height}px;--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time">${esc(j.appointmentWindow||'Time TBD')}</div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')}</div><div class="cal-hour-job-meta">👷 ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
+          </div>
+        </div></div>
       </div>
-    </div></div>`;
+      <div class="cal-week-stats">
+        <div class="cal-week-stat"><div class="cal-week-stat-value">${weekJobs.length}</div><div class="cal-week-stat-label">Total Jobs</div></div>
+        <div class="cal-week-stat"><div class="cal-week-stat-value">${estimates}</div><div class="cal-week-stat-label">Estimates</div></div>
+        <div class="cal-week-stat"><div class="cal-week-stat-value">${installs}</div><div class="cal-week-stat-label">Installations</div></div>
+        <div class="cal-week-stat"><div class="cal-week-stat-value">${maintenance}</div><div class="cal-week-stat-label">Maintenance</div></div>
+        <div class="cal-week-stat"><div class="cal-week-stat-value">${unassigned}</div><div class="cal-week-stat-label">Unassigned</div></div>
+      </div>
+    </div>
+    <aside class="cal-side-stack">
+      <section class="cal-side-card"><div class="cal-side-head"><span>${monthCursor.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span></div><div class="cal-side-body"><div class="cal-mini-grid">${['Su','Mo','Tu','We','Th','Fr','Sa'].map(x=>`<div class="cal-mini-dow">${x}</div>`).join('')}${miniDays.map(x=>{const ds=x.toISOString().slice(0,10),same=x.getMonth()===miniMonth;return `<button class="cal-mini-day ${ds===today?'is-today':''} ${days.includes(ds)?'is-week':''}" style="${same?'':'opacity:.35'}" onclick="searchTerms.calendarSelectedDate='${ds}';calendarViewMode='day';saveUiState();render()">${x.getDate()}</button>`}).join('')}</div></div></section>
+      <section class="cal-side-card"><div class="cal-side-head"><span>Today</span><button class="btn btn-sm btn-ghost" onclick="searchTerms.calendarSelectedDate=todayISO();calendarViewMode='day';saveUiState();render()">View all</button></div><div class="cal-side-body">${todayJobs.length?todayJobs.map(j=>`<div class="cal-today-row clickable" onclick="go('jobs','${j.id}')"><div class="cal-today-time">${esc((j.appointmentWindow||'TBD').split(/\s*[-–]\s*/)[0])}</div><div class="cal-today-bar" style="--cal-accent:${jobStatusAccent(j.status)};background:${jobStatusAccent(j.status)}"></div><div><div class="cal-today-name">${esc(j.customerName||'Customer')}</div><div class="cal-today-meta">${esc(j.title||'Service')}<br>${esc(j.technician||'Unassigned')}</div></div><span>›</span></div>`).join(''):'<div class="muted" style="font-size:11px;padding:8px 0">No jobs today</div>'}</div></section>
+      <section class="cal-side-card"><div class="cal-side-head"><span>Technicians</span></div><div class="cal-side-body">${techRows.map(t=>`<div class="cal-tech-row clickable" onclick="searchTerms.calendarTech='${esc(t.value)}';saveUiState();render()"><div class="cal-tech-avatar">${esc(t.initials||'T')}</div><div class="cal-tech-name">${esc(t.name)}</div><div class="cal-tech-count">${t.count} jobs</div></div>`).join('')||'<div class="muted" style="font-size:11px">No technicians</div>'}</div></section>
+    </aside></div>`;
 }
 function renderCalendarDay(content) {
   const dateStr=searchTerms.calendarSelectedDate||todayISO();
