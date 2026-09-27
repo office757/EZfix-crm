@@ -9489,7 +9489,7 @@ function buildEmailHtml({ preheading, greeting, bodyLines, cardIcon, cardLabel, 
   </table>
   </td></tr></table>`;
 }
-function buildDocEmailHtml(type, doc) {
+function buildDocEmailHtml(type, doc, publicInvoiceUrl='') {
   const isInvoice = type === 'invoice';
   const t = computeTotals(doc);
   const balance = isInvoice ? balanceDue(doc) : t.total;
@@ -9521,8 +9521,8 @@ function buildDocEmailHtml(type, doc) {
       cardIcon: '🧾', cardLabel: `Invoice ${doc.number}`,
       amountLabel: 'Amount Due', amount: money(balance),
       subLine: `Due: ${doc.dueTerm||'On Receipt'}`,
-      ctaLabel: payUrl ? `PAY NOW — ${money(balance)}` : null,
-      ctaUrl: payUrl,
+      ctaLabel: publicInvoiceUrl ? 'VIEW INVOICE & PAY' : (payUrl ? `PAY NOW — ${money(balance)}` : null),
+      ctaUrl: publicInvoiceUrl || payUrl,
       cardFeeLine: payUrl ? `Credit Card Fee: 3.5% (${money(cardPaymentAmounts(balance).fee)})` : null,
       cardTotalLine: payUrl ? `Total with Card: ${money(cardPaymentAmounts(balance).total)}` : null,
       footerLines,
@@ -9956,19 +9956,14 @@ async function emailDocument(type, id) {
   const email = doc.customerEmail || cust?.email;
   if (!email) return promptContactInfo(type, id, 'email');
   const subject = `${type==='invoice'?'Invoice':'Estimate'} ${doc.number} from ${COMPANY.name}`;
-  let customerInvoiceUrl = null;
+  let publicInvoiceUrl = '';
   if (type==='invoice') {
-    try { customerInvoiceUrl = await createPublicInvoiceUrl(id); }
-    catch(e) { console.error('Could not create customer invoice URL for email', e); }
+    try { publicInvoiceUrl = await createPublicInvoiceUrl(id); }
+    catch(e) { console.error('Could not create public invoice URL for email; falling back to existing payment link', e); }
   }
   let body = buildDocSummaryText(type, doc);
-  let htmlBody = buildDocEmailHtml(type, doc);
-  if (type==='invoice' && customerInvoiceUrl) {
-    body += `\n\nView invoice${balanceDue(doc)>0?' & pay':''}: ${customerInvoiceUrl}`;
-    const label = balanceDue(doc)>0 ? 'VIEW INVOICE & PAY' : 'VIEW INVOICE';
-    const button = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0"><tr><td bgcolor="#f7941d" style="border-radius:8px"><a href="${customerInvoiceUrl}" style="display:inline-block;padding:14px 22px;color:#111111;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:800">${label}</a></td></tr></table>`;
-    htmlBody = htmlBody.replace('</body>', button+'</body>');
-  }
+  if (type==='invoice' && publicInvoiceUrl) body += `\n\nView invoice & pay securely: ${publicInvoiceUrl}`;
+  const htmlBody = buildDocEmailHtml(type, doc, publicInvoiceUrl);
   let attachment = null;
   try {
     const pdf = await buildPdfDoc(type, doc);
