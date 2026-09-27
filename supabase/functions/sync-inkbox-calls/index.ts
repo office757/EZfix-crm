@@ -1,3 +1,4 @@
+import { persistProviderRecording } from "../_shared/provider-recording-persistence.mjs";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { Inkbox } from "npm:@inkbox/sdk";
@@ -57,7 +58,7 @@ function recordingExt(url:string,contentType:string){
 }
 async function ingestProviderRecording(db:any,callId:string,recordingUrl:string|null){
   const safe=safeRecordingUrl(recordingUrl); if(!safe)return null;
-  const {data:existing}=await db.from("calls").select("id,recording_asset").eq("provider_call_id",callId).maybeSingle();
+  const {data:existing,error:readErr}=await db.from("calls").select("id,recording_asset").eq("provider_call_id",callId).maybeSingle(); if(readErr)throw readErr; if(!existing)throw new Error("Call unavailable for recording");
   if(existing?.recording_asset?.path)return existing.recording_asset;
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
   try{
@@ -74,9 +75,7 @@ async function ingestProviderRecording(db:any,callId:string,recordingUrl:string|
     const {error:upErr}=await db.storage.from("crm-assets").upload(path,bytes,{contentType:contentType||"application/octet-stream",upsert:false});
     if(upErr)throw upErr;
     const asset={id:"crm-assets/"+path,path,name:"Inkbox call recording."+ext,size:bytes.length,contentType,source:"inkbox_provider",sourceUrlHost:new URL(safe).hostname,attachedAt:new Date().toISOString()};
-    const {error:saveErr}=await db.from("calls").update({recording_asset:asset}).eq("provider_call_id",callId);
-    if(saveErr){await db.storage.from("crm-assets").remove([path]).catch(()=>{});throw saveErr}
-    return asset;
+    return await persistProviderRecording(db,callId,asset);
   }finally{clearTimeout(timer)}
 }
 
