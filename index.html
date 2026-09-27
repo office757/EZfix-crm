@@ -472,6 +472,22 @@
   @keyframes toastBump { 0%,100% { transform: scale(1); } 50% { transform: scale(1.03); } }
   @keyframes slideIn { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
 
+  /* Friendly month calendar cards */
+  .cal-month-day{background:var(--card);min-height:112px;padding:7px;position:relative;transition:background .15s ease,box-shadow .15s ease}
+  .cal-month-day:hover{background:#fffdfa;box-shadow:inset 0 0 0 1px rgba(247,148,29,.28)}
+  .cal-month-today{background:#fff9ef!important;box-shadow:inset 0 0 0 2px rgba(247,148,29,.65)}
+  .cal-month-date{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--ink)}
+  .cal-month-today .cal-month-date{background:var(--orange);color:#201400}
+  .cal-month-events{margin-top:5px;display:flex;flex-direction:column;gap:4px}
+  .cal-job-card{position:relative;border-radius:7px;padding:5px 6px 5px 8px;overflow:hidden;min-width:0;border:1px solid rgba(0,0,0,.04);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .cal-job-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cal-accent)}
+  .cal-job-tone-0{background:#eaf4ff}.cal-job-tone-1{background:#fff3c9}.cal-job-tone-2{background:#e9f7f2}.cal-job-tone-3{background:#f2ecff}
+  .cal-job-time{font-size:8.5px;line-height:1.2;font-weight:800;color:#6c6962;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-job-name{font-size:10px;line-height:1.25;font-weight:800;color:#202020;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .cal-job-tech{font-size:8.5px;line-height:1.2;color:#77736d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .cal-more{font-size:9.5px;color:var(--muted);font-weight:800;padding:1px 3px}
+  @media(max-width:860px){.cal-month-day{min-height:96px;padding:5px}.cal-job-tech{display:none}.cal-job-card{padding:4px 5px 4px 7px}.cal-job-name{font-size:9.5px}.cal-job-time{font-size:8px}}
+
   /* mobile */
   @media (max-width: 860px) {
     .sidebar { position: fixed; left: -240px; width: 220px; z-index: 200; transition: left .2s ease; box-shadow: 0 0 30px rgba(0,0,0,0.4); }
@@ -8567,11 +8583,15 @@ function renderCalendarMonth(content) {
         const dJobs = jobsForDay(dStr);
         const shown = dJobs.slice(0,3);
         const extra = dJobs.length - shown.length;
-        return `<div class="clickable" onclick="openCalendarDay('${dStr}')" style="background:var(--card);min-height:78px;padding:4px;${inMonth?'':'opacity:.4'}">
-          <div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:${isToday?'800':'600'};${isToday?'background:var(--orange);color:#201400':'color:var(--ink)'}">${d.getDate()}</div>
-          <div style="margin-top:2px;display:flex;flex-direction:column;gap:1px">
-            ${shown.map(j=>`<div style="font-size:10px;background:var(--paper-2);border-radius:3px;padding:1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid ${jobStatusAccent(j.status)}">${esc(j.customerName||j.title)}</div>`).join('')}
-            ${extra>0 ? `<div style="font-size:9.5px;color:var(--muted);font-weight:700">+${extra} more</div>` : ''}
+        return `<div class="clickable cal-month-day ${isToday?'cal-month-today':''}" onclick="openCalendarDay('${dStr}')" style="${inMonth?'':'opacity:.42'}">
+          <div class="cal-month-date">${d.getDate()}</div>
+          <div class="cal-month-events">
+            ${shown.map((j,idx)=>`<div class="cal-job-card cal-job-tone-${idx%4}" style="--cal-accent:${jobStatusAccent(j.status)}">
+              <div class="cal-job-time">${esc(j.appointmentWindow||'Time TBD')}</div>
+              <div class="cal-job-name">${esc(j.customerName||j.title||'Job')}</div>
+              <div class="cal-job-tech">${esc(j.technician||'Unassigned')}</div>
+            </div>`).join('')}
+            ${extra>0 ? `<div class="cal-more">+${extra} more</div>` : ''}
           </div>
         </div>`;
       }).join('')}
