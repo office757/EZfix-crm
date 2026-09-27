@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { Inkbox } from "npm:@inkbox/sdk";
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-ezfix-cron-token","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
 const out=(b:any,s=200)=>new Response(JSON.stringify(b),{status:s,headers:cors});
 const IDENTITY="ashley-ezfixgaragedoorsinc";
 const LEGACY_TAG="[EZFIX_CRM_GUARDRAILS_V2]";
@@ -40,10 +40,9 @@ async function ensureGuardrails(identity:any,db:any){
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  try{
-  const auth=req.headers.get("Authorization")||""; if(!auth.startsWith("Bearer "))return out({ok:false,error:"Unauthorized"},401);
+  const auth=req.headers.get("Authorization")||""; const cron=req.headers.get("x-ezfix-cron-token")||""; const cronSecret=Deno.env.get("EZFIX_CALL_SYNC_CRON_TOKEN")||""; const legacyCronSecret=Deno.env.get("EZFIX_INTEGRATION_ALERT_CRON_TOKEN")||Deno.env.get("ezfix_integration_alert_cron_token")||""; const cronOk=(!!cronSecret&&cron===cronSecret)||(!cronSecret&&!!legacyCronSecret&&cron===legacyCronSecret); if(!auth.startsWith("Bearer ")&&!cronOk)return out({ok:false,error:"Unauthorized"},401);
   const url=Deno.env.get("SUPABASE_URL")!,anon=Deno.env.get("SUPABASE_ANON_KEY")!,service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const uc=createClient(url,anon,{global:{headers:{Authorization:auth}}}); const {data:{user},error:ue}=await uc.auth.getUser(); if(ue||!user)return out({ok:false,error:"Unauthorized"},401);
-  const db=createClient(url,service); const {data:member}=await db.from("team").select("id,role,status").eq("auth_user_id",user.id).maybeSingle(); if(!member||member.status!=="active")return out({ok:false,error:"Forbidden"},403);
+  const db=createClient(url,service); if(!cronOk){ const uc=createClient(url,anon,{global:{headers:{Authorization:auth}}}); const {data:{user},error:ue}=await uc.auth.getUser(); if(ue||!user)return out({ok:false,error:"Unauthorized"},401); const {data:member}=await db.from("team").select("id,role,status").eq("auth_user_id",user.id).maybeSingle(); if(!member||member.status!=="active")return out({ok:false,error:"Forbidden"},403); }
   const key=Deno.env.get("INKBOX_API_KEY"); if(!key)return out({ok:false,error:"Inkbox is not configured"},503);
   const inkbox=await new Inkbox({apiKey:key}).ready(); const identity=await inkbox.getIdentity(IDENTITY);let guardrailsUpdated=false;try{guardrailsUpdated=await ensureGuardrails(identity,db)}catch(e){console.error("hosted agent guardrail sync failed",e)}
   const calls:any[]=await identity.listCalls({limit:50,offset:0}); let synced=0,failed=0; const errors:any[]=[];

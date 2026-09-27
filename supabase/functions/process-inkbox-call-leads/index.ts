@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2";
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-ezfix-cron-token","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json"};
 const BUSINESS_TRANSFER="+17742445533";
 const digits=(v:any)=>String(v||"").replace(/\D/g,"").slice(-10),clean=(v:any)=>typeof v==="string"&&v.trim()?v.trim():null;
 const partyOf=(x:any)=>String(x?.party||x?.speaker||"").toLowerCase();
@@ -48,10 +48,9 @@ function assignmentState(c:any,allowed:boolean,techs:any[]){const requested=clea
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  try{
-  const auth=req.headers.get("Authorization")||"";if(!auth.startsWith("Bearer "))return new Response(JSON.stringify({ok:false,error:"Unauthorized"}),{status:401,headers:cors});
+  const auth=req.headers.get("Authorization")||"",cron=req.headers.get("x-ezfix-cron-token")||""; const cronSecret=Deno.env.get("EZFIX_CALL_SYNC_CRON_TOKEN")||"",legacyCronSecret=Deno.env.get("EZFIX_INTEGRATION_ALERT_CRON_TOKEN")||""; const cronOk=(!!cronSecret&&cron===cronSecret)||(!cronSecret&&!!legacyCronSecret&&cron===legacyCronSecret); if(!auth.startsWith("Bearer ")&&!cronOk)return new Response(JSON.stringify({ok:false,error:"Unauthorized"}),{status:401,headers:cors});
   const url=Deno.env.get("SUPABASE_URL")!,anon=Deno.env.get("SUPABASE_ANON_KEY")!,service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const uc=createClient(url,anon,{global:{headers:{Authorization:auth}}});const {data:{user}}=await uc.auth.getUser();if(!user)return new Response(JSON.stringify({ok:false,error:"Unauthorized"}),{status:401,headers:cors});
-  const db=createClient(url,service);const {data:team}=await db.from("team").select("id,status").eq("auth_user_id",user.id).maybeSingle();if(!team||String(team.status).toLowerCase()!=="active")return new Response(JSON.stringify({ok:false,error:"Forbidden"}),{status:403,headers:cors});
+  const db=createClient(url,service); if(!cronOk){const uc=createClient(url,anon,{global:{headers:{Authorization:auth}}});const {data:{user}}=await uc.auth.getUser();if(!user)return new Response(JSON.stringify({ok:false,error:"Unauthorized"}),{status:401,headers:cors});const {data:team}=await db.from("team").select("id,status").eq("auth_user_id",user.id).maybeSingle();if(!team||String(team.status).toLowerCase()!=="active")return new Response(JSON.stringify({ok:false,error:"Forbidden"}),{status:403,headers:cors});}
   const [{data:perm},{data:techs}]=await Promise.all([db.from("ai_permissions").select("enabled,level,auto_limit").eq("domain","ai_receptionist").eq("action","assign_technician").maybeSingle(),db.from("team").select("id,name,status,role").ilike("role","technician")]);
   const assignmentAllowed=!!perm?.enabled;
   const {data:recentCalls,error:recentErr}=await db.from("calls").select("id,transcript,lead_extraction,remote_number,provider_data,status,outcome,lead_id,customer_id").not("provider_call_id","is",null).order("created_at",{ascending:false}).limit(100);if(recentErr)throw recentErr;let guardrailFlagged=0,metadataRefreshed=0;
