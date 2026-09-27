@@ -22,6 +22,7 @@ const scripts = [
   'build-assignment-whatsapp.mjs',
   'audit-call-recordings.mjs',
   'audit-provider-recording-persistence.mjs',
+  'audit-recording-download.mjs',
   'audit-calendar-overlap.mjs',
   'build-calendar-overlap.mjs',
   'audit-calendar-premium.mjs',

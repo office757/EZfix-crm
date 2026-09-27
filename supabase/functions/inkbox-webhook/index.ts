@@ -1,3 +1,4 @@
+import { downloadProviderRecording } from "../_shared/provider-recording-download.mjs";
 import { persistProviderRecording } from "../_shared/provider-recording-persistence.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { verifyWebhook, Inkbox } from "npm:@inkbox/sdk";
@@ -55,45 +56,19 @@ const END_TAG = "[EZFIX_CRM_GUARDRAILS_END]";
 const VERSION_TAG = "[EZFIX_CRM_GUARDRAILS_V3]";
 const legacyTail = "- Never claim a payment, booking, technician assignment, or transfer succeeded unless the connected system actually confirms it.";
 
-function safeRecordingUrl(value:string|null): string | null {
-  if(!value)return null;
-  try{
-    const u=new URL(value);
-    if(u.protocol!=="https:")return null;
-    const h=u.hostname.toLowerCase();
-    if(h==="localhost"||h==="127.0.0.1"||h==="::1"||h.endsWith(".local"))return null;
-    if(/^10\.|^192\.168\.|^169\.254\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(h))return null;
-    return u.toString();
-  }catch{return null}
-}
-function recordingExt(url:string,contentType:string){
-  const byType:Record<string,string>={"audio/mpeg":"mp3","audio/mp3":"mp3","audio/wav":"wav","audio/x-wav":"wav","audio/mp4":"m4a","audio/aac":"aac","audio/ogg":"ogg","audio/opus":"opus","audio/webm":"webm","video/webm":"webm","video/mp4":"mp4"};
-  const base=String(contentType||"").split(";")[0].trim().toLowerCase();
-  if(byType[base])return byType[base];
-  try{const m=new URL(url).pathname.toLowerCase().match(/\.([a-z0-9]{2,5})$/);if(m&&["mp3","wav","m4a","aac","ogg","oga","opus","webm","mp4"].includes(m[1]))return m[1]}catch{}
-  return "bin";
-}
 async function ingestProviderRecording(db:any,callId:string,recordingUrl:string|null){
-  const safe=safeRecordingUrl(recordingUrl); if(!safe)return null;
+  if(!recordingUrl)return null;
+  if(!/^[A-Za-z0-9_-]{1,160}$/.test(callId))throw new Error("Invalid provider recording call ID");
   const {data:existing,error:readErr}=await db.from("calls").select("id,recording_asset").eq("provider_call_id",callId).maybeSingle(); if(readErr)throw readErr; if(!existing)throw new Error("Call unavailable for recording");
   if(existing?.recording_asset?.path)return existing.recording_asset;
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
-  try{
-    const r=await fetch(safe,{signal:controller.signal,redirect:"follow"});
-    if(!r.ok)throw new Error("recording download HTTP "+r.status);
-    const declared=Number(r.headers.get("content-length")||0);
-    if(Number.isFinite(declared)&&declared>104857600)throw new Error("recording exceeds 100 MB");
-    const bytes=new Uint8Array(await r.arrayBuffer());
-    if(!bytes.length||bytes.length>104857600)throw new Error("recording size invalid");
-    const contentType=String(r.headers.get("content-type")||"application/octet-stream").split(";")[0].trim().toLowerCase();
-    const ext=recordingExt(safe,contentType);
-    if(ext==="bin"&&!contentType.startsWith("audio/")&&!contentType.startsWith("video/"))throw new Error("recording content type not audio/video");
-    const path=`call-recordings/provider/${callId}/${crypto.randomUUID()}.${ext}`;
-    const {error:upErr}=await db.storage.from("crm-assets").upload(path,bytes,{contentType:contentType||"application/octet-stream",upsert:false});
-    if(upErr)throw upErr;
-    const asset={id:"crm-assets/"+path,path,name:"Inkbox call recording."+ext,size:bytes.length,contentType,source:"inkbox_provider",sourceUrlHost:new URL(safe).hostname,attachedAt:new Date().toISOString()};
-    return await persistProviderRecording(db,callId,asset);
-  }finally{clearTimeout(timer)}
+  const {bytes,contentType,ext,host}=await downloadProviderRecording(recordingUrl,{
+    allowedHosts:Deno.env.get("INKBOX_RECORDING_ALLOWED_HOSTS")||""
+  });
+  const path=`call-recordings/provider/${callId}/${crypto.randomUUID()}.${ext}`;
+  const {error:upErr}=await db.storage.from("crm-assets").upload(path,bytes,{contentType,upsert:false});
+  if(upErr)throw upErr;
+  const asset={id:"crm-assets/"+path,path,name:"Inkbox call recording."+ext,size:bytes.length,contentType,source:"inkbox_provider",sourceUrlHost:host,attachedAt:new Date().toISOString()};
+  return await persistProviderRecording(db,callId,asset);
 }
 
 function stripManagedGuardrails(current: string) {
