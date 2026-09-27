@@ -61,7 +61,6 @@ function canonicalizeCatalogItems(items: any[], products: CatalogProduct[]) {
     if (!product || product.active !== true) {
       throw new Error(`Draft line ${index + 1} references an inactive or unknown catalog item`);
     }
-
     const canonicalName = text(product.name);
     const canonicalCategory = text(product.category) || text(product.category_id);
     const catalogRateRaw = Number(product.rate);
@@ -71,7 +70,6 @@ function canonicalizeCatalogItems(items: any[], products: CatalogProduct[]) {
     if (!Number.isFinite(catalogRateRaw) || catalogRateRaw <= 0 || catalogRateRaw > 1000000) {
       throw new Error(`Catalog item ${productId} has a missing or invalid rate`);
     }
-
     const qty = Number(item?.qty);
     const draftRateRaw = Number(item?.rate);
     if (!Number.isFinite(qty) || qty <= 0 || qty > 1000) throw new Error(`Draft line ${index + 1} has an invalid quantity`);
@@ -81,7 +79,6 @@ function canonicalizeCatalogItems(items: any[], products: CatalogProduct[]) {
     if (Math.abs(catalogRate - draftRate) >= 0.01) {
       throw new Error(`Draft line ${index + 1} rate does not match the active catalog; regenerate the draft`);
     }
-
     if (text(item?.name) !== canonicalName) {
       throw new Error(`Draft line ${index + 1} name does not match the active catalog; regenerate the draft`);
     }
@@ -91,7 +88,6 @@ function canonicalizeCatalogItems(items: any[], products: CatalogProduct[]) {
     if (typeof item?.taxable !== "boolean" || item.taxable !== product.taxable) {
       throw new Error(`Draft line ${index + 1} taxable classification does not match the active catalog; regenerate the draft`);
     }
-
     return {
       ...item,
       catalog_product_id: productId,
