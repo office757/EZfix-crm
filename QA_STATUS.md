@@ -1,5 +1,91 @@
 # EZfix CRM completion QA status
 
+## 2026-09-27 final hardening refresh
+
+Audit baseline before this documentation-only update: `5df78593` on production `main`.
+
+### Production / release health
+- Latest checked Vercel production deployment: **READY**, no alias error.
+- Public/CRM route smoke: **6/6 HTTP 200** for `/`, `/crm`, `/auth-shell`, `/invoice-pay`, `/estimate-sign`, and `/set-password`.
+- Production CRM HTML contains the current Calendar overlap/premium build, Product Catalog reference picker, and technician-assignment WhatsApp hook.
+- Recent Supabase log audit over the checked production window returned **0 HTTP 5xx** and **0 exception/fatal-like events** across Edge, Postgres, and Function logs.
+
+### Database integrity
+- Live audited counts: 5 customers, 13 leads, 11 jobs, 5 estimates, 27 invoices.
+- **0** orphan Job→Customer links.
+- **0** orphan Estimate→Customer links.
+- **0** orphan Invoice→Customer links.
+- **0** orphan Invoice→Job links.
+- **0** duplicate active Job numbers and **0** missing active Job numbers.
+- **0** duplicate Estimate numbers and **0** duplicate Invoice numbers.
+- **0** completed Jobs without completion signature.
+- Rollback-only E2E flow passed Customer → Job → Estimate → remote signature → invoice payload → card payment, including payment idempotency and stale-row rejection. The QA transaction intentionally aborted and follow-up checks confirmed **0 QA rows/tokens remained**. A real invoice number was intentionally not consumed.
+
+### Calendar / UI
+- Calendar premium/readability, overlap grouping, sticky axes, filter persistence, and nested scroll preservation are in production.
+- Refresh retains Calendar route/view/date/technician/job-type/status/mini-month preferences.
+- Week/Month in-page rerenders preserve timeline scroll, focus, and selection.
+- Existing release gates currently cover route guards, public invoice totals, UI state, catalog UI, assignment WhatsApp, calendar overlap, and calendar premium CSS.
+
+### Product catalog
+- Dedicated Garage Door + Spring reference search is live inside the existing Invoice/Estimate Product Picker.
+- Reference catalog remains intentionally **inactive** outside the dedicated picker so it does not enter normal active-product search or automatic AI pricing.
+- Reference data currently includes 253 Garage Door models and 3,461 Spring references (2,924 torsion / 537 extension, including two Size Not Specified entries).
+- Owner and Technician RLS simulations can read the reference catalog for field use.
+- Reference items remain rate $0 by design; the user sets the selling price on the line item.
+- Active Product Catalog pricing remains incomplete: 166 active products, 2 with positive rates and 164 with zero/missing rates. AI service-document pricing correctly remains blocked for missing catalog pricing.
+
+### Square / Quick Payment
+- Quick Payment normalizes common US phone formats before invoice creation.
+- Card Quick Payment automatically calls the authenticated Square payment-link function after invoice creation.
+- Live audit: 9 Square invoices, **9/9 with payment links**, **0 Square invoices missing links**, and **0 payment links attached to a non-Square provider**.
+- Public invoice balance logic uses applied payment principal and keeps card fee separate.
+
+### Communications / consent
+- Email logo URL was repaired from a 404 CRM asset to the verified public EZfix website logo.
+- Google Review Link is now configured to the verified EZfix Google Business listing.
+- Website SMS consent bug fixed in production: Avada submits `sms_consent[]`; `website-lead-webhook` v14 now recognizes that exact field while still requiring explicit checked/accepted consent.
+- No historical lead was retroactively opted in. Existing consent is never inferred.
+- Before the fix, live audit found 9 website leads, 8 with valid phone numbers, 3 with opt-in from other evidence, and 0 website-form consent records. Future checked submissions can now persist website-form evidence correctly.
+- Assignment SMS remains active. Manual technician assignment now also invokes the existing opt-in/preference-aware WhatsApp pipeline. No technician currently has explicit WhatsApp opt-in, so WhatsApp is not sent without consent.
+
+### Calls / Ashley
+- Call History already supports `recording_url` and renders an HTML audio player when a recording exists.
+- Existing production calls currently have no provider-supplied recording URL.
+- Inkbox SDK 0.7.8 PhoneCall does not expose a documented recording/audio field or recordings API.
+- `sync-inkbox-calls` v14 and `inkbox-webhook` v16 recursively capture future recording/audio/media HTTPS URLs if Inkbox exposes them and preserve any existing recording URL when later sync payloads omit it.
+- Inkbox call reconciliation and call-lead processing crons are active and their latest checked runs succeeded.
+- Both Inkbox cron jobs now resolve their auth token from Supabase Vault; plaintext token material is no longer stored in `cron.job.command`.
+
+### Role / RLS verification
+- Technician simulation sees only assigned/technician-created operational data:
+  - 0 unrelated Customers.
+  - 0 unrelated Leads.
+  - 0 unrelated Jobs.
+  - 0 unrelated Invoices.
+  - Team visibility limited to the technician's own row.
+  - Settings visibility: 0 rows.
+- Technician-visible invoices in the audited account were 12/12 Quick Pay invoices created by that technician; 0 unrelated invoices were exposed.
+- Technician Job update rollback tests:
+  - normal status update: allowed.
+  - material cost change: blocked.
+  - customer linkage change: blocked.
+  - technician ownership change: blocked.
+- Technician-visible `audit_log` rows are restricted to recipient-specific Job notification events used by the notification bell; the Audit Log navigation/page remains unavailable to technicians.
+
+### Performance / schema hardening
+- Supabase initially reported 9 unindexed foreign keys. Migration `20260927182513_add_missing_foreign_key_indexes` added covering indexes; the advisor finding is now **0**.
+- Migration `20260927183646_move_inkbox_cron_token_to_vault` moved Inkbox cron authentication to Vault while preserving schedules and endpoints.
+- Both production migrations are synchronized into GitHub.
+
+### Remaining external/manual completion items
+- **Supabase Auth Leaked Password Protection is still disabled** and must be enabled through the Supabase Auth project settings when that management control is available.
+- A genuine post-V3 Ashley provider call is still required before claiming current hosted-agent behavior is end-to-end live-call verified.
+- Broad AI-generated pricing remains intentionally blocked until real prices are populated for the unpriced active Product Catalog items.
+- Technician WhatsApp delivery cannot be live-verified until a technician explicitly opts in and has a valid WhatsApp number/provider readiness.
+- Supabase advisor still reports broad SECURITY DEFINER callable-function and multiple-permissive-policy warnings. These are not being blanket-revoked/merged because doing so can break intended public signing/payment endpoints or RLS behavior; any reduction requires function/policy-specific review.
+
+
 Last verified: 2026-09-25
 Production branch: `main`
 Current production QA baseline: `b4f0168`
