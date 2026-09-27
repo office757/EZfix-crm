@@ -602,6 +602,7 @@
 <nav class="bottom-nav no-print" id="bottomNav" aria-label="Mobile navigation">
   <button class="bn-item" data-page="dashboard" onclick="go('dashboard')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h7V4H4v9zm0 7h7v-5H4v5zm9 0h7V11h-7v9zm0-16v5h7V4h-7z"/></svg>Home</button>
   <button class="bn-item" data-page="calendar" onclick="go('calendar')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3M16 2v3M3.5 9h17M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></svg>Schedule</button>
+  <button class="bn-item" data-page="quickpay" onclick="go('quickpay')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM3 10h18M7 15h4"/></svg>Quick Pay</button>
   <button class="bn-item" data-page="invoices" onclick="go('invoices')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4zM8 9h8M8 13h8M8 17h4"/></svg>Invoices</button>
   <button class="bn-item" data-page="estimates" onclick="go('estimates')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6"/></svg>Estimates</button>
   <button class="bn-item" data-page="more" onclick="go('more')"><svg class="bn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>More</button>
@@ -1571,7 +1572,7 @@ function renderTechnicianDashboard(content, actions) {
   actions.innerHTML = '';
 }
 function dashboardModuleCategories() {
-  const secondary = NAV.filter(n => n.key!=='receptionist' && (n.sidebar===false || n.key==='ai_manager') && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()));
+  const secondary = NAV.filter(n => n.key!=='receptionist' && n.sidebar===false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()));
   const order = ['Sales Tools','Catalog & Stock','Customer Care','Team & Payroll','Reports & System'];
   const groups = {};
   secondary.forEach(n => { (groups[n.category||'Other'] = groups[n.category||'Other']||[]).push(n); });
