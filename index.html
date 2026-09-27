@@ -3597,8 +3597,10 @@ function renderProductPicker() {
   if (pickerState.view === 'items' && pickerState.categoryId) {
     const cat = catalogCategoryById(pickerState.categoryId);
     const items = activeProducts.filter(p=>categoryIdOf(p)===pickerState.categoryId).sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0) || a.name.localeCompare(b.name));
+    const products=items.filter(p=>catalogItemType(p)==='product'), labor=items.filter(p=>catalogItemType(p)==='labor');
     body.innerHTML += `<button class="btn btn-sm" style="margin-bottom:10px" onclick="pickerState.view='categories'; renderProductPicker()">← Categories</button>`;
-    body.innerHTML += renderPickerItemList(items, `${cat?cat.emoji+' '+cat.label:'Items'}`);
+    if(products.length) body.innerHTML += renderPickerItemList(products, `${cat?cat.emoji+' '+cat.label:'Items'} — PRODUCTS`);
+    if(labor.length) body.innerHTML += renderPickerItemList(labor, `${cat?cat.emoji+' '+cat.label:'Items'} — LABOR`);
     body.innerHTML += pickerCustomItemButton();
     return;
   }
@@ -3639,9 +3641,23 @@ function pickerCustomItemButton() {
   return `<button type="button" class="btn" style="width:100%;margin-top:6px" onclick="openCustomItemForm()">➕ Custom Product / Service</button>`;
 }
 function pickItemFromPicker(productId) {
+  const p=getOne('products',productId);
   addFromCatalog(productId);
   toast('Added');
+  if(p && catalogItemType(p)==='product') return showRelatedLaborForProduct(p);
 }
+function showRelatedLaborForProduct(product) {
+  const body=document.getElementById('pickerBody'); if(!body)return closeProductPicker();
+  const ids=relatedLaborIdsOf(product);
+  let labor=STORE.products.filter(p=>p.active!==false && catalogItemType(p)==='labor' && ids.includes(p.id));
+  if(!labor.length) labor=STORE.products.filter(p=>p.active!==false && catalogItemType(p)==='labor' && categoryIdOf(p)===categoryIdOf(product));
+  body.innerHTML=`<button class="btn btn-sm" style="margin-bottom:10px" onclick="renderProductPicker()">← Back to catalog</button>
+    <div style="font-weight:800;font-size:16px;margin-bottom:3px">Related Labor</div>
+    <div class="muted" style="font-size:12px;margin-bottom:14px">Product added: ${esc(product.name)}. Add labor as a separate line item, or skip.</div>
+    ${renderPickerItemList(labor,'LABOR FOR THIS PRODUCT')}
+    <button type="button" class="btn" style="width:100%" onclick="closeProductPicker()">Skip Labor</button>`;
+}
+window.showRelatedLaborForProduct=showRelatedLaborForProduct;
 window.pickItemFromPicker = pickItemFromPicker;
 function openCustomItemForm() {
   const body = document.getElementById('pickerBody');
@@ -3901,6 +3917,15 @@ const LEGACY_CATEGORY_MAP = [
   [/labor|service call/i, 'labor'],
   [/repair/i, 'repairs'],
 ];
+function catalogItemType(p) {
+  const explicit=String(p?.appData?.itemType||p?.app_data?.itemType||'').toLowerCase();
+  if(explicit==='product'||explicit==='labor') return explicit;
+  return p?.taxable===false ? 'labor' : 'product';
+}
+function relatedLaborIdsOf(p) {
+  const raw=p?.appData?.relatedLaborIds||p?.app_data?.relatedLaborIds;
+  return Array.isArray(raw)?raw:[];
+}
 function categoryIdOf(p) {
   if (p.categoryId && catalogCategoryById(p.categoryId)) return p.categoryId;
   const legacy = (p.category||'').trim();
