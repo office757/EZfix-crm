@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { installVisualizerGallery, stripVisualizerGallery } from './build-visualizer-gallery-premium.mjs';
+
+const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const js=readFileSync(new URL('../visualizer-gallery-premium.js',import.meta.url),'utf8');
+const css=readFileSync(new URL('../visualizer-gallery-premium.css',import.meta.url),'utf8');
+const source=stripVisualizerGallery(html),built=installVisualizerGallery(source);
+let n=0;const check=(name,fn)=>{fn();n++;console.log('PASS '+name)};
+check('Build is reversible and asset-only',()=>assert.equal(stripVisualizerGallery(built),source));
+check('Build is idempotent',()=>assert.equal(installVisualizerGallery(built),built));
+check('Exactly two asset markers are installed',()=>assert.equal((built.match(/data-ezfix-vg="v1"/g)||[]).length,2));
+check('Runtime parses as classic JavaScript',()=>new vm.Script(js));
+check('Reference catalog is used instead of duplicating product data',()=>{assert.match(js,/catalogKind.*garage_door_model/);assert.match(js,/STORE\.products/);assert.doesNotMatch(js,/dbAdd\(['"]products/);});
+check('Overlay upload reuses owner-protected Products app_data path',()=>{assert.match(js,/uploadAsset\(file,'visualizer-overlays'\)/);assert.match(js,/dbSet\('products',productId,\{visualizerOverlayUrl/);});
+check('Non-ready reference models cannot fake an on-home overlay',()=>assert.match(js,/Choose a Visualizer Ready door/));
+check('Estimate generation preserves reference product identity and zero default price',()=>{assert.match(js,/productId:p\.id/);assert.match(js,/catalogItemId:p\.id/);assert.match(js,/rate:0/);});
+check('Saved preview capture uses only actual overlay URLs',()=>assert.match(js,/const src=overlayUrl\(d\)/));
+check('Gallery customer view has premium project cards and before-after presentation',()=>{assert.match(js,/pg-card/);assert.match(js,/pg-ba/);assert.match(js,/premiumViewGalleryProject/);});
+check('Existing gallery editor remains the editing path',()=>assert.match(js,/openGalleryProjectModal/));
+check('Runtime does not create a second database client or call external APIs directly',()=>assert.doesNotMatch(js,/createClient|SUPABASE_ANON_KEY|graph\.facebook|fetch\s*\(/));
+check('CSS is local-only',()=>assert.doesNotMatch(css,/@import|url\s*\(/i));
+check('Responsive tablet/mobile rules exist',()=>{assert.match(css,/max-width:1050px/);assert.match(css,/max-width:700px/);});
+check('Reduced motion is respected',()=>assert.match(css,/prefers-reduced-motion/));
+console.log('Visualizer/Gallery premium audit: '+n+'/'+n+' PASS');
