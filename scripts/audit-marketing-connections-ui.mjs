@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';import vm from 'node:vm';import{installMarketingUi,stripMarketingUi}from './build-marketing-connections-ui.mjs';
+const html=readFileSync(new URL('../index.html',import.meta.url),'utf8'),js=readFileSync(new URL('../marketing-connections-ui.js',import.meta.url),'utf8'),css=readFileSync(new URL('../marketing-connections-ui.css',import.meta.url),'utf8'),source=stripMarketingUi(html),built=installMarketingUi(source);
+let n=0;const check=(name,fn)=>{fn();n++;console.log('PASS '+name)};
+check('Build is reversible and asset-only',()=>assert.equal(stripMarketingUi(built),source));
+check('Build is idempotent',()=>assert.equal(installMarketingUi(built),built));
+check('Exactly two marketing asset markers are installed',()=>assert.equal((built.match(/data-ezfix-marketing-ui="v1"/g)||[]).length,2));
+check('Runtime parses as classic JavaScript',()=>new vm.Script(js));
+check('Wizard uses existing owner-only Edge Functions',()=>{for(const fn of ['marketing-connector-readiness','marketing-integration-status','marketing-oauth-start','google-ads-discover-accounts','google-ads-select-account','google-ads-sync-readonly'])assert.ok(js.includes(fn),fn)});
+check('OAuth is started through server function rather than browser credentials',()=>{assert.match(js,/connectGoogleAds/);assert.doesNotMatch(js,/GOOGLE_OAUTH_CLIENT_SECRET|GOOGLE_ADS_DEVELOPER_TOKEN/)});
+check('Google Ads reporting remains explicitly read-only',()=>{assert.match(js,/READ ONLY/);assert.match(js,/No Google Ads write capability/);assert.doesNotMatch(js,/mutateCampaign|updateBudget|setBid|createAd/)});
+check('Account selection uses discovered customer ids',()=>{assert.match(js,/selectGoogleAdsAccount/);assert.match(js,/customer_id/);});
+check('Owner RLS data reads are limited to connection/account tables',()=>{assert.match(js,/SB\.from\('google_ads_accounts'\)/);assert.match(js,/SB\.from\('google_ads_connections'\)/);});
+check('Existing reporting renderer remains underneath wizard',()=>assert.match(js,/baseRenderAiManagerAds\(b,a\)/));
+check('No direct Google API or token endpoint calls are added to browser',()=>assert.doesNotMatch(js,/googleads\.googleapis\.com|oauth2\.googleapis\.com\/token|developer-token/));
+check('CSS is local-only and responsive',()=>{assert.doesNotMatch(css,/@import|url\s*\(/i);assert.match(css,/max-width:600px/)});
+console.log('Marketing connection UI audit: '+n+'/'+n+' PASS');
