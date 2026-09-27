@@ -23,5 +23,3 @@ const html=readFileSync(indexPath,'utf8');
 const out=installProductCatalogUi(html);
 if(out!==html) writeFileSync(indexPath,out,'utf8');
 console.log(MARK+': product catalog UI installed; existing invoice/estimate code unchanged.');
-
-[executed on device: DESKTOP-1E5RUBH (4ce28b28-6a84-43a7-ad22-df40b4da76cb)]
