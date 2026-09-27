@@ -86,6 +86,51 @@ async function uploadVisualizerOverlay(productId,input){
 }
 window.uploadVisualizerOverlay=uploadVisualizerOverlay;
 
+const baseRenderVisualizer=renderVisualizer;
+renderVisualizer=function(content,actions){
+  baseRenderVisualizer(content,actions);
+  if(visState.step!==1)return;
+  const designs=[...(STORE.savedDesigns||[])].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  if(!designs.length)return;
+  const body=document.getElementById('visStepBody'); if(!body)return;
+  const library=document.createElement('section'); library.className='vg-saved-library';
+  library.innerHTML='<div class="vg-saved-head"><div><span>Saved Designs</span><h3>Continue a customer design</h3></div><b>'+designs.length+'</b></div><div class="vg-saved-grid">'+designs.map(d=>{
+    const customer=d.customerId?getOne('customers',d.customerId):null;
+    const name=d.designName||customer?.name||'Garage Door Design';
+    const doors=Array.isArray(d.doors)?d.doors:[];
+    const preview=d.previewImageUrl||d.houseImageUrl||'';
+    return '<article class="vg-saved-card">'+(preview?'<img src="'+esc(preview)+'" alt="">':'<div class="vg-saved-placeholder">Design</div>')+'<div class="vg-saved-copy"><span>'+(customer?esc(customer.name):'Unlinked design')+'</span><b>'+esc(name)+'</b><small>'+doors.length+' door'+(doors.length===1?'':'s')+(d.createdAt?' · '+fmtDate(d.createdAt):'')+'</small><div><button class="btn btn-sm btn-primary" onclick="resumeSavedVisualizerDesign(\''+d.id+'\')">Resume</button>'+(IS_OWNER?'<button class="btn btn-sm" onclick="deleteSavedVisualizerDesign(\''+d.id+'\')">Delete</button>':'')+'</div></div></article>';
+  }).join('')+'</div>';
+  body.parentNode.insertBefore(library,body);
+};
+window.renderVisualizer=renderVisualizer;
+
+function resumeSavedVisualizerDesign(id){
+  const d=getOne('savedDesigns',id); if(!d)return toast('Saved design not found',true);
+  const doors=Array.isArray(d.doors)&&d.doors.length?JSON.parse(JSON.stringify(d.doors)):[freshDoorConfig()];
+  visState={step:d.houseImageUrl?3:2,doorCount:Number(d.doorCount)||doors.length||1,doors,activeDoor:0,applyToAll:false,houseImage:d.houseImageUrl?{id:d.houseImageId||null,url:d.houseImageUrl}:null,presetCustomerId:d.customerId||'',presetLeadId:'',presetJobId:'',compareList:[]};
+  render(); toast('Saved design loaded');
+}
+window.resumeSavedVisualizerDesign=resumeSavedVisualizerDesign;
+async function deleteSavedVisualizerDesign(id){
+  if(!IS_OWNER)return toast('Owner access required',true);
+  if(!confirm('Delete this saved design?'))return;
+  await dbDelete('savedDesigns',id); toast('Saved design deleted'); render();
+}
+window.deleteSavedVisualizerDesign=deleteSavedVisualizerDesign;
+
+openSaveDesignModal=function(){
+  const defaultCustomer=visState.presetCustomerId?getOne('customers',visState.presetCustomerId):null;
+  showModal({title:'Save this design',body:'<label class="field"><span class="lbl">Design name</span><input id="f_visdesignname" value="'+esc(defaultCustomer?defaultCustomer.name+' Garage Door Design':'Garage Door Design')+'"></label><label class="field"><span class="lbl">Link to customer (optional)</span>'+customerPickerHtml(visState.presetCustomerId)+'</label><p class="muted" style="font-size:12px">The exact door selections, positions and home photo are saved so this design can be resumed later.</p>',onSave:async()=>{
+    const customerId=document.getElementById('f_customer').value;
+    const designName=document.getElementById('f_visdesignname').value.trim()||'Garage Door Design';
+    let previewUrl=null; try{previewUrl=await captureVisPreview()}catch(e){console.warn('preview capture failed',e)}
+    await dbAdd('savedDesigns',{customerId:customerId||null,designName,houseImageId:visState.houseImage?.id||null,houseImageUrl:visState.houseImage?.url||null,doorCount:visState.doorCount,doors:JSON.parse(JSON.stringify(visState.doors.slice(0,visState.doorCount))),previewImageUrl:previewUrl});
+    toast('Design saved'); closeModal();
+  }});
+};
+window.openSaveDesignModal=openSaveDesignModal;
+
 renderVisStep3=function(body){
   const i=visState.activeDoor,d=visState.doors[i],selected=refDoor(d);
   const refs=filteredReferenceDoors(),shown=refs.slice(0,80);
