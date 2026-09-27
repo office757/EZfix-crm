@@ -23,6 +23,9 @@ const scripts = [
   'audit-call-recordings.mjs',
   'audit-provider-recording-persistence.mjs',
   'audit-recording-download.mjs',
+  'audit-transcript-replay.mjs',
+  'audit-transcript-replay-integration.mjs',
+  'build-transcript-replay-ui.mjs',
   'audit-calendar-overlap.mjs',
   'build-calendar-overlap.mjs',
   'audit-calendar-premium.mjs',
@@ -32,7 +35,8 @@ const scripts = [
   'audit-visualizer-gallery-premium.mjs',
   'audit-marketing-connections-ui.mjs',
   'audit-assignment-whatsapp.mjs',
-  'audit-call-recordings.mjs'
+  'audit-call-recordings.mjs',
+  'audit-transcript-replay-integration.mjs'
 ];
 const root = fileURLToPath(new URL('../', import.meta.url));
 for (const script of scripts) {
