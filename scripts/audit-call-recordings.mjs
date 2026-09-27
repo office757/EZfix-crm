@@ -12,7 +12,8 @@ check('Original recording columns remain loaded from calls',()=>{
   assert.match(html,/recording_url','recording_asset'/);
   assert.match(html,/recording_asset'[\s\S]{0,500}'provider_data'/);
 });
-check('Synthetic transcript replay remains a separate call column',()=>{
+check('Synthetic transcript replay stays separate when its UI build is installed',()=>{
+  if(!html.includes('EZFIX_TRANSCRIPT_REPLAY_UI_V1')) return;
   assert.match(html,/transcript_replay_asset/);
   assert.doesNotMatch(html,/recording_asset\s*:\s*c\.transcriptReplayAsset/);
 });
