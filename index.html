@@ -8954,7 +8954,7 @@ function renderCalendarWeek(content) {
           <div class="cal-hour-head"><div class="cal-hour-corner"></div>${days.map(d=>{const x=new Date(d+'T00:00:00'),it=d===today;return `<div class="cal-hour-dayhead ${it?'is-today':''}" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()"><div class="cal-hour-dow">${x.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="cal-hour-num">${x.getDate()}</div><div style="font-size:9px;color:var(--muted);font-weight:750">${jobsForDay(d).length} job${jobsForDay(d).length===1?'':'s'}</div></div>`}).join('')}</div>
           <div class="cal-all-day"><div class="cal-all-day-label">ALL DAY</div>${days.map(d=>`<div class="cal-all-day-cell">${allDay(d).map(j=>`<button class="cal-all-day-pill" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')">${esc(j.customerName||j.title||'Job')}</button>`).join('')}</div>`).join('')}</div>
           <div class="cal-hour-body"><div class="cal-hour-times">${hours.map(h=>`<div class="cal-hour-time">${h===12?'12 PM':h>12?(h-12)+' PM':h+' AM'}</div>`).join('')}</div>
-          ${days.map(d=>`<div class="cal-hour-column ${d===today?'is-today':''}" data-date="${d}" ondragover="event.preventDefault()" ondrop="handleJobDrop(event,'${d}')">${d===nowISO&&nowHour>=8&&nowHour<=19?`<div class="cal-hour-now" style="top:${nowTop}px" title="Current time"></div>`:''}${timed(d).map((j,idx)=>{const wt=windowTimes(j),st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end)),top=(st-8)*60,height=Math.max(48,(en-st)*60-6),cust=getOne('customers',j.customerId),address=cust?.address||'';return `<button class="cal-hour-job tone-${idx%5}" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;height:${height}px;--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time"><span>${esc(j.appointmentWindow||'Time TBD')}</span><span class="cal-hour-job-status">${esc(labelize(j.status))}</span></div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')}</div>${address?`<div class="cal-hour-job-address">${esc(address)}</div>`:''}<div class="cal-hour-job-meta">👷 ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
+          ${days.map(d=>`<div class="cal-hour-column ${d===today?'is-today':''}" data-date="${d}" ondragover="event.preventDefault()" ondrop="handleJobTimeDrop(event,'${d}')">${d===nowISO&&nowHour>=8&&nowHour<=19?`<div class="cal-hour-now" style="top:${nowTop}px" title="Current time"></div>`:''}${timed(d).map((j,idx)=>{const wt=windowTimes(j),st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end)),top=(st-8)*60,height=Math.max(48,(en-st)*60-6),cust=getOne('customers',j.customerId),address=cust?.address||'';return `<button class="cal-hour-job tone-${idx%5}" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;height:${height}px;--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time"><span>${esc(j.appointmentWindow||'Time TBD')}</span><span class="cal-hour-job-status">${esc(labelize(j.status))}</span></div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')}</div>${address?`<div class="cal-hour-job-address">${esc(address)}</div>`:''}<div class="cal-hour-job-meta">👷 ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
           </div>
         </div></div>
       </div>
@@ -9022,6 +9022,12 @@ function openJobModalForDate(dateStr) {
   setTimeout(() => { const el = document.getElementById('f_date'); if (el) el.value = dateStr; }, 50);
 }
 window.openJobModalForDate = openJobModalForDate;
+function formatCalendarClock(decimalHour) {
+  let h=Math.floor(decimalHour), m=Math.round((decimalHour-h)*60/30)*30;
+  if(m===60){h+=1;m=0;}
+  const suffix=h>=12?'PM':'AM', hour12=((h+11)%12)+1;
+  return hour12+(m?':'+String(m).padStart(2,'0'):'')+' '+suffix;
+}
 async function handleJobDrop(e, newDate) {
   e.preventDefault();
   e.currentTarget.style.background = '';
@@ -9033,7 +9039,24 @@ async function handleJobDrop(e, newDate) {
   logAudit('job_rescheduled', `"${j.title}" moved from ${oldDate||'unscheduled'} to ${newDate}`, 'jobs', jobId);
   toast(`Rescheduled to ${fmtDate(newDate)}`);
 }
+async function handleJobTimeDrop(e,newDate){
+  e.preventDefault();
+  const jobId=e.dataTransfer.getData('text/plain'), j=getOne('jobs',jobId);
+  if(!j)return;
+  const rect=e.currentTarget.getBoundingClientRect(), y=Math.max(0,Math.min(rect.height,e.clientY-rect.top));
+  const start=Math.max(8,Math.min(18.5,8+y/60));
+  const oldTimes=String(j.appointmentWindow||'').match(/\d{1,2}(?::\d{2})?\s*(?:AM|PM)/ig)||[];
+  const parse=v=>{const m=String(v||'').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);if(!m)return null;let h=+m[1],min=+(m[2]||0);if(/PM/i.test(m[3])&&h<12)h+=12;if(/AM/i.test(m[3])&&h===12)h=0;return h+min/60;};
+  const oldStart=parse(oldTimes[0]), oldEnd=parse(oldTimes[1]), duration=oldStart!=null&&oldEnd!=null&&oldEnd>oldStart?oldEnd-oldStart:1;
+  const snapped=Math.round(start*2)/2, end=Math.min(19,snapped+duration);
+  const appointmentWindow=`${formatCalendarClock(snapped)} - ${formatCalendarClock(end)}`;
+  const oldDate=j.scheduledDate, oldWindow=j.appointmentWindow;
+  await dbSet('jobs',jobId,{scheduledDate:newDate,appointmentWindow});
+  logAudit('job_rescheduled',`"${j.title}" moved from ${oldDate||'unscheduled'} ${oldWindow||''} to ${newDate} ${appointmentWindow}`,'jobs',jobId);
+  toast(`Rescheduled to ${fmtDate(newDate)} · ${appointmentWindow}`);
+}
 window.handleJobDrop = handleJobDrop;
+window.handleJobTimeDrop = handleJobTimeDrop;
 window.startOfWeek = startOfWeek; window.addDays = addDays;
 async function setJobStatus(jobId, status) {
   const j = getOne('jobs', jobId);
