@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const scripts = [
   'test-public-routes.mjs',
   'audit-public-routes.mjs',
+  'audit-invoice-preview-access.mjs',
   'audit-public-invoice-totals.mjs',
   'audit-public-invoice-token.mjs',
   'audit-website-sms-consent.mjs',
