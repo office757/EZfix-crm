@@ -7,10 +7,13 @@ const scripts = [
   'test-public-routes.mjs',
   'audit-public-routes.mjs',
   'audit-public-invoice-totals.mjs',
+  'audit-ui-state.mjs',
+  'build-ui-state.mjs',
   'audit-calendar-overlap.mjs',
   'build-calendar-overlap.mjs',
   'audit-calendar-premium.mjs',
-  'build-calendar-premium.mjs'
+  'build-calendar-premium.mjs',
+  'audit-ui-state.mjs'
 ];
 const root = fileURLToPath(new URL('../', import.meta.url));
 for (const script of scripts) {
