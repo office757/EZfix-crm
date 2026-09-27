@@ -7,6 +7,7 @@ const scripts = [
   'test-public-routes.mjs',
   'audit-public-routes.mjs',
   'audit-public-invoice-totals.mjs',
+  'audit-website-sms-consent.mjs',
   'audit-ui-state.mjs',
   'build-ui-state.mjs',
   'audit-product-catalog-ui.mjs',
