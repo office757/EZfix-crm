@@ -1194,15 +1194,49 @@ window.quickPayCaptureSmsConsent=quickPayCaptureSmsConsent;
 function quickPayRenderLines(){
  const el=document.getElementById('qpLines'); if(!el)return;
  if(!quickPayLines.length){el.innerHTML='<div class="muted" style="padding:14px 0">Add a product or service from your existing catalog.</div>';return;}
- el.innerHTML=quickPayLines.map((x,i)=>'<div class="panel" style="margin:8px 0"><div class="panel-body pad"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.desc)+'</b><button class="btn btn-sm" onclick="quickPayRemoveLine('+i+')">×</button></div><div class="muted" style="font-size:12px;margin:4px 0">'+esc(x.details||'')+'</div><div class="grid2"><label class="field"><span class="lbl">Price</span><input type="number" step=".01" value="'+Number(x.rate||0)+'" oninput="quickPayLines['+i+'].rate=Number(this.value)||0;updateQuickPayPreview()"></label><label class="field"><span class="lbl">Tax</span><select onchange="quickPayLines['+i+'].taxable=this.value===\'yes\';updateQuickPayPreview()"><option value="yes" '+(x.taxable?'selected':'')+'>Taxable</option><option value="no" '+(!x.taxable?'selected':'')+'>Non-taxable / Labor</option></select></label></div></div></div>').join('');
+ el.innerHTML=`
+   <table class="li-table">
+     <thead><tr><th style="width:40%">Description</th><th style="width:14%">Qty</th><th style="width:16%">Rate</th><th style="width:18%">Amount</th><th></th></tr></thead>
+     <tbody>
+       ${quickPayLines.map((li,idx)=>quickPayLineRow(li,idx)).join('')}
+     </tbody>
+   </table>`;
 }
-function quickPayAddLine(){
- const active=STORE.products.filter(p=>p.active!==false);
- showModal({title:'Add Product / Service',wide:true,body:'<div id="qpCatalog">'+active.map(p=>'<button class="picker-card" style="width:100%;text-align:left" onclick="quickPayPickCatalog(\''+p.id+'\')"><div class="picker-card-top"><b>'+esc(p.name)+'</b><span class="picker-card-price">'+money(p.rate||0)+'</span></div><div class="muted">'+esc(p.details||'')+'</div></button>').join('')+'</div>'});
+function quickPayLineRow(li,idx){
+ return `<tr>
+   <td><input type="text" value="${esc(li.desc)}" placeholder="e.g. Spring replacement" oninput="quickPayUpdateLine(${idx},'desc',this.value)"></td>
+   <td><input type="number" min="0" step="1" value="${Number(li.qty)||1}" oninput="quickPayUpdateLine(${idx},'qty',this.value)"></td>
+   <td><input type="number" min="0" step="0.01" value="${Number(li.rate)||0}" oninput="quickPayUpdateLine(${idx},'rate',this.value)"></td>
+   <td style="padding-top:9px" id="qpLiAmt${idx}">${money((Number(li.qty)||1)*(Number(li.rate)||0))}</td>
+   <td><button type="button" class="li-remove" onclick="quickPayRemoveLine(${idx})">×</button></td>
+ </tr>
+ <tr>
+   <td colspan="2" style="padding-top:0"><input type="text" value="${esc(li.details||'')}" placeholder="Description shown on invoice (optional)" style="font-size:12px" oninput="quickPayUpdateLine(${idx},'details',this.value)"></td>
+   <td colspan="3" style="padding-top:8px">
+     <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);white-space:nowrap">
+       <input type="checkbox" style="width:auto" ${li.taxable!==false?'checked':''} onchange="quickPayUpdateLine(${idx},'taxable',this.checked)"> Taxable
+     </label>
+   </td>
+ </tr>`;
 }
-function quickPayPickCatalog(id){const p=getOne('products',id);if(!p)return;quickPayLines.push({desc:p.name,details:p.details||'',qty:p.defaultQty||1,rate:Number(p.rate)||0,taxable:p.taxable!==false,productId:p.id});closeModal();quickPayRenderLines();updateQuickPayPreview();}
+function quickPayUpdateLine(i,field,val){
+ const li=quickPayLines[i]; if(!li)return;
+ if(field==='desc'||field==='details') li[field]=val;
+ else if(field==='taxable') li[field]=!!val;
+ else li[field]=parseFloat(val)||0;
+ const amt=document.getElementById('qpLiAmt'+i);
+ if(amt) amt.textContent=money((Number(li.qty)||1)*(Number(li.rate)||0));
+ updateQuickPayPreview();
+}
+function quickPayAddLine(){ openProductPicker('quickpay'); }
+function quickPayAddFromCatalog(id){
+ const p=getOne('products',id); if(!p)return;
+ quickPayLines.push({desc:p.name,details:p.details||'',qty:p.defaultQty||1,rate:Number(p.rate)||0,taxable:p.taxable!==false,productId:p.id,catalogItemId:p.id});
+ quickPayRenderLines(); updateQuickPayPreview();
+}
+function quickPayPickCatalog(id){ quickPayAddFromCatalog(id); closeProductPicker(); }
 function quickPayRemoveLine(i){quickPayLines.splice(i,1);quickPayRenderLines();updateQuickPayPreview();}
-window.quickPayAddLine=quickPayAddLine;window.quickPayPickCatalog=quickPayPickCatalog;window.quickPayRemoveLine=quickPayRemoveLine;
+window.quickPayAddLine=quickPayAddLine;window.quickPayPickCatalog=quickPayPickCatalog;window.quickPayRemoveLine=quickPayRemoveLine;window.quickPayUpdateLine=quickPayUpdateLine;window.quickPayAddFromCatalog=quickPayAddFromCatalog;
 function quickPaySelectService(id){
   const p=getOne('products',id); if(!p)return;
   const note=document.getElementById('qpNote'); if(note&&!note.value)note.value=p.name;
@@ -1213,20 +1247,24 @@ function quickPaySelectService(id){
 }
 function quickPayLoadCustomer(id){
   const c=getOne('customers',id)||{};
-  const map={qpClientName:c.name||'',qpClientPhone:c.phone||'',qpClientEmail:c.email||'',qpClientAddress:c.address||''};
+  const map={qpClientName:c.name||'',qpClientPhone:normalizeToE164(c.phone)||c.phone||'',qpClientEmail:c.email||'',qpClientAddress:c.address||''};
   Object.entries(map).forEach(([k,v])=>{const e=document.getElementById(k);if(e)e.value=v;});
 }
 async function quickPayResolveCustomer(){
   const selected=document.getElementById('qpCustomer')?.value;
   if(selected)return getOne('customers',selected);
   const name=document.getElementById('qpClientName')?.value.trim()||'';
-  const phone=document.getElementById('qpClientPhone')?.value.trim()||'';
+  const phoneRaw=document.getElementById('qpClientPhone')?.value.trim()||'';
+  const phone=phoneRaw ? normalizeToE164(phoneRaw) : '';
   const email=document.getElementById('qpClientEmail')?.value.trim()||'';
   const address=document.getElementById('qpClientAddress')?.value.trim()||'';
   if(!name)throw new Error('Enter client name');
-  const norm=s=>String(s||'').replace(/\D/g,'');
-  let c=STORE.customers.find(x=>!x.deletedAt&&((email&&String(x.email||'').toLowerCase()===email.toLowerCase())||(phone&&norm(x.phone)===norm(phone))));
-  if(c)return c;
+  if(phoneRaw && !phone)throw new Error('Enter a valid 10-digit phone number');
+  let c=STORE.customers.find(x=>!x.deletedAt&&((email&&String(x.email||'').toLowerCase()===email.toLowerCase())||(phone&&normalizeToE164(x.phone)===phone)));
+  if(c){
+    if(phone && c.phone!==phone){ await dbSet('customers',c.id,{phone}); c=getOne('customers',c.id)||{...c,phone}; }
+    return c;
+  }
   const id=await dbAdd('customers',{name,phone,email,address,notes:'Created from Quick Payment'});
   return getOne('customers',id)||{id,name,phone,email,address};
 }
@@ -1269,7 +1307,7 @@ async function quickPayCreateInvoice(options={}){
     const n=quickPayNumbers();
     if(n.subtotal<=0 || !quickPayLines.length) throw new Error('Add at least one product or service');
     const selected=document.getElementById('qpCustomer')?.value||null;
-    const c=selected?getOne('customers',selected):{
+    let c=selected?getOne('customers',selected):{
       id:null,
       name:document.getElementById('qpClientName')?.value.trim()||'',
       phone:document.getElementById('qpClientPhone')?.value.trim()||'',
@@ -1277,6 +1315,14 @@ async function quickPayCreateInvoice(options={}){
       address:document.getElementById('qpClientAddress')?.value.trim()||''
     };
     if(!c?.name) throw new Error('Enter client name');
+    const phoneInput=document.getElementById('qpClientPhone')?.value.trim()||c.phone||'';
+    const normalizedPhone=phoneInput ? normalizeToE164(phoneInput) : '';
+    if(phoneInput && !normalizedPhone) throw new Error('Enter a valid 10-digit phone number');
+    c={...c,phone:normalizedPhone};
+    if(c.id && normalizedPhone && getOne('customers',c.id)?.phone!==normalizedPhone){
+      await dbSet('customers',c.id,{phone:normalizedPhone});
+      c=getOne('customers',c.id)||c;
+    }
     const note=document.getElementById('qpNote')?.value.trim()||'Quick Payment';
     const items=quickPayLines.map(x=>({...x,details:x.details||note}));
     const partsCost=Math.max(0,Number(document.getElementById('qpPartsCost')?.value)||0);
@@ -3576,9 +3622,9 @@ function addLineItem() { lineItemsDraft.push({desc:'',details:'',qty:1,rate:0,ta
    PRODUCT PICKER — independent overlay so it can stack on top of
    an already-open Estimate/Invoice modal without closing it.
    ============================================================ */
-let pickerState = { view: 'categories', categoryId: null, search: '' };
-function openProductPicker() {
-  pickerState = { view: 'categories', categoryId: null, search: '' };
+let pickerState = { view: 'categories', categoryId: null, search: '', target: 'document' };
+function openProductPicker(target='document') {
+  pickerState = { view: 'categories', categoryId: null, search: '', target };
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
   overlay.id = 'pickerOverlay';
@@ -3622,10 +3668,9 @@ function renderProductPicker() {
     body.innerHTML += pickerCustomItemButton();
     return;
   }
-  const favorites = activeProducts.filter(p=>p.favorite);
-  if (favorites.length) body.innerHTML += renderPickerItemList(favorites, '⭐ Favorites');
   body.innerHTML += `
-    <div class="launcher-tiles" style="padding:0">
+    <div class="muted" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Categories</div>
+    <div class="launcher-tiles" style="padding:0;margin-bottom:16px">
       ${CATALOG_CATEGORIES.map(c=>{
         const count = activeProducts.filter(p=>categoryIdOf(p)===c.id).length;
         return `<button class="launcher-tile" onclick="pickerState.view='items'; pickerState.categoryId='${c.id}'; renderProductPicker()">
@@ -3635,6 +3680,8 @@ function renderProductPicker() {
       }).join('')}
     </div>
   `;
+  const favorites = activeProducts.filter(p=>p.favorite);
+  if (favorites.length) body.innerHTML += renderPickerItemList(favorites, '⭐ Favorites');
   body.innerHTML += pickerCustomItemButton();
 }
 function renderProductPickerKeepFocus() {
@@ -3660,7 +3707,8 @@ function pickerCustomItemButton() {
 }
 function pickItemFromPicker(productId) {
   const p=getOne('products',productId);
-  addFromCatalog(productId);
+  if (pickerState.target==='quickpay') quickPayAddFromCatalog(productId);
+  else addFromCatalog(productId);
   toast('Added');
   if(p && catalogItemType(p)==='product') return showRelatedLaborForProduct(p);
 }
@@ -3703,8 +3751,14 @@ async function addCustomItemFromPicker() {
   if (saveToCatalog) {
     productId = await dbAdd('products', { name, category:'', details, rate, taxable:true, unit:'each', defaultQty:1, active:true, favorite:false, trackStock:false, qty:0 });
   }
-  lineItemsDraft.push({ desc:name, details, qty, rate, taxable:true, productId });
-  refreshLI();
+  if (pickerState.target==='quickpay') {
+    quickPayLines.push({ desc:name, details, qty, rate, taxable:true, productId });
+    quickPayRenderLines();
+    updateQuickPayPreview();
+  } else {
+    lineItemsDraft.push({ desc:name, details, qty, rate, taxable:true, productId });
+    refreshLI();
+  }
   toast(saveToCatalog ? 'Added and saved to catalog' : 'Added');
   renderProductPicker();
 }
