@@ -9,6 +9,33 @@ const BEGIN_TAG="[EZFIX_CRM_GUARDRAILS_BEGIN]";
 const END_TAG="[EZFIX_CRM_GUARDRAILS_END]";
 const VERSION_TAG="[EZFIX_CRM_GUARDRAILS_V3]";
 const legacyTail="- Never claim a payment, booking, technician assignment, or transfer succeeded unless the connected system actually confirms it.";
+
+function findRecordingUrl(...sources:any[]): string | null {
+  const seen=new Set<any>();
+  const walk=(value:any,path:string,depth:number):string|null=>{
+    if(value==null||depth>6)return null;
+    if(typeof value==="string"){
+      return /(recording|audio|media)/i.test(path) && /^https?:\/\//i.test(value.trim()) ? value.trim() : null;
+    }
+    if(typeof value!=="object"||seen.has(value))return null;
+    seen.add(value);
+    if(Array.isArray(value)){
+      for(let i=0;i<value.length;i++){const hit=walk(value[i],path+"["+i+"]",depth+1);if(hit)return hit;}
+      return null;
+    }
+    const preferred=["recordingUrl","recording_url","audioUrl","audio_url","mediaUrl","media_url","recording","audio","media"];
+    for(const key of preferred){
+      if(Object.prototype.hasOwnProperty.call(value,key)){const hit=walk(value[key],path+"."+key,depth+1);if(hit)return hit;}
+    }
+    for(const [key,child] of Object.entries(value)){
+      if(preferred.includes(key))continue;
+      const hit=walk(child,path+"."+key,depth+1);if(hit)return hit;
+    }
+    return null;
+  };
+  for(const source of sources){const hit=walk(source,"provider",0);if(hit)return hit;}
+  return null;
+}
 function stripManagedGuardrails(current:string){
   let s=String(current||"");
   const b=s.indexOf(BEGIN_TAG), e=s.indexOf(END_TAG);
@@ -54,8 +81,8 @@ Deno.serve(async(req:Request)=>{
     const dur=started&&ended?Math.max(0,Math.round((new Date(ended).getTime()-new Date(started).getTime())/1000)):null;
     const summary=transcript.map((x:any)=>`${x.party||"speaker"}: ${x.text}`).join("\n").slice(0,2000)||(c.reason||null);
     const providerCallId=String(c.id);
-    const {data:existing,error:readErr}=await db.from("calls").select("id,lead_id,lead_extraction_status,outcome").eq("provider_call_id",providerCallId).maybeSingle(); if(readErr)throw readErr;
-    const providerFields={provider_call_id:providerCallId,mode:c.mode||"inkbox",summary,duration_sec:dur,transcript,direction:c.direction||null,remote_number:c.remotePhoneNumber||c.remote_phone_number||null,local_number:c.localPhoneNumber||c.local_phone_number||null,status:c.status||null,started_at:started,ended_at:ended,recording_url:c.recordingUrl||c.recording_url||c.audioUrl||c.audio_url||null,provider_data:c};
+    const {data:existing,error:readErr}=await db.from("calls").select("id,lead_id,lead_extraction_status,outcome,recording_url").eq("provider_call_id",providerCallId).maybeSingle(); if(readErr)throw readErr;
+    const providerFields={provider_call_id:providerCallId,mode:c.mode||"inkbox",summary,duration_sec:dur,transcript,direction:c.direction||null,remote_number:c.remotePhoneNumber||c.remote_phone_number||null,local_number:c.localPhoneNumber||c.local_phone_number||null,status:c.status||null,started_at:started,ended_at:ended,recording_url:findRecordingUrl(c)||existing?.recording_url||null,provider_data:c};
     let error:any;
     if(existing){({error}=await db.from("calls").update(providerFields).eq("id",existing.id));}
     else {({error}=await db.from("calls").insert({id:`inkbox_${providerCallId}`,...providerFields,lead_id:null,created_at:started||new Date().toISOString()}));}
