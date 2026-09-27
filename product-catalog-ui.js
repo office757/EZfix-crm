@@ -108,5 +108,3 @@
   };
   window.renderProductPicker=renderProductPicker;
 })();
-
-[executed on device: DESKTOP-1E5RUBH (4ce28b28-6a84-43a7-ad22-df40b4da76cb)]
