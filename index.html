@@ -500,16 +500,16 @@
   .cal-filter-block select{max-width:210px}
   .cal-week-grid{margin-top:14px;overflow-x:auto;padding-bottom:4px}
   .cal-hour-board{min-width:980px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
-  .cal-hour-head{display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));background:var(--paper-2);border-bottom:1px solid var(--line)}
-  .cal-hour-corner{padding:12px 6px;text-align:center;font-size:10px;font-weight:800;color:var(--muted)}
-  .cal-hour-dayhead{border-left:1px solid var(--line);padding:9px 6px;text-align:center;cursor:pointer}
-  .cal-hour-dayhead.is-today{background:rgba(247,148,29,.10)}
+  .cal-hour-head{display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));background:var(--paper-2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:7}
+  .cal-hour-corner{padding:12px 6px;text-align:center;font-size:10px;font-weight:800;color:var(--muted);position:sticky;left:0;z-index:8;background:var(--paper-2)}
+  .cal-hour-dayhead{border-left:1px solid var(--line);padding:9px 6px;text-align:center;cursor:pointer;background:var(--paper-2)}
+  .cal-hour-dayhead.is-today{background:#fff4e6}
   .cal-hour-dow{font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted)}
   .cal-hour-num{font-size:18px;font-weight:850;margin-top:2px}
   .cal-hour-dayhead.is-today .cal-hour-num{color:var(--orange-dark)}
   .cal-hour-body{display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));min-height:660px}
-  .cal-hour-times{background:var(--paper-2);border-right:1px solid var(--line)}
-  .cal-hour-time{height:60px;border-bottom:1px solid var(--line);padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:var(--muted)}
+  .cal-hour-times{background:var(--paper-2);border-right:1px solid var(--line);position:sticky;left:0;z-index:6}
+  .cal-hour-time{height:60px;border-bottom:1px solid var(--line);padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:var(--muted);background:var(--paper-2)}
   .cal-hour-column{position:relative;border-right:1px solid var(--line);background:repeating-linear-gradient(to bottom,transparent 0,transparent 59px,var(--line) 60px);min-height:660px;cursor:pointer}
   .cal-hour-column.is-today{background:linear-gradient(rgba(247,148,29,.055),rgba(247,148,29,.055)),repeating-linear-gradient(to bottom,transparent 0,transparent 59px,var(--line) 60px)}
   .cal-hour-now{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:5;pointer-events:none}
