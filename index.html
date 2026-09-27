@@ -477,6 +477,19 @@
   .cal-friendly-toolbar h3{font-size:18px!important;letter-spacing:-.01em}
   .cal-friendly-toolbar select{max-width:220px}
   .cal-job-title{font-size:9px;line-height:1.2;color:#5f5b55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .cal-month-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px;align-items:start}
+  .cal-agenda{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;position:sticky;top:14px}
+  .cal-agenda-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .cal-agenda-title{font-size:15px;font-weight:800}
+  .cal-agenda-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .cal-agenda-body{padding:8px 10px 12px}
+  .cal-agenda-job{border:1px solid var(--line);border-radius:10px;padding:10px 11px;margin-top:8px;background:var(--paper)}
+  .cal-agenda-job:hover{border-color:rgba(247,148,29,.45);background:#fffdfa}
+  .cal-agenda-time{font-size:11px;font-weight:800;color:var(--orange-dark)}
+  .cal-agenda-customer{font-size:13px;font-weight:800;margin-top:2px}
+  .cal-agenda-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+  .cal-agenda-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .cal-month-day.is-selected{box-shadow:inset 0 0 0 2px rgba(247,148,29,.9);background:#fffaf1}
   .cal-month-shell{overflow-x:auto;padding-bottom:4px}
   .cal-month-grid{display:grid;grid-template-columns:repeat(7,minmax(132px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:924px}
   .cal-month-weekday{background:var(--paper-2);text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:8px 0;text-transform:uppercase;letter-spacing:.04em}
@@ -498,6 +511,8 @@
   .cal-job-tech{font-size:9px;line-height:1.2;color:#77736d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
   .cal-more{font-size:10px;color:var(--muted);font-weight:800;padding:2px 3px}
   @media(max-width:860px){
+    .cal-month-layout{grid-template-columns:1fr}
+    .cal-agenda{position:static}
     .cal-friendly-toolbar{align-items:flex-start;flex-direction:column}
     .cal-friendly-toolbar>div{flex-wrap:wrap}
     .cal-friendly-toolbar select{width:100%;max-width:none}
@@ -705,7 +720,8 @@ function saveUiState(){
       calendarViewMode: typeof calendarViewMode==='undefined' ? 'month' : calendarViewMode,
       calendarMonthCursor: typeof calendarMonthCursor==='undefined' ? null : calendarMonthCursor,
       calendarWeekStart: typeof calendarWeekStart==='undefined' ? null : calendarWeekStart,
-      calendarTech: searchTerms.calendarTech||''
+      calendarTech: searchTerms.calendarTech||'',
+      calendarSelectedDate: searchTerms.calendarSelectedDate||''
     }));
   }catch(e){}
 }
@@ -715,6 +731,7 @@ function restoreUiState(){
     const s=JSON.parse(raw)||{};
     if(s.route?.page) route={page:String(s.route.page),id:s.route.id||null};
     if(s.calendarTech) searchTerms.calendarTech=String(s.calendarTech);
+    if(s.calendarSelectedDate) searchTerms.calendarSelectedDate=String(s.calendarSelectedDate);
     window.__pendingCalendarUiState={
       view:s.calendarViewMode||'month',
       month:s.calendarMonthCursor||null,
@@ -8682,6 +8699,9 @@ function renderCalendarMonth(content) {
   const jobsForDay = dStr => STORE.jobs.filter(j=>j.scheduledDate===dStr && jobMatchesTechFilter(j, techFilter))
     .filter(j => !isTechnicianView() || j.technician===VIEW_AS);
   const monthLabel = cursor.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+  const selectedDate = searchTerms.calendarSelectedDate || today;
+  const selectedJobs = jobsForDay(selectedDate).sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
+  const selectedObj = new Date(selectedDate+'T00:00:00');
   content.innerHTML = `
     <div class="toolbar cal-friendly-toolbar" style="justify-content:space-between">
       <div style="display:flex;gap:8px;align-items:center">
@@ -8695,8 +8715,9 @@ function renderCalendarMonth(content) {
         ${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}
       </select>` : ''}
     </div>
-    <div class="cal-month-shell" style="margin-top:14px">
-    <div class="cal-month-grid">
+    <div class="cal-month-layout" style="margin-top:14px">
+      <div class="cal-month-shell">
+      <div class="cal-month-grid">
       ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="cal-month-weekday">${d}</div>`).join('')}
       ${cells.map(d => {
         const dStr = d.toISOString().slice(0,10);
@@ -8705,7 +8726,8 @@ function renderCalendarMonth(content) {
         const dJobs = jobsForDay(dStr);
         const shown = dJobs.slice(0,3);
         const extra = dJobs.length - shown.length;
-        return `<div class="clickable cal-month-day ${isToday?'cal-month-today':''}" onclick="openCalendarDay('${dStr}')" style="${inMonth?'':'opacity:.42'}">
+        const isSelected = dStr === selectedDate;
+        return `<div class="clickable cal-month-day ${isToday?'cal-month-today':''} ${isSelected?'is-selected':''}" onclick="selectCalendarDay('${dStr}')" style="${inMonth?'':'opacity:.42'}">
           <div class="cal-month-head">
             <div class="cal-month-date">${d.getDate()}</div>
             ${!isTechnicianView() ? `<button class="cal-day-add" title="Add job" aria-label="Add job on ${dStr}" onclick="event.stopPropagation();openJobModalForDate('${dStr}')">+</button>` : ''}
@@ -8721,10 +8743,43 @@ function renderCalendarMonth(content) {
           </div>
         </div>`;
       }).join('')}
-    </div>
+      </div>
+      </div>
+      <aside class="cal-agenda" aria-label="Selected day schedule">
+        <div class="cal-agenda-head">
+          <div>
+            <div class="cal-agenda-title">${selectedObj.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
+            <div class="cal-agenda-sub">${selectedJobs.length ? selectedJobs.length+' scheduled job'+(selectedJobs.length===1?'':'s') : 'No jobs scheduled'}</div>
+          </div>
+          ${!isTechnicianView()?`<button class="btn btn-sm btn-primary" onclick="openJobModalForDate('${selectedDate}')">+ Job</button>`:''}
+        </div>
+        <div class="cal-agenda-body">
+          ${selectedJobs.length ? selectedJobs.map(j=>{
+            const cust=getOne('customers',j.customerId);
+            return `<div class="cal-agenda-job">
+              <div class="cal-agenda-time">${esc(j.appointmentWindow||'Time TBD')}</div>
+              <div class="cal-agenda-customer">${esc(j.customerName||j.title||'Job')}</div>
+              <div class="cal-agenda-meta">${esc(j.title||'Garage door service')}</div>
+              ${cust?.address?`<div class="cal-agenda-meta">📍 ${esc(cust.address)}</div>`:''}
+              <div class="cal-agenda-meta">👷 ${esc(j.technician||'Unassigned')} · ${labelize(j.status)}</div>
+              <div class="cal-agenda-actions">
+                ${cust?.phone?`<a class="btn btn-sm" href="tel:${esc(cust.phone)}">Call</a>`:''}
+                ${cust?.phone?`<a class="btn btn-sm" href="sms:${esc(cust.phone)}">Text</a>`:''}
+                <button class="btn btn-sm" onclick="go('jobs','${j.id}')">Open</button>
+              </div>
+            </div>`;
+          }).join('') : `<div class="muted" style="padding:24px 8px;text-align:center">No jobs for this day.</div>`}
+        </div>
+      </aside>
     </div>
   `;
 }
+function selectCalendarDay(dateStr){
+  searchTerms.calendarSelectedDate=dateStr;
+  saveUiState();
+  render();
+}
+window.selectCalendarDay=selectCalendarDay;
 function shiftCalendarMonth(n) {
   const d = new Date(calendarMonthCursor+'T00:00:00');
   d.setMonth(d.getMonth()+n);
