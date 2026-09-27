@@ -7,6 +7,16 @@ const digits=(v:string)=>v.replace(/\D/g,"").slice(-10);
 const pick=(o:any,n:string[])=>{for(const k of n)if(o?.[k]!=null&&String(o[k]).trim())return o[k];return""};
 const parseDate=(v:string)=>{const s=clean(v,30);let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?s:"";};
 const attr=(b:any,n:string[],m=500)=>clean(pick(b,n),m)||null;
+const attributionFromUrl=(value:unknown)=>{
+  const out:any={};
+  try{
+    const u=new URL(String(value||""));
+    for(const key of ["gclid","gbraid","wbraid","utm_source","utm_medium","utm_campaign","utm_term","utm_content","google_ads_customer_id","campaign_id","ad_group_id","criterion_id"]){
+      const v=clean(u.searchParams.get(key),500); if(v)out[key]=v;
+    }
+  }catch{}
+  return out;
+};
 const CURRENT_SMS_DISCLOSURE="I agree to receive SMS messages from EZfix Garage Doors Inc regarding my service request, appointments, technician updates, estimates, invoices, payment links, and customer support. Message frequency varies. Msg & data rates may apply. Reply HELP for help and STOP to opt out. Consent is not a condition of purchase. Privacy Policy: https://ezfixgaragedoorsinc.com/privacy-policy/";
 const consentChecked=(b:any)=>{
  const raw=clean(pick(b,["sms_consent","sms_consent[]","sms-consent","smsConsent","SMS Consent","sms_opt_in","sms-opt-in","consent_sms","consent-sms"]),1200);
@@ -29,8 +39,9 @@ Deno.serve(async(req)=>{
  if(!name||(!phone&&!email))return reply("Please enter your name and a phone number or email address.",400);
  const since=new Date(Date.now()-600000).toISOString();let dup:any=null;if(email){const{data}=await db.from("leads").select("id").eq("source","Website").ilike("email",email).is("deleted_at",null).gte("created_at",since).limit(1);dup=data?.[0]}if(!dup&&digits(phone).length===10){const{data}=await db.from("leads").select("id,phone").eq("source","Website").is("deleted_at",null).gte("created_at",since).limit(20);dup=(data||[]).find((x:any)=>digits(x.phone||"")===digits(phone))}if(dup)return reply(success);
  const leadId="lead_web_"+crypto.randomUUID(),emergency=/emergency|asap/i.test(time);const notes=problem||null;
- const gclid=attr(b,["gclid","GCLID"]),gbraid=attr(b,["gbraid","GBRAID"]),wbraid=attr(b,["wbraid","WBRAID"]),utmSource=attr(b,["utm_source","utm-source"]),utmMedium=attr(b,["utm_medium","utm-medium"]),utmCampaign=attr(b,["utm_campaign","utm-campaign"]),utmTerm=attr(b,["utm_term","utm-term"]),utmContent=attr(b,["utm_content","utm-content"]),googleAdsCustomerId=attr(b,["google_ads_customer_id","google-ads-customer-id","customer_id"],64),campaignId=attr(b,["campaign_id","campaign-id"],64),adGroupId=attr(b,["ad_group_id","ad-group-id"],64),criterionId=attr(b,["criterion_id","criterion-id"],64);
  const landingPage=attr(b,["landing_page","landing-page","page_url","page-url","url"],1200)||clean(req.headers.get("referer"),1200)||null;
+ const urlAttr=attributionFromUrl(landingPage);
+ const gclid=attr(b,["gclid","GCLID"])||urlAttr.gclid||null,gbraid=attr(b,["gbraid","GBRAID"])||urlAttr.gbraid||null,wbraid=attr(b,["wbraid","WBRAID"])||urlAttr.wbraid||null,utmSource=attr(b,["utm_source","utm-source"])||urlAttr.utm_source||null,utmMedium=attr(b,["utm_medium","utm-medium"])||urlAttr.utm_medium||null,utmCampaign=attr(b,["utm_campaign","utm-campaign"])||urlAttr.utm_campaign||null,utmTerm=attr(b,["utm_term","utm-term"])||urlAttr.utm_term||null,utmContent=attr(b,["utm_content","utm-content"])||urlAttr.utm_content||null,googleAdsCustomerId=attr(b,["google_ads_customer_id","google-ads-customer-id","customer_id"],64)||urlAttr.google_ads_customer_id||null,campaignId=attr(b,["campaign_id","campaign-id"],64)||urlAttr.campaign_id||null,adGroupId=attr(b,["ad_group_id","ad-group-id"],64)||urlAttr.ad_group_id||null,criterionId=attr(b,["criterion_id","criterion-id"],64)||urlAttr.criterion_id||null;
  const {error:le}=await db.from("leads").insert({id:leadId,name,email:email||null,phone:phone||null,address:address||null,service_requested:service||null,source:"Website",source_provider:"WordPress Avada",source_channel:"Website Form",status:"new",assignment_status:"unassigned",notes,app_data:{website_form_id:641,preferred_date:preferredDate||null,preferred_time:time||null,problem_description:problem||null,emergency,website_received_at:new Date().toISOString(),utm_source:utmSource,utm_medium:utmMedium,utm_campaign:utmCampaign,gclid:!!gclid}});
 
  if(le){console.error(le);return reply("Your request could not be saved. Please call EZfix Garage Doors.",500)}
