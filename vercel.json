@@ -1,4 +1,6 @@
 {
+  "buildCommand": "node scripts/audit-calendar-premium.mjs && node scripts/build-calendar-premium.mjs",
+  "outputDirectory": ".",
   "cleanUrls": true,
   "redirects": [
     { "source": "/index.html", "destination": "/", "permanent": false },
