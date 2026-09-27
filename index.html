@@ -473,6 +473,10 @@
   @keyframes slideIn { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
 
   /* Friendly month calendar cards */
+  .cal-friendly-toolbar{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);gap:10px}
+  .cal-friendly-toolbar h3{font-size:18px!important;letter-spacing:-.01em}
+  .cal-friendly-toolbar select{max-width:220px}
+  .cal-job-title{font-size:9px;line-height:1.2;color:#5f5b55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
   .cal-month-shell{overflow-x:auto;padding-bottom:4px}
   .cal-month-grid{display:grid;grid-template-columns:repeat(7,minmax(132px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:924px}
   .cal-month-weekday{background:var(--paper-2);text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:8px 0;text-transform:uppercase;letter-spacing:.04em}
@@ -494,6 +498,9 @@
   .cal-job-tech{font-size:9px;line-height:1.2;color:#77736d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
   .cal-more{font-size:10px;color:var(--muted);font-weight:800;padding:2px 3px}
   @media(max-width:860px){
+    .cal-friendly-toolbar{align-items:flex-start;flex-direction:column}
+    .cal-friendly-toolbar>div{flex-wrap:wrap}
+    .cal-friendly-toolbar select{width:100%;max-width:none}
     .cal-month-shell{margin-left:-4px;margin-right:-4px;scrollbar-width:thin}
     .cal-month-grid{grid-template-columns:repeat(7,122px);min-width:854px}
     .cal-month-day{min-height:116px;padding:6px}
@@ -690,6 +697,45 @@ const unsub = [];
 let route = { page: "dashboard", id: null };
 let searchTerms = {};
 let globalSearchQuery = '';
+const UI_STATE_KEY='ezfix_crm_ui_state_v1';
+function saveUiState(){
+  try{
+    sessionStorage.setItem(UI_STATE_KEY, JSON.stringify({
+      route,
+      calendarViewMode: typeof calendarViewMode==='undefined' ? 'month' : calendarViewMode,
+      calendarMonthCursor: typeof calendarMonthCursor==='undefined' ? null : calendarMonthCursor,
+      calendarWeekStart: typeof calendarWeekStart==='undefined' ? null : calendarWeekStart,
+      calendarTech: searchTerms.calendarTech||''
+    }));
+  }catch(e){}
+}
+function restoreUiState(){
+  try{
+    const raw=sessionStorage.getItem(UI_STATE_KEY); if(!raw)return;
+    const s=JSON.parse(raw)||{};
+    if(s.route?.page) route={page:String(s.route.page),id:s.route.id||null};
+    if(s.calendarTech) searchTerms.calendarTech=String(s.calendarTech);
+    window.__pendingCalendarUiState={
+      view:s.calendarViewMode||'month',
+      month:s.calendarMonthCursor||null,
+      week:s.calendarWeekStart||null
+    };
+    if(typeof calendarViewMode!=='undefined') calendarViewMode=s.calendarViewMode||'month';
+    if(typeof calendarMonthCursor!=='undefined') calendarMonthCursor=s.calendarMonthCursor||null;
+    if(typeof calendarWeekStart!=='undefined') calendarWeekStart=s.calendarWeekStart||null;
+  }catch(e){}
+}
+function validateRestoredRoute(){
+  if(isMarketingManager() && !marketingAllowedPage(route.page)) route={page:'dashboard',id:null};
+  if(isTechnicianView()){
+    if(route.page==='team'||!technicianAllowedPage(route.page)) route={page:'dashboard',id:null};
+    if(route.page==='jobs'&&route.id){
+      const job=getOne('jobs',route.id);
+      const techId=IS_OWNER?(STORE.team.find(t=>t.name===VIEW_AS)?.id||null):CURRENT_TEAM_MEMBER?.id;
+      if(!canViewJob(techId,job)) route={page:'jobs',id:null};
+    }
+  }
+}
 
 function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 function money(n) { n = Number(n)||0; return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -864,7 +910,8 @@ async function initDb(){
     const {data:sv,error:svErr}=await SB.from('schema_version').select('version').order('version',{ascending:false}).limit(1).maybeSingle();
     if(svErr || !sv || Number(sv.version)!==1) throw new Error('CRM database schema mismatch. Expected schema version 1.');
     await Promise.all(allowedCollections.map(refreshCollection)); if(member.role!=='marketing_manager') await refreshSettings();
-    DB={ productionSupabase:true }; dbReady=true; setSyncState(true,'Supabase • Live'); render();
+    DB={ productionSupabase:true }; dbReady=true; setSyncState(true,'Supabase • Live');
+    restoreUiState(); validateRestoredRoute(); render();
     // Supabase is authoritative. localStorage is deliberately not loaded or written.
     const channel=SB.channel('ezfix-crm-live');
     for(const col of allowedCollections){ const table=TABLE_MAP[col]; channel.on('postgres_changes',{event:'*',schema:'public',table},async()=>{try{await refreshCollection(col);renderPreserveScroll();}catch(e){console.error('realtime refresh',col,e);}}); }
@@ -1043,6 +1090,7 @@ function go(page, id) {
     }
   }
   route = { page, id: id||null };
+  saveUiState();
   closeSidebar();
   window.scrollTo(0,0);
   render();
@@ -8578,8 +8626,9 @@ function addDays(dateStr, n) {
   d.setDate(d.getDate()+n);
   return d.toISOString().slice(0,10);
 }
-let calendarViewMode = 'month';
-let calendarMonthCursor = null; // 'YYYY-MM-01'
+let calendarViewMode = window.__pendingCalendarUiState?.view || 'month';
+let calendarMonthCursor = window.__pendingCalendarUiState?.month || null; // 'YYYY-MM-01'
+if(window.__pendingCalendarUiState?.week) calendarWeekStart=window.__pendingCalendarUiState.week;
 function jobStatusAccent(status) {
   if (status==='completed') return 'var(--good)';
   if (status==='cancelled') return 'var(--danger)';
@@ -8590,8 +8639,8 @@ function jobStatusAccent(status) {
 function renderCalendar(content, actions) {
   actions.innerHTML = `
     <div class="doc-tabbar" style="width:auto;display:inline-flex">
-      <button class="doc-tab ${calendarViewMode==='month'?'active':''}" onclick="calendarViewMode='month'; render()">Month</button>
-      <button class="doc-tab ${calendarViewMode==='week'?'active':''}" onclick="calendarViewMode='week'; render()">Week</button>
+      <button class="doc-tab ${calendarViewMode==='month'?'active':''}" onclick="calendarViewMode='month'; saveUiState(); render()">Month</button>
+      <button class="doc-tab ${calendarViewMode==='week'?'active':''}" onclick="calendarViewMode='week'; saveUiState(); render()">Week</button>
     </div>
     <button class="btn btn-sm" onclick="go('jobs')">List</button>
     ${!isTechnicianView() ? `<button class="btn btn-primary btn-sm" onclick="openJobModalForDate(todayISO())">+ New Job</button>` : ''}
@@ -8634,14 +8683,14 @@ function renderCalendarMonth(content) {
     .filter(j => !isTechnicianView() || j.technician===VIEW_AS);
   const monthLabel = cursor.toLocaleDateString('en-US', { month:'long', year:'numeric' });
   content.innerHTML = `
-    <div class="toolbar" style="justify-content:space-between">
+    <div class="toolbar cal-friendly-toolbar" style="justify-content:space-between">
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn btn-sm" onclick="shiftCalendarMonth(-1)">← Prev</button>
-        <button class="btn btn-sm" onclick="calendarMonthCursor=todayISO().slice(0,7)+'-01'; render()">Today</button>
+        <button class="btn btn-sm" onclick="calendarMonthCursor=todayISO().slice(0,7)+'-01'; saveUiState(); render()">Today</button>
         <button class="btn btn-sm" onclick="shiftCalendarMonth(1)">Next →</button>
         <h3 style="margin:0;font-size:16px">${monthLabel}</h3>
       </div>
-      ${!isTechnicianView() && techOptions.length ? `<select style="width:auto" onchange="searchTerms.calendarTech=this.value; render()">
+      ${!isTechnicianView() && techOptions.length ? `<select style="width:auto" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()">
         <option value="">All technicians</option>
         ${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}
       </select>` : ''}
@@ -8664,8 +8713,9 @@ function renderCalendarMonth(content) {
           <div class="cal-month-events">
             ${shown.map((j,idx)=>`<div class="cal-job-card cal-job-tone-${idx%4}" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="event.stopPropagation();go('jobs','${j.id}')">
               <div class="cal-job-time">${esc(j.appointmentWindow||'Time TBD')}</div>
-              <div class="cal-job-name">${esc(j.customerName||j.title||'Job')}</div>
-              <div class="cal-job-tech">${esc(j.technician||'Unassigned')}</div>
+              <div class="cal-job-name">${esc(j.customerName||'Customer')}</div>
+              <div class="cal-job-title">${esc(j.title||'Garage door service')}</div>
+              <div class="cal-job-tech">👷 ${esc(j.technician||'Unassigned')}</div>
             </div>`).join('')}
             ${extra>0 ? `<div class="cal-more">+${extra} more</div>` : ''}
           </div>
@@ -8679,6 +8729,7 @@ function shiftCalendarMonth(n) {
   const d = new Date(calendarMonthCursor+'T00:00:00');
   d.setMonth(d.getMonth()+n);
   calendarMonthCursor = d.toISOString().slice(0,7)+'-01';
+  saveUiState();
   render();
 }
 window.shiftCalendarMonth = shiftCalendarMonth;
@@ -8728,11 +8779,11 @@ function renderCalendarWeek(content) {
   content.innerHTML = `
     <div class="toolbar" style="justify-content:space-between">
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-sm" onclick="calendarWeekStart=addDays(calendarWeekStart,-7); render()">← Prev</button>
-        <button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO()); render()">Today</button>
-        <button class="btn btn-sm" onclick="calendarWeekStart=addDays(calendarWeekStart,7); render()">Next →</button>
+        <button class="btn btn-sm" onclick="calendarWeekStart=addDays(calendarWeekStart,-7); saveUiState(); render()">← Prev</button>
+        <button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO()); saveUiState(); render()">Today</button>
+        <button class="btn btn-sm" onclick="calendarWeekStart=addDays(calendarWeekStart,7); saveUiState(); render()">Next →</button>
       </div>
-      ${!isTechnicianView() && techOptions.length ? `<select style="width:auto" onchange="searchTerms.calendarTech=this.value; render()">
+      ${!isTechnicianView() && techOptions.length ? `<select style="width:auto" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()">
         <option value="">All technicians</option>
         ${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}
       </select>` : ''}
