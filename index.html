@@ -706,6 +706,7 @@
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_HEAD --><link rel="stylesheet" href="/marketing-connections-ui.css" data-ezfix-marketing-ui="v1"><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_HEAD -->
 <link rel="stylesheet" href="/workspace-overview.css"><link rel="stylesheet" href="/lead-dispatch.css"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#181818"><link rel="stylesheet" href="/workspace-theme.css">
+<link rel="stylesheet" href="/office-workspace.css">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
@@ -895,7 +896,7 @@ window.applyOfficialBrandLogo=applyOfficialBrandLogo;
 /* ---------- state ---------- */
 let DB = null;
 let dbReady = false;
-const STORE = { customers: [], leads: [], estimates: [], jobs: [], invoices: [], products: [], team: [], expenses: [], properties: [], tasks: [], warranties: [], suppliers: [], purchaseOrders: [], inspections: [], auditLog: [], galleryProjects: [], manufacturers: [], doorCollections: [], doorModels: [], savedDesigns: [], waNotifications: [], calls: [], inventoryAdjustments: [], smsMessages: [] };
+const STORE = { socialPosts: [], customers: [], leads: [], estimates: [], jobs: [], invoices: [], products: [], team: [], expenses: [], properties: [], tasks: [], warranties: [], suppliers: [], purchaseOrders: [], inspections: [], auditLog: [], galleryProjects: [], manufacturers: [], doorCollections: [], doorModels: [], savedDesigns: [], waNotifications: [], calls: [], inventoryAdjustments: [], smsMessages: [] };
 let SETTINGS = { stripeLink: '', googleReviewLink: '', ccSurchargePercent: 3.5, emailLogoUrl: '', inkboxPhone: { identity:'ashley-ezfixgaragedoorsinc', number:'+1 (508) 351-0523', phoneStatus:'active', smsStatus:'provider_delivery_issue', verifiedAt: Date.now() }, aiReceptionist: { businessKnowledge: '', pricingRules: [], serviceAreas: '', notifyPrefs: { newCall:true, newLead:true, appointmentBooked:true, appointmentCancelled:true, humanRequested:true, urgentCall:true, aiCouldNotResolve:true, commercialLead:true, missedCall:true } } };
 const unsub = [];
 let route = { page: "dashboard", id: null };
@@ -1008,13 +1009,14 @@ const SB = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY,
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 const TABLE_MAP = {
-  leadPartners:'lead_partners', leadOffers:'lead_offers', jobEvidence:'job_evidence', customers:'customers', leads:'leads', estimates:'estimates', jobs:'jobs', invoices:'invoices', products:'products', team:'team',
+  socialPosts:'social_posts', leadPartners:'lead_partners', leadOffers:'lead_offers', jobEvidence:'job_evidence', customers:'customers', leads:'leads', estimates:'estimates', jobs:'jobs', invoices:'invoices', products:'products', team:'team',
   expenses:'expenses', properties:'properties', tasks:'tasks', warranties:'warranties', suppliers:'suppliers', purchaseOrders:'purchase_orders',
   inspections:'inspections', auditLog:'audit_log', galleryProjects:'gallery_projects', manufacturers:'manufacturers', doorCollections:'door_collections',
   doorModels:'door_models', savedDesigns:'saved_designs', waNotifications:'wa_notifications', calls:'calls', inventoryAdjustments:'inventory_adjustments', smsMessages:'sms_messages'
 };
 const SOFT_DELETE = new Set(['customers','leads','estimates','jobs','invoices','purchaseOrders']);
 const KNOWN_COLUMNS = {
+ socialPosts:['id','title','caption','platforms','photos','status','scheduled_for','published_url','created_at','updated_at','row_version'],
  leadPartners:['id','name','company','phone','whatsapp','email','notes','active','created_at','updated_at'],
  settings:['id','stripe_link','google_review_link','email_logo_url','cc_surcharge_percent','templates','ai_receptionist','inkbox_phone','created_at','updated_at','row_version','app_data'],
  customers:['id','name','email','phone','address','notes','created_at','updated_at','row_version','deleted_at','app_data'],
@@ -1054,7 +1056,7 @@ function replaceStoreRecord(col, row) {
   // Keep the immediate post-save cache in the same display shape produced by
   // refreshCollection(), otherwise Team saves briefly expose raw DB values.
   if(col==='team'){
-    record.role=record.role==='owner'?'Owner/Admin':record.role==='admin'?'Admin':record.role==='dispatcher'?'Dispatcher':record.role==='technician'?'Technician':record.role==='marketing_manager'?'Marketing Manager':record.role;
+    record.role=record.role==='owner'?'Owner/Admin':record.role==='admin'?'Admin':record.role==='dispatcher'?'Dispatcher':record.role==='office'?'Office':record.role==='technician'?'Technician':record.role==='marketing_manager'?'Marketing Manager':record.role;
     record.status=record.status==='active'?'Active':record.status==='inactive'?'Inactive':record.status;
   }
   const list = STORE[col] || (STORE[col] = []);
@@ -1111,9 +1113,9 @@ async function refreshCollection(col){
     if(col==='calls'&&r.recordingAsset?.url)r.recordingUrl=r.recordingAsset.url;
   });
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
-  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role==='marketing_manager'?'Marketing Manager':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
+  collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='office'?'Office':x.role==='technician'?'Technician':x.role==='marketing_manager'?'Marketing Manager':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
 }
-async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (508) 351-0523',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
+async function refreshSettings(){ const refreshVersion=++settingsRefreshVersion; const {data,error}=isOfficeRole()?await SB.rpc('get_office_settings'):await SB.from('settings').select('*').eq('id','main').maybeSingle(); if(error) throw error; if(refreshVersion<settingsAppliedVersion) return SETTINGS; if(data){ const x=fromDbRow(data); settingsAppliedVersion=refreshVersion; SETTINGS={stripeLink:'',googleReviewLink:'',ccSurchargePercent:3.5,emailLogoUrl:'',inkboxPhone:{identity:'ashley-ezfixgaragedoorsinc',number:'+1 (508) 351-0523',phoneStatus:'active',smsStatus:'provider_delivery_issue',verifiedAt:null},...x}; } return SETTINGS; }
 function setSyncState(ok,labelText){ const dot=document.getElementById('syncDot'),label=document.getElementById('syncLabel'); if(dot) dot.classList.toggle('off',!ok); if(label) label.textContent=labelText; }
 async function showAuthGate(){
   let gate=document.getElementById('authGate'); if(gate) return;
@@ -1175,6 +1177,7 @@ async function dbSet(col,id,data){
  return queueMutation(`record:${col}:${id}`,async()=>{
   if(!await requireSession()) throw markHandled(new Error('Sign in required'));
   if(col==='auditLog'){ const allowed={}; if(Object.prototype.hasOwnProperty.call(data,'read')) allowed.read=!!data.read; const {error}=await SB.from('audit_log').update(allowed).eq('id',id); if(error) throw markHandled(error); await refreshCollection(col); return; }
+  if(col==='smsMessages' && Object.keys(data).length===1 && data.leadId){const {error}=await SB.rpc('office_link_sms_lead',{p_sms_id:id,p_lead_id:data.leadId});if(error)throw error;await refreshCollection(col);return;}
   if(col==='calls' || col==='inventoryAdjustments') throw markHandled(new Error(`${col} is append-only in production.`));
   const normalized={...data}; if(col==='team'){if('role' in normalized) normalized.role=String(normalized.role).toLowerCase(); if('status' in normalized) normalized.status=String(normalized.status).toLowerCase();} const row=toDbRowForCollection(col,normalized); delete row.id; delete row.created_at; delete row.updated_at; delete row.row_version; delete row.auth_user_id;
   // Never let a partial update erase legacy/compatibility fields. Merge app_data
@@ -1243,7 +1246,12 @@ async function deductInventoryForItems(items) {
 }
 
 /* ---------- nav ---------- */
+function isOfficeRole(){return CURRENT_TEAM_MEMBER?.role==='office';}
+function canOperateOffice(){return !isTechnicianView()&&(IS_OWNER||isOfficeRole());}
+function officeAllowedPage(page){return ['dashboard','more','office','attention','banking','communications','calls','jobs','leads','customers','calendar','estimates','invoices','quickpay','payments','products','inventory','suppliers','expenses','followups','warranties','team','payroll','reports','gallery','socialposts','visualizer'].includes(page);}
+function canAccessWorkspaceNav(n){return (!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
 const NAV = [
+  {key:'calls',label:'Calls & recordings',icon:'M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4c0 2-3 2-5 1C9 17 5 13 3 6c-1-2 0-3 2-3z',sidebar:false,launcher:false,hideForTech:true},
   { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales & Billing' },
   { key:'dashboard', label:'Dashboard', icon:'M4 13h7V4H4v9zm0 7h7v-5H4v5zm9 0h7V11h-7v9zm0-16v5h7V4h-7z' },
   { key:'communications', label:'Communications', emoji:'💬', icon:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', category:'Customer Care' , hideForTech: true},
@@ -1258,7 +1266,7 @@ const NAV = [
   { key:'settings', label:'Settings', hideForTech: true, icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.5.6.9.6H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z' },
   { key:'attention', label:'Needs Attention', hideForTech:true, sidebar:false, launcher:false, icon:'M12 8v5M12 17h.01M10.3 3.7L2.5 17.2a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0z' },
   { key:'banking', label:'Banking', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M3 10h18M4 20h16M6 10v7M10 10v7M14 10v7M18 10v7M3 6l9-4 9 4v2H3z' },
-  { key:'socialposts', label:'Social Media', ownerOnly:true, launcher:false, sidebarGroup:'workspace', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6M19 8l2-2M19 12h3M19 16l2 2' },
+  { key:'socialposts', label:'Social Media', officeAccess:true, ownerOnly:true, launcher:false, sidebarGroup:'workspace', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6M19 8l2-2M19 12h3M19 16l2 2' },
   { key:'office', label:'Office', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M4 21V3h12v18M16 10h4v11M2 21h20M8 7h4M8 11h4M8 15h4' },
   // Secondary modules — reachable from the More/module launcher, not the main sidebar (kept out of NAV list rendering via sidebar:false), still owner/tech-gated the same way.
   { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Service & Stock' , hideForTech: true},
@@ -1268,8 +1276,8 @@ const NAV = [
   { key:'followups', label:'Follow-Ups & Tasks', emoji:'✅', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'warranties', label:'Warranties', emoji:'🛡️', icon:'M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'team', label:'Team', emoji:'👥', icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', sidebar:false, category:'Team & Payroll' , hideForTech: true},
-  { key:'payroll', label:'Tech Payroll', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', ownerOnly: true, sidebar:false, category:'Team & Payroll' },
-  { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', ownerOnly: true, sidebar:false, category:'Team & Payroll', fullWidth:true },
+  { key:'payroll', label:'Tech Payroll', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', officeAccess:true, ownerOnly: true, sidebar:false, category:'Team & Payroll' },
+  { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', officeAccess:true, ownerOnly: true, sidebar:false, category:'Team & Payroll', fullWidth:true },
   { key:'auditlog', label:'Audit Log', emoji:'🕒', icon:'M12 8v4l3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'checklist', label:'Dev Checklist', emoji:'📋', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
@@ -1289,7 +1297,7 @@ const CATEGORY_META = {
 };
 
 function sidebarNavItems() {
-  return NAV.filter(n => (n.sidebar!==false || (isMarketingManager() && n.key==='leads')) && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || ['dashboard','leads','customers'].includes(n.key)));
+  return NAV.filter(n => (n.sidebar!==false || (isMarketingManager() && n.key==='leads')) && canAccessWorkspaceNav(n) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || ['dashboard','leads','customers'].includes(n.key)));
 }
 function isSidebarItemActive(n) {
   return route.page===n.key || (n.key==='jobs' && route.page==='leads');
@@ -1322,6 +1330,7 @@ function isMarketingManager(){ return CURRENT_TEAM_MEMBER?.role==='marketing_man
 function marketingAllowedPage(page){ return ['dashboard','leads','customers','more'].includes(page); }
 function go(page, id) {
   if(page==='lead_offers'){page='leads';id=null;}
+  if(isOfficeRole()&&!officeAllowedPage(page)){toast('This section is managed by the owner.',true);page='office';id=null;}
   if (isMarketingManager() && !marketingAllowedPage(page)) {
     toast('This section is not available for Marketing Manager accounts.', true);
     page='dashboard'; id=null;
@@ -1347,6 +1356,7 @@ window.go = go; window.openSidebar = openSidebar; window.closeSidebar = closeSid
 
 /* ---------- render root ---------- */
 function render() {
+  if(isOfficeRole()&&!officeAllowedPage(route.page))route={page:'office',id:null};
   renderNav();
   refreshNotifBadge();
   document.querySelectorAll('.bn-item').forEach(btn => {
@@ -1409,6 +1419,8 @@ function render() {
 
   if (route.page === 'attention') return renderWorkspaceAttention(content, actions);
   if (route.page === 'banking' || route.page === 'office') return renderWorkspaceHub(content, actions, route.page);
+  if (route.page === 'dashboard' && isOfficeRole()) return OfficeWorkspace.renderOffice(content,actions);
+  if (route.page === 'calls') return renderCallHistory(content);
   if (route.page === 'dashboard') return renderDashboard(content, actions);
   if (route.page === 'ai_system') return renderAiSystem(content, actions);
   if (route.page === 'ai_manager') return renderAiManager(content, actions);
@@ -1920,11 +1932,11 @@ function renderTechnicianDashboard(content, actions) {
   actions.innerHTML = '';
 }
 function dashboardModuleCategories() {
-  const secondary = NAV.filter(n => n.launcher!==false && n.sidebar===false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
+  const secondary = NAV.filter(n => n.launcher!==false && n.sidebar===false && canAccessWorkspaceNav(n) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
   const order = ['Sales & Billing','Gallery & Visualizer','Service & Stock','AI Tools','Team & Payroll','Business Workspace'];
   const groups = {};
   secondary.forEach(n => { (groups[n.category||'Other'] = groups[n.category||'Other']||[]).push(n); });
-  if(!isTechnicianView()&&!isMarketingManager())groups['Business Workspace']=['banking','socialposts','office'].map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&(!n.ownerOnly||IS_OWNER)).map(n=>({...n,fullWidth:n.key==='office'}));
+  if(!isTechnicianView()&&!isMarketingManager())groups['Business Workspace']=['banking','socialposts','office'].map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)).map(n=>({...n,fullWidth:n.key==='office'}));
   return order.filter(c=>groups[c]).map(c => ({ name: c, items: groups[c] }));
 }
 function renderModuleLauncherHtml() {
@@ -3062,7 +3074,7 @@ async function createLeadFromUnknownSms(smsId) {
 window.createLeadFromUnknownSms = createLeadFromUnknownSms;
 
 function renderCommunications(content, actions) {
-  actions.innerHTML = IS_OWNER ? '<button class="btn btn-primary" onclick="openCallAudioHistory()">Call History & Audio</button>' : '';
+  actions.innerHTML = canOperateOffice() ? '<button class="btn" onclick="OfficeWorkspace.email()">New email</button><button class="btn btn-primary" onclick="openCallAudioHistory()">Call History & Audio</button>' : '';
   const filter = searchTerms.commFilter || 'all';
   const q = (searchTerms.commSearch||'').toLowerCase().trim();
   let items = buildGlobalCommunicationTimeline();
@@ -4411,7 +4423,7 @@ window.ensureCatalogSeeded = ensureCatalogSeeded;
 
 let catalogPageState = { view: 'categories', categoryId: null };
 function renderProducts(content, actions) {
-  actions.innerHTML = `<button class="btn btn-sm" onclick="exportInventoryCSV()">⬇ CSV</button>${IS_OWNER ? `<button class="btn btn-primary" onclick="openProductModal()">+ New Item</button>` : ''}`;
+  actions.innerHTML = `<button class="btn btn-sm" onclick="exportInventoryCSV()">⬇ CSV</button>${canOperateOffice() ? `<button class="btn btn-primary" onclick="openProductModal()">+ New Item</button>` : ''}`;
   const term = (searchTerms.productSearch||'').toLowerCase().trim();
   const active = STORE.products.filter(p=>p.active!==false);
 
@@ -4475,7 +4487,7 @@ function renderCatalogProductCards(items, heading, showActions) {
           <div class="muted" style="font-size:12.5px;margin:4px 0 8px">${esc((p.details||'').slice(0,140))}${(p.details||'').length>140?'…':''}</div>
           <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Default Price: <b style="color:var(--ink)">${p.rate?money(p.rate):'$—'}</b> &nbsp;·&nbsp; Taxable: ${p.taxable!==false?'Yes':'No'}</div>
           ${showActions ? `<div style="display:flex;gap:8px">
-            ${IS_OWNER ? `<button class="btn btn-sm" onclick="openProductModal('${p.id}')">Edit</button>` : ''}
+            ${canOperateOffice() ? `<button class="btn btn-sm" onclick="openProductModal('${p.id}')">Edit</button>` : ''}
             <button class="btn btn-sm btn-primary" onclick="quickAddToDoc('${p.id}','estimate')">+ Add to Estimate</button>
             <button class="btn btn-sm" onclick="quickAddToDoc('${p.id}','invoice')">+ Invoice</button>
           </div>` : ''}
@@ -4504,7 +4516,7 @@ function stockBadge(qty, reorderPoint) {
   return `<span class="badge badge-won">${qty} in stock</span>`;
 }
 function openProductModal(id) {
-  if (!IS_OWNER) { toast('Only the owner can edit the catalog.', true); return; }
+  if (!canOperateOffice()) { toast('Office access is required to edit the catalog.', true); return; }
   const p = id ? getOne('products', id) : null;
   showModal({
     title: p ? 'Edit product/service' : 'New product/service',
@@ -4773,7 +4785,7 @@ window.openExpenseModal = openExpenseModal;
    Who can actually open and edit this app is controlled by
    Claude's own Share dialog on this artifact, not by this list.)
    ============================================================ */
-const TEAM_ROLES = ['Owner','Admin','Dispatcher','Technician','Marketing Manager'];
+const TEAM_ROLES = ['Owner','Admin','Dispatcher','Office','Technician','Marketing Manager'];
 /* ============================================================
    CANONICAL TECHNICIAN IDENTITY
    ------------------------------------------------------------
@@ -4889,7 +4901,7 @@ function whatsappRecipientState(member) {
 function renderTeam(content, actions) {
   if (isTechnicianView()) { go('dashboard'); return; }
   if (route.id) return renderTeamDetail(content, actions, route.id);
-  actions.innerHTML = `<button class="btn btn-primary" onclick="openTeamModal()">+ Add team member</button>`;
+  actions.innerHTML = isOfficeRole()?'':`<button class="btn btn-primary" onclick="openTeamModal()">+ Add team member</button>${IS_OWNER?'<button class="btn" onclick="OfficeWorkspace.addUser()">+ Office user</button>':''}`;
   const list = STORE.team.filter(m=>!m.archivedAt).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const migration = analyzeTechnicianMigration();
   const techMembers = list.filter(m=>String(m.role||'').toLowerCase()==='technician');
@@ -4898,7 +4910,7 @@ function renderTeam(content, actions) {
   content.innerHTML = `
     <div class="panel" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="font-size:13px;line-height:1.6">
-        Manage technician details and availability here. The Owner creates each technician’s login and password through <b>Login Access</b>. Use <b>Ashley routing</b> to set job types, working hours, service areas and business estimates.
+        Manage technician details and availability here. The Owner creates Technician, Marketing Manager and Office logins through <b>Login Access</b>. Office users can operate communications, scheduling, billing, stock, suppliers, team, payroll and social drafts. Use <b>Ashley routing</b> to set job types, working hours, service areas and business estimates.
       </div>
     </div>
     ${(migration.safe.length || migration.unresolved.length || migration.ambiguous.length) ? renderTechMigrationPanel(migration) : ''}
@@ -4933,7 +4945,7 @@ function renderTeamDetail(content, actions, id) {
   if (isTechnicianView()) { go('dashboard'); return; }
   const m = getOne('team', id);
   if (!m || m.archivedAt) { content.innerHTML = emptyState('🔍','Team member not found',''); return; }
-  actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>${IS_OWNER && m.role==='Technician' ? `<button class="btn btn-sm btn-primary" onclick="openTeamLoginAccess('${m.id}')">🔐 Login Access</button>` : ''}`;
+  actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>${IS_OWNER && ['Technician','Marketing Manager','Office'].includes(m.role) ? `<button class="btn btn-sm btn-primary" onclick="openTeamLoginAccess('${m.id}')">🔐 Login Access</button>` : ''}`;
   const today = todayISO();
   const myJobs = STORE.jobs.filter(j => j.technicianId ? j.technicianId===m.id : j.technician===m.name);
   const todayJobs = myJobs.filter(j=>j.scheduledDate===today && j.status!=='cancelled');
@@ -5056,6 +5068,7 @@ async function applyTechMapping(legacyName, technicianId) {
 }
 window.applyTechMapping = applyTechMapping;
 function openTeamModal(id) {
+  if(isOfficeRole())return OfficeWorkspace.editTechnician(id);
   const m = id ? getOne('team', id) : null;
   const waNumber = m?.whatsappNumber || normalizeToE164(m?.phone) || m?.phone || '';
   const waOptIn = m?.whatsappOptIn === true;
@@ -5084,8 +5097,8 @@ function openTeamModal(id) {
         <select id="f_techstatus">${['Active','Inactive','On Leave'].map(s=>`<option value="${s}" ${(m?.status||'Active')===s?'selected':''}>${s}</option>`).join('')}</select>
       </label>
       <p class="muted" style="font-size:12px;margin-top:-8px">Inactive/On Leave technicians keep all their historical jobs, payroll, and performance data — they just won't show up when assigning NEW work.</p>
-      <div class="field"><span class="lbl">Login Access</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge ${m?.authUserId?'badge-won':'badge-draft'}">${m?.authUserId?'Login linked':'Login not created'}</span>${m && IS_OWNER && ['Technician','Marketing Manager'].includes(m.role) ? `<button type="button" class="btn btn-sm btn-primary" onclick="closeModal(); setTimeout(()=>openTeamLoginAccess('${m.id}'),50)">🔐 ${m.authUserId?'Manage Login':'Create Login & Password'}</button>` : ''}</div></div>
-      <p class="muted" style="font-size:12px;margin-top:-8px">Owner-managed access. The Owner creates or changes the technician login and password; existing passwords are never displayed.</p>
+      <div class="field"><span class="lbl">Login Access</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge ${m?.authUserId?'badge-won':'badge-draft'}">${m?.authUserId?'Login linked':'Login not created'}</span>${m && IS_OWNER && ['Technician','Marketing Manager','Office'].includes(m.role) ? `<button type="button" class="btn btn-sm btn-primary" onclick="closeModal(); setTimeout(()=>openTeamLoginAccess('${m.id}'),50)">🔐 ${m.authUserId?'Manage Login':'Create Login & Password'}</button>` : ''}</div></div>
+      <p class="muted" style="font-size:12px;margin-top:-8px">Owner-managed access. The Owner creates or changes the team member login and password; existing passwords are never displayed.</p>
       <label class="field"><span class="lbl">Default commission % <span class="muted" style="font-weight:400">(for payroll report — adjustable per report too)</span></span><input type="number" step="0.1" min="0" max="100" id="f_commission" value="${m?.commissionPercent ?? ''}" placeholder="e.g. 30"></label>
 
       ${m ? `
@@ -5133,10 +5146,12 @@ function openTeamModal(id) {
         document.querySelectorAll('.notifyPrefCheck').forEach(c => { newPrefs[c.dataset.key] = c.checked; });
         data.notifyPrefs = newPrefs;
       }
+      let savedId=m?.id;
       if (m) await dbSet('team', m.id, data);
-      else await dbAdd('team', data);
+      else savedId=await dbAdd('team', data);
       toast(m ? 'Updated' : 'Added');
       closeModal();
+      if(!m && data.role==='office' && IS_OWNER)await openTeamLoginAccess(savedId);
     }
   });
 }
@@ -5157,7 +5172,7 @@ async function callTeamLoginManager(payload) {
 async function openTeamLoginAccess(teamId) {
   if (!IS_OWNER) return toast('Owner access required', true);
   const member = getOne('team', teamId);
-  if (!member || !['Technician','Marketing Manager'].includes(member.role)) return toast('Login-managed team member not found', true);
+  if (!member || !['Technician','Marketing Manager','Office'].includes(member.role)) return toast('Login-managed team member not found', true);
   let status = { linked: !!member.authUserId, loginEmail: member.email||'', disabled:false, lastSignInAt:null };
   try { status = await callTeamLoginManager({action:'status',teamId}); } catch(e) { return toast(e.message,true); }
   showModal({
@@ -5330,8 +5345,8 @@ window.openInspectionModal = openInspectionModal;
    TEAM PERFORMANCE (owner-only sales report per technician)
    ============================================================ */
 function renderReports(content, actions) {
-  if (!IS_OWNER) {
-    content.innerHTML = emptyState('🔒','Owner access only','This report is only visible to the artifact Owner. Ask the Owner to share it with you if you need these numbers.');
+  if (!canOperateOffice()) {
+    content.innerHTML = emptyState('🔒','Office access required','Available to the Owner and Office role.');
     return;
   }
   // Build the set of technician names from Team roster + any name used on a Job
@@ -5408,7 +5423,7 @@ function setPayrollPreset(preset) {
 }
 window.setPayrollPreset = setPayrollPreset;
 function renderPayroll(content, actions) {
-  if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
+  if (!canOperateOffice()) { content.innerHTML = emptyState('🔒','Office access required',''); return; }
   if (!payrollRange.from) {
     const d = new Date(); d.setDate(1);
     payrollRange.from = d.toISOString().slice(0,10);
@@ -5765,7 +5780,7 @@ function isLowStock(qty, reorderPoint) { return Number(qty)>0 && reorderPoint!=n
 function addPOLineItem() { poLineItemsDraft.push({ productId:'', description:'', qty:1, unitCost:0, qtyReceived:0 }); refreshPOLineItems(); }
 let _receivingPO = false;
 function openReceivePOModal(poId) {
-  if (!IS_OWNER) return toast('Only the owner can receive purchase orders.', true);
+  if (!canOperateOffice()) return toast('Office access is required to receive purchase orders.', true);
   const po = getOne('purchaseOrders', poId);
   if (!po) return;
   showModal({
@@ -6055,7 +6070,7 @@ function renderPayments(content, actions) {
 }
 
 function renderSuppliers(content, actions) {
-  if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
+  if (!canOperateOffice()) { content.innerHTML = emptyState('🔒','Office access required',''); return; }
   actions.innerHTML = `<button class="btn btn-sm" onclick="openSupplierModal()">+ New supplier</button><button class="btn btn-primary" onclick="openPOModal()">+ New purchase order</button>`;
   const pos = [...STORE.purchaseOrders].sort((a,b)=>b.createdAt-a.createdAt);
   content.innerHTML = `
@@ -6085,7 +6100,7 @@ function renderSuppliers(content, actions) {
   `;
 }
 function openSupplierModal(id) {
-  if (!IS_OWNER) return toast('Only the owner can manage suppliers.', true);
+  if (!canOperateOffice()) return toast('Office access is required to manage suppliers.', true);
   const s = id ? getOne('suppliers', id) : null;
   showModal({
     title: s ? 'Edit supplier' : 'New supplier',
@@ -6117,7 +6132,7 @@ function openSupplierModal(id) {
 }
 window.openSupplierModal = openSupplierModal;
 function openPOModal(id) {
-  if (!IS_OWNER) return toast('Only the owner can manage purchase orders.', true);
+  if (!canOperateOffice()) return toast('Office access is required to manage purchase orders.', true);
   const po = id ? getOne('purchaseOrders', id) : null;
   poLineItemsDraft = po?.lineItems ? JSON.parse(JSON.stringify(po.lineItems)) : [];
   showModal({
@@ -6759,7 +6774,7 @@ function galleryPhotoUploaderHtml() {
   `;
 }
 async function handleGalleryPhotoInput() {
-  if(!IS_OWNER)return toast('Owner access required',true);
+  if(!canOperateOffice())return toast('Owner access required',true);
   const input=document.getElementById('f_galleryphoto'),files=Array.from(input?.files||[]);
   if(!files.length)return;
   input.value='';
@@ -6789,7 +6804,7 @@ function refreshGalleryPhotoThumbs() {
   }
 }
 function renderGallery(content, actions) {
-  actions.innerHTML = IS_OWNER ? `<button class="btn btn-sm" onclick="shareGallery()">🔗 Share Gallery</button><button class="btn btn-sm" onclick="startGalleryPresentation()">▶ Present to customer</button><button class="btn btn-primary" onclick="openGalleryProjectModal()">+ New project</button>` : '';
+  actions.innerHTML = canOperateOffice() ? `<button class="btn btn-sm" onclick="shareGallery()">🔗 Share Gallery</button><button class="btn btn-sm" onclick="startGalleryPresentation()">▶ Present to customer</button><button class="btn btn-primary" onclick="openGalleryProjectModal()">+ New project</button>` : '';
   if (galleryFilter.presenting) return renderGalleryPresentation(content);
   let list = [...STORE.galleryProjects].sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0) || (b.createdAt-a.createdAt));
   if (galleryFilter.category) list = list.filter(p=>p.category===galleryFilter.category);
@@ -6808,7 +6823,7 @@ function renderGallery(content, actions) {
     ${list.length ? `<div class="gallery-grid">
       ${list.map(p=>{
         const cover = (p.photos||[]).find(ph=>ph.id===p.coverPhotoId) || (p.photos||[])[0];
-        return `<div class="gallery-card" onclick="${IS_OWNER?`openGalleryProjectModal('${p.id}')`:`viewGalleryProject('${p.id}')`}">
+        return `<div class="gallery-card" onclick="${canOperateOffice()?`openGalleryProjectModal('${p.id}')`:`viewGalleryProject('${p.id}')`}">
           ${cover ? `<img src="${cover.url}" class="gallery-card-img">` : `<div class="gallery-card-img" style="display:flex;align-items:center;justify-content:center;font-size:32px;background:var(--paper-2)">🖼️</div>`}
           <div class="gallery-card-body">
             <div class="gallery-card-title">${esc(p.title)}</div>
@@ -6816,11 +6831,11 @@ function renderGallery(content, actions) {
           </div>
         </div>`;
       }).join('')}
-    </div>` : emptyState('🖼️','No gallery projects yet', IS_OWNER ? 'Add a completed project to start building your showroom.' : 'Check back soon!')}
+    </div>` : emptyState('🖼️','No gallery projects yet', canOperateOffice() ? 'Add a completed project to start building your showroom.' : 'Check back soon!')}
   `;
 }
 function openGalleryProjectModal(id, presetPhotos, presetProductId) {
-  if(!IS_OWNER)return toast('Owner access required',true);
+  if(!canOperateOffice())return toast('Owner access required',true);
   const p = id ? getOne('galleryProjects', id) : null;
   galleryPhotosDraft = p?.photos ? JSON.parse(JSON.stringify(p.photos)) : (presetPhotos || []);
   galleryCoverDraft = p?.coverPhotoId || galleryPhotosDraft[0]?.id || null;
@@ -8145,6 +8160,7 @@ async function ingestInkboxCall(raw) {
 }
 window.ingestInkboxCall = ingestInkboxCall;
 async function openCallAudioHistory(){
+  if(isOfficeRole()){go('calls');await refreshCollection('calls');render();return;}
   receptionistState.subview='calls';
   go('receptionist');
   try{await refreshCollection('calls');if(route.page==='receptionist')render();}
@@ -8702,7 +8718,7 @@ function renderJobDetail(content, id) {
           ${(j.serviceAddress||cust?.address) ? `<a class="btn btn-sm" href="https://maps.google.com/?q=${encodeURIComponent(j.serviceAddress||cust.address)}" target="_blank" rel="noopener">🧭 Navigate</a>` : ''}
           <button class="btn btn-sm" onclick="openJobModal('${id}')">✎ Edit</button>
           <button class="btn btn-sm" onclick="openJobModal('${id}')">📷 Add Photo</button>
-          ${(j.status==='completed' && IS_OWNER) ? `<button class="btn btn-sm" onclick="addJobToGallery('${id}')">🖼️ Add to Gallery</button>` : ''}
+          ${(j.status==='completed' && canOperateOffice()) ? `<button class="btn btn-sm" onclick="addJobToGallery('${id}')">🖼️ Add to Gallery</button>` : ''}
           <button class="btn btn-sm" onclick="openJobModal('${id}')">📝 Add Note</button>
           <button class="btn btn-sm btn-primary" onclick="openTechnicianAiAssistant('${id}')">AI Service Assistant</button>
         </div>
@@ -9470,7 +9486,7 @@ function openJobModal(id, presetCustomerId, options = {}) {
       const data = {
         ...(j?.jobNumber ? { jobNumber: j.jobNumber } : {}),
         title, customerId, customerName: cust.name,
-        scheduledDate: newDate,
+        scheduledDate: newDate || null,
         appointmentWindow: document.getElementById('f_window').value,
         ...(!needsOffer ? {technician: newTech, technicianId: newTechId || null} : {}),
         status: newStatus,
@@ -10954,7 +10970,7 @@ async function initUserRole() {
     if(error) throw error;
     CURRENT_TEAM_MEMBER=member||null;
     CAN_EDIT=!!member; IS_OWNER=member?.role==='owner';
-    const roleName=member?.role==='owner'?'Owner':member?.role==='admin'?'Admin':member?.role==='dispatcher'?'Dispatcher':member?.role==='technician'?'Technician':member?.role==='marketing_manager'?'Marketing Manager':'Unassigned';
+    const roleName=member?.role==='owner'?'Owner':member?.role==='admin'?'Admin':member?.role==='dispatcher'?'Dispatcher':member?.role==='office'?'Office':member?.role==='technician'?'Technician':member?.role==='marketing_manager'?'Marketing Manager':'Unassigned';
     if(!IS_OWNER){ VIEW_AS=''; try{localStorage.removeItem('ezfix_view_as');}catch(e){} }
     if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || 'User'} • ${roleName}` : 'Access not assigned';
     const signOutBtn=document.getElementById('signOutBtn'); if(signOutBtn) signOutBtn.style.display=member?'block':'none';
@@ -10967,7 +10983,7 @@ async function initUserRole() {
 <!-- EZFIX_DOOR_DESIGN_LIBRARY_V1 --><script src="/door-design-data.js"></script><script src="/door-config-options.js"></script><script src="/door-design-library.js"></script>
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
-<script src="/job-assignment.js"></script><script src="/workspace-overview.js"></script><script src="/lead-dispatch.js"></script>
+<script src="/job-assignment.js"></script><script src="/workspace-overview.js"></script><script src="/office-workspace.js"></script><script src="/lead-dispatch.js"></script>
 <script src="/workspace-theme.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>
