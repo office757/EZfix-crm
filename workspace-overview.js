@@ -110,20 +110,21 @@ function renderWorkspaceHub(content,actions,page){
 /* Keep the familiar launcher groups; this presentation belongs only to dashboard Tools. */
 function workspaceToolCategories(){
  const presentation={
-  'Sales & Billing':{tone:'amber',icon:'payments'},
-  'Gallery & Visualizer':{tone:'blue',icon:'visualizer'},
-  'Service & Stock':{tone:'sage',icon:'inventory'},
-  'AI Tools':{tone:'violet',icon:'ai_manager'},
-  'Team & Payroll':{tone:'slate',icon:'team'},
-  'Business Workspace':{tone:'teal',icon:'office'}
+  'Sales & Billing':{tone:'amber',emoji:'💳'},
+  'Gallery & Visualizer':{tone:'blue',emoji:'🖼️'},
+  'Service & Stock':{tone:'sage',emoji:'🧰'},
+  'AI Tools':{tone:'violet',emoji:'✨'},
+  'Team & Payroll':{tone:'rose',emoji:'👥'},
+  'Business Workspace':{tone:'teal',emoji:'🏢'}
  };
- return dashboardModuleCategories().map((category,index)=>({...category,id:'group-'+index,...(presentation[category.name]||{tone:'slate',icon:'office'})}));
+ return dashboardModuleCategories().map((category,index)=>({...category,id:'group-'+index,...(presentation[category.name]||{tone:'blue',emoji:'🧰'})}));
 }
 function renderWorkspaceTools(){
  const categories=workspaceToolCategories();
+ const emojis={quickpay:'⚡',estimates:'📝',invoices:'🧾',gallery:'🖼️',visualizer:'🏡',products:'🛠️',inventory:'📦',suppliers:'🚚',ai_manager:'🧠',receptionist:'🎧',ai_system:'🤖',team:'👥',payroll:'💵',reports:'📊',banking:'🏦',socialposts:'📣',office:'🏢'};
  if(!categories.length)return '';
  return `<section class="workspace-tools" aria-labelledby="workspaceToolsTitle">
   <header class="wt-heading"><h2 id="workspaceToolsTitle">Workspace tools</h2><span aria-hidden="true"></span></header>
-  <div class="wt-grid">${categories.map(category=>`<section class="wt-category wt-tone-${category.tone}" aria-labelledby="wt-${category.id}-title"><header class="wt-category-heading"><span class="wt-category-icon">${workspaceIcon(category.icon)}</span><h3 id="wt-${category.id}-title">${esc(category.name)}</h3></header><div class="wt-tool-list">${category.items.map(item=>`<button type="button" class="wt-tool${item.fullWidth||category.items.length<=2?' wt-tool-wide':''}" data-tool="${item.key}" onclick="${workspaceAction(item.key)}"><span class="wt-tool-icon">${workspaceIcon(item.key==='ai_system'?'ai_manager':item.key)}</span><span class="wt-tool-label">${esc(item.label)}</span><span class="wt-arrow" aria-hidden="true">↗</span></button>`).join('')}</div></section>`).join('')}</div>
+  <div class="wt-grid">${categories.map(category=>`<section class="wt-category wt-tone-${category.tone}" aria-labelledby="wt-${category.id}-title"><header class="wt-category-heading"><span class="wt-category-icon" aria-hidden="true">${category.emoji}</span><h3 id="wt-${category.id}-title">${esc(category.name)}</h3></header><div class="wt-tool-list">${category.items.map(item=>`<button type="button" class="wt-tool${item.fullWidth||category.items.length<=2?' wt-tool-wide':''}" data-tool="${item.key}" onclick="${workspaceAction(item.key)}"><span class="wt-tool-icon" aria-hidden="true">${emojis[item.key]||esc(item.emoji||'🔹')}</span><span class="wt-tool-label">${esc(item.label)}</span><span class="wt-arrow" aria-hidden="true">↗</span></button>`).join('')}</div></section>`).join('')}</div>
  </section>`;
 }
