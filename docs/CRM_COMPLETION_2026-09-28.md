@@ -1,5 +1,9 @@
 # EZfix CRM completion handoff — September 28, 2026
 
+Latest evidence: [operational closeout validation](CLOSEOUT_VALIDATION_2026-09-28.md).
+The dated sections below are historical; current login readiness is documented
+in the closeout file.
+
 Evidence-only restart in the owner's new CRM chat. Continue this application;
 do not rebuild its working catalog, invoice, estimate, or calendar workflows.
 

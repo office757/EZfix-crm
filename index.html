@@ -9399,7 +9399,7 @@ function openJobModal(id, presetCustomerId, options = {}) {
       ${j?.workflowVersion===1?'<p class="muted">Changing the technician sends a five-minute offer. The current assignment is released when the offer is saved; the new technician is assigned after accepting. Reassignment is available before arrival.</p>':''}
       ${jobPhotoUploaderHtml()}
       <label class="field"><span class="lbl">Status</span>
-        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
+        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed').map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
       </label>
       <div id="cancelReasonWrap" style="display:${j?.status==='cancelled'?'block':'none'}">
         <label class="field"><span class="lbl">Cancellation reason</span>
@@ -9469,9 +9469,12 @@ function openJobModal(id, presetCustomerId, options = {}) {
       const title = document.getElementById('f_title').value.trim();
       const customerId = document.getElementById('f_customer').value;
       if (!title) return toast('Job title is required');
-      if (!customerId) return toast('Please select a customer');
-      const cust = getOne('customers', customerId);
+      const websiteJobWithoutCustomer = !!j && !j.customerId && j.source==='website_form';
+      if (!customerId && !websiteJobWithoutCustomer) return toast('Please select a customer');
+      const cust = customerId ? getOne('customers', customerId) : {name:j.customerName};
+      if (!cust) return toast('Please select an existing customer');
       const newStatus = document.getElementById('f_status').value;
+      if(newStatus==='completed' && j?.status!=='completed')return toast('Use Complete & Sign to finish this job with the customer signature.',true);
       const statusChanged = !j || j.status !== newStatus;
       const newTechId = document.getElementById('f_tech_id').value;
       const selectedTech = getOne('team',newTechId);
@@ -9482,10 +9485,16 @@ function openJobModal(id, presetCustomerId, options = {}) {
       if(needsOffer && (!selectedTech || !selectedTech.authUserId))return toast('Select a technician with Login Access before sending an offer.',true);
       if(needsOffer && !['new','scheduled','confirmed','technician_assigned','on_the_way'].includes(newStatus))return toast('Reassign the technician before arrival.',true);
       const newDate = document.getElementById('f_date').value;
+      if(newDate){
+        const parsedDate=new Date(newDate+'T12:00:00Z');
+        const maxYear=new Date().getUTCFullYear()+5;
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(newDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10)!==newDate || parsedDate.getUTCFullYear()<2000 || parsedDate.getUTCFullYear()>maxYear)
+          return toast(`Choose a valid scheduled date between 2000 and ${maxYear}, or clear the date for an unscheduled job.`,true);
+      }
       const dateChanged = newDate !== (j?.scheduledDate||'');
       const data = {
         ...(j?.jobNumber ? { jobNumber: j.jobNumber } : {}),
-        title, customerId, customerName: cust.name,
+        title, customerId: customerId || null, customerName: cust.name,
         scheduledDate: newDate || null,
         appointmentWindow: document.getElementById('f_window').value,
         ...(!needsOffer ? {technician: newTech, technicianId: newTechId || null} : {}),
@@ -10672,7 +10681,11 @@ async function emailDocument(type, id) {
   let customerInvoiceUrl = null;
   if (type==='invoice') {
     try { customerInvoiceUrl = await createPublicInvoiceUrl(id); }
-    catch(e) { console.error('Could not create customer invoice URL for email', e); }
+    catch(e) {
+      console.error('Could not create customer invoice URL for email', e);
+      toast('Invoice was not emailed because its secure payment and signature page could not be prepared. '+(e?.message||'Please try again.'),true);
+      return;
+    }
   }
   let body = buildDocSummaryText(type, doc, customerInvoiceUrl);
   let htmlBody = buildDocEmailHtml(type, doc, customerInvoiceUrl);
