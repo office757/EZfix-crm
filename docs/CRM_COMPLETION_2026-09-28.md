@@ -14,9 +14,12 @@ do not rebuild its working catalog, invoice, estimate, or calendar workflows.
 | Replay storage | Production rejected WAV; Storage API repair added `audio/wav`, preserving private access and 15 MiB limit | Fixed |
 | Replay preflight | v5 checks private bucket and WAV acceptance before queue claim or paid speech | Deployed; 7 handler checks pass |
 | Real replay persistence | One previously failed call is ready; private object exists, 101.18 seconds, two speaker cues | Verified backend path |
-| Updated release | All 35 release steps pass | Verified |
-| In-app playback | Cloud browser is at the CRM email/password gate | Awaiting owner sign-in |
-| Automatic replay | Cron remains inactive; 12 pending calls | Paused pending playback acceptance |
+| Updated release | All 36 release steps pass, including 7 catalog metadata checks | Verified |
+| In-app playback | Owner signed in; 101.18-second sample loaded and playback advanced with no audio error | Verified desktop browser |
+| Automatic replay | Cron 8 active; at 06:21 UTC four ready, nine pending, zero failed | Processing observed |
+| Catalog metadata | Normalized database metadata now drives item type and related-labor selection | Fixed; 7 regression checks |
+| Existing catalog | 84 legacy defaults repaired; 48 labor and 36 physical products; rates preserved | Production readback verified |
+| Preserved catalog | 80 master records and two custom priced records compare unchanged | Verified |
 
 Original provider recordings remain unavailable in the checked production data.
 Synthetic replay must always stay explicitly separate from original recordings.
@@ -42,9 +45,24 @@ place calls, make payments, or label live flows complete merely because tests pa
 
 ## Immediate continuation
 
-1. Authenticate the owner securely in the existing CRM browser tab.
-2. Open Call History and play the ready synthetic replay; verify disclosure,
-   loading, playback, words/numbers and both voices. No new generation is needed.
-3. Decide whether the existing replay queue is ready to resume; keep it paused
-   if playback fails. Long-call deadlines and the 15 MiB limit remain constraints.
-4. Continue the operational money/document flow and the website-lead path.
+1. Verify deployed Quick Payment product selection and its related-labor popup.
+2. Verify calendar navigation survives a page reload.
+3. Continue the operational money/document flow and the website-lead path.
+4. Keep the separate acceptance items explicit: speech fidelity, iPhone/iPad,
+   long-call deadlines and the existing 15 MiB storage limit.
+
+## Catalog repair details
+
+`fromDbRow` flattens JSON metadata onto each product. The picker previously
+looked only inside `appData`/`app_data`, losing explicit item type and labor IDs.
+Both normalized and raw shapes now work. New default records carry explicit type,
+related labor IDs and the existing company tax treatment; prices remain zero.
+
+The one-time SQL under `supabase/data-fixes` changed only details, taxable and
+the two metadata fields for 84 exact reviewed records. It uses the pre-existing
+service maintenance role accepted by the owner-managed metadata trigger, with
+transactional compare-and-swap guards. No grants, RLS or triggers changed.
+The first attempts failed atomically (column mismatch, then missing maintenance
+role); readback confirmed no partial writes. Final readback: 78 products, 86 labor,
+two custom records, zero price changes and zero taxable labor records.
+Historical invoices and estimates were not rewritten.

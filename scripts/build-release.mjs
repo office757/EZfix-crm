@@ -13,6 +13,7 @@ const scripts = [
   'audit-ui-state.mjs',
   'build-ui-state.mjs',
   'audit-product-catalog-ui.mjs',
+  'audit-catalog-labor-metadata.mjs',
   'build-product-catalog-ui.mjs',
   'audit-visualizer-gallery-premium.mjs',
   'build-visualizer-gallery-premium.mjs',
