@@ -190,6 +190,8 @@
   .launcher-tile:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
   .launcher-tile-emoji { font-size: 23px; line-height: 1; flex: none; }
   .launcher-tile-label { font-weight: 700; font-size: 14px; text-align: left; color: var(--ink); line-height: 1.35; overflow-wrap: anywhere; }
+  .launcher-tiles-centered .launcher-tile { display: grid; grid-template-columns: 23px minmax(0, 1fr) 23px; }
+  .launcher-tiles-centered .launcher-tile-label { text-align: center; }
   .work-navigation { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
   .work-navigation .btn { flex: 1; min-height: 44px; }
   .settings-tools { margin-bottom: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
@@ -1165,7 +1167,7 @@ const CATEGORY_META = {
   'Sales & Billing': { emoji:'💳', header:'#242424' },
   'Gallery & Visualizer': { emoji:'🖼️', header:'#242424', paired:true },
   'Service & Stock': { emoji:'🧰', header:'#242424' },
-  'Team & Payroll': { emoji:'👥', header:'#242424', paired:true },
+  'Team & Payroll': { emoji:'👥', header:'#242424', paired:true, centered:true },
 };
 
 function sidebarNavItems() {
@@ -1796,7 +1798,7 @@ function renderModuleLauncherHtml() {
           <div class="launcher-cat-head" style="background:${meta.header}">
             <span style="font-size:16px">${meta.emoji}</span> ${esc(cat.name.toUpperCase())}
           </div>
-          <div class="launcher-tiles${meta.paired?' launcher-tiles-paired':''}">
+          <div class="launcher-tiles${meta.paired?' launcher-tiles-paired':''}${meta.centered?' launcher-tiles-centered':''}">
             ${cat.items.map(n=>`<button class="launcher-tile${n.fullWidth?' launcher-tile-wide':''}" onclick="go('${n.key}')" aria-label="${esc(n.label)}">
               <span class="launcher-tile-emoji" aria-hidden="true">${n.emoji||'•'}</span>
               <span class="launcher-tile-label">${n.label}</span>
