@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {stripTypeScriptTypes} from 'node:module';
 import {rankTechnicians,parseWindow,requestedSlot,normalizePolicy,validateProfile} from '../supabase/functions/_shared/dispatch-ranking.mjs';
 const now=Date.parse('2026-09-28T11:00:00Z');
 const lead={id:'lead',name:'Test Customer',phone:'+12025550148',address:'10 Example Street',service_requested:'Broken spring',app_data:{zip:'01757',preferred_appointment:'2026-09-29',preferred_time:'8 AM - 6 PM'}};
@@ -30,4 +33,16 @@ test('unapproved job types are excluded',()=>assert.equal(run({lead:{...lead,ser
 test('profile needs real owner inputs before enabling',()=>assert.throws(()=>validateProfile({enabled:true,dailyLimit:3,hourlyCost:0,shifts:{},specialties:{},travelMinutesByZip:{}})));
 test('cross-noon and 24-hour appointment windows',()=>{assert.deepEqual(parseWindow('11–2 PM'),[660,840]);assert.deepEqual(parseWindow('08:00–10:00'),[480,600]);assert.equal(parseWindow('tomorrow whenever'),null);});
 test('rerouting retains original customer window',()=>{const r=run({lead:{...lead,app_data:{...lead.app_data,preferred_time:'09:00–10:00',routing_request:{date:'2026-09-29',start:480,end:1080}}}});assert.equal(r.slot.end,1080);});
+// Exercise the real database-loading adapter against the verified production
+// invoice schema: status is app_data metadata, not a SQL invoice column.
+const edge=fs.readFileSync('supabase/functions/ashley-dispatch/index.ts','utf8');
+const loader=stripTypeScriptTypes(edge.slice(edge.indexOf('const requireData='),edge.indexOf('function deriveSlot(')));
+const invoiceColumns=new Set(['id','job_id','items','discount','deleted_at','app_data']);
+const invoiceRows=[{id:'invoice',job_id:'done',items:[{qty:1,rate:200}],discount:0,deleted_at:null,app_data:{status:'void'}},{id:'ordinary',items:[],app_data:null}];
+const db={from(table){const q={select(columns){if(table==='invoices')for(const c of columns.split(','))assert.ok(invoiceColumns.has(c),'Unknown production invoice column: '+c);return q;},eq:()=>q,is:()=>q,gte:()=>q,order:()=>q,range:async()=>({data:table==='invoices'?invoiceRows:[]}),then:(resolve,reject)=>Promise.resolve({data:[]}).then(resolve,reject)};return q;}};
+const ctx={console};vm.createContext(ctx);vm.runInContext(loader,ctx);
+const loaded=await ctx.dataset(db);
+test('real dataset loader uses existing invoice columns',()=>assert.equal(loaded.invoices.length,2));
+test('real dataset loader preserves void metadata',()=>assert.equal(loaded.invoices[0].status,'void'));
+test('invoices without status metadata remain usable',()=>assert.equal(loaded.invoices[1].status,undefined));
 console.log(`Ashley routing: ${count} passed.`);

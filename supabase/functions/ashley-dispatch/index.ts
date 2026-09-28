@@ -17,10 +17,10 @@ async function dataset(db:any){
   allRows(()=>db.from('team').select('id,name,role,status,auth_user_id').eq('role','technician')),
   db.from('technician_dispatch_profiles').select('*').then(requireData),
   allRows(()=>db.from('jobs').select('id,technician_id,status,scheduled_date,appointment_window,app_data,title,created_at,updated_at,deleted_at').is('deleted_at',null)),
-  allRows(()=>db.from('invoices').select('id,job_id,status,items,discount,deleted_at').is('deleted_at',null)),
+  allRows(()=>db.from('invoices').select('id,job_id,items,discount,deleted_at,app_data').is('deleted_at',null)),
   allRows(()=>db.from('lead_offers').select('id,lead_id,technician_id,status,expires_at,created_at').gte('created_at',new Date(Date.now()-90*86400000).toISOString()))
  ]);
- return {team,profiles,jobs,invoices,offers};
+ return {team,profiles,jobs,invoices:invoices.map((invoice:any)=>({...invoice,status:invoice.app_data?.status})),offers};
 }
 function deriveSlot(text:string,at:string,timezone:string){
  const s=String(text||'').toLowerCase();if(/\b(next|maybe|possibly|either|or|not sure)\b/.test(s))return null;const base=localDate(at,timezone).date,d=new Date(base+'T12:00Z');
