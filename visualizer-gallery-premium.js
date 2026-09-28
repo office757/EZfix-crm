@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 
-const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:false,limit:80,tab:'models'};
+const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
 window.__visCatalogState=visCatalogState;
 const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||(window.DoorDesign?.profile(p)?window.DoorDesign.defaultImage(p):(p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''))):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
 const referenceDoors=()=>STORE.products.filter(p=>val(p,'catalogKind')==='garage_door_model');
@@ -22,7 +22,8 @@ window.DoorFavorites={ids:favoriteIds,toggle:toggleVisFavorite};
 function favoriteButton(p){const saved=favoriteIds().has(p.id);return '<button type="button" class="vg-star '+(saved?'saved':'')+'" data-favorite-id="'+esc(p.id)+'" aria-pressed="'+saved+'" aria-label="'+(saved?'Remove ':'Save ')+esc(p.name)+' '+(saved?'from':'to')+' favorites" title="'+(saved?'Remove favorite':'Save favorite')+'" onclick="toggleVisFavorite(this.dataset.favoriteId)">'+(saved?'★':'☆')+'</button>';}
 function modelCard(p,i,d){
  const ready=!!(val(p,'visualizerOverlayUrl')||window.DoorDesign?.choice({referenceProductId:p.id}));
- return '<article class="vg-model-tile '+(d.referenceProductId===p.id?'selected':'')+'"><button class="vg-door-card" data-product-id="'+esc(p.id)+'" onclick="selectVisReferenceDoor('+i+',this.dataset.productId)"><div class="vg-door-thumb">'+(val(p,'imageUrl')?'<img loading="lazy" src="'+esc(val(p,'imageUrl'))+'" alt="'+esc(p.name)+'">':'🚪')+'<span class="'+(ready?'is-ready':'')+'">'+(ready?'On-home preview':'Reference')+'</span></div><div class="vg-door-copy"><b>'+esc(p.name)+'</b><span>'+esc([p.manufacturer,val(p,'collection')].filter(Boolean).join(' · '))+'</span><small>'+esc(window.DoorDesign?.imageLabel(p)||'Model photo')+'</small></div></button>'+favoriteButton(p)+'</article>';
+ const f=window.DoorDesign?.family(p),title=!visCatalogState.search&&f?f.label:p.name;
+ return '<article class="vg-model-tile '+(d.referenceProductId===p.id||f&&f.id===window.DoorDesign?.family(refDoor(d))?.id?'selected':'')+'"><button class="vg-door-card" data-product-id="'+esc(p.id)+'" onclick="selectVisReferenceDoor('+i+',this.dataset.productId)"><div class="vg-door-thumb">'+(val(p,'imageUrl')?'<img loading="lazy" src="'+esc(val(p,'imageUrl'))+'" alt="'+esc(p.name)+'">':'🚪')+'<span class="'+(ready?'is-ready':'')+'">'+(ready?'On-home preview':'Reference')+'</span></div><div class="vg-door-copy"><b>'+esc(title)+'</b><span>'+esc(p.manufacturer||'')+'</span><small>'+esc(window.DoorDesign?.imageLabel(p)||'Model photo')+'</small></div></button>'+favoriteButton(p)+'</article>';
 }
 const overlayUrl=d=>{
   const p=refDoor(d);
@@ -44,8 +45,10 @@ const doorSpec=d=>{
 };
 const visImg=(d,idx,active=false)=>{
   const url=overlayUrl(d); if(!url)return '';
-  return '<img data-dooridx="'+idx+'" src="'+esc(url)+'" class="vis-door-overlay '+(active?'vis-door-active':'')+'" style="left:'+d.pos.x+'%;top:'+d.pos.y+'%;transform:translate(-50%,-50%) rotate('+d.pos.rotation+'deg) scale('+d.pos.scale+');opacity:'+d.pos.opacity+'" onpointerdown="startDoorDrag(event,'+idx+')">';
+  return '<img data-dooridx="'+idx+'" src="'+esc(url)+'" class="vis-door-overlay '+(active?'vis-door-active':'')+'" style="'+visDoorStyle(d)+'" onpointerdown="startDoorDrag(event,'+idx+')">';
 };
+function visDoorStyle(d){return 'left:'+d.pos.x+'%;top:'+d.pos.y+'%;width:'+(d.pos.widthPct||30)+'%;'+(d.pos.heightPct?'height:'+d.pos.heightPct+'%;':'')+'transform:translate(-50%,-50%) rotate('+d.pos.rotation+'deg) scale('+d.pos.scale+');opacity:'+d.pos.opacity;}
+window.setVisFit=function(idx,key,value){const n=Number(value),d=visState.doors[idx];if(!d||!['widthPct','heightPct'].includes(key)||!Number.isFinite(n))return;d.pos[key]=Math.max(5,Math.min(100,n));const el=document.querySelector('#visStage [data-dooridx="'+idx+'"]');if(el)el.style[key==='widthPct'?'width':'height']=d.pos[key]+'%';};
 
 const baseFresh=freshDoorConfig;
 freshDoorConfig=function(){
@@ -89,17 +92,17 @@ async function selectVisReferenceDoor(idx,id){
   try{await Promise.all(visState.doors.slice(0,visState.doorCount).map(d=>window.DoorDesign?.prepare(d)));if(route.page==='visualizer')render();}catch(e){toast(e.message,true);}
 }
 window.selectVisReferenceDoor=selectVisReferenceDoor;
-function visCatalogSearch(value){const el=document.activeElement,at=el?.selectionStart;visCatalogState.search=value;visCatalogState.limit=80;render();const input=document.getElementById('visModelSearch');input?.focus();if(typeof at==='number')input?.setSelectionRange(at,at);}
-function visCatalogManufacturer(value){visCatalogState.manufacturer=value;visCatalogState.collection='';visCatalogState.limit=80;render();}
-function visCatalogCollection(value){visCatalogState.collection=value;visCatalogState.limit=80;render();}
-function visCatalogReadyOnly(checked){visCatalogState.readyOnly=!!checked;visCatalogState.limit=80;render();}
+function visCatalogSearch(value){const el=document.activeElement,at=el?.selectionStart;visCatalogState.search=value;visCatalogState.limit=12;if(visCatalogState.tab==='design')visCatalogState.tab='models';render();const input=document.getElementById('visModelSearch');input?.focus();if(typeof at==='number')input?.setSelectionRange(at,at);}
+function visCatalogManufacturer(value){visCatalogState.manufacturer=value;visCatalogState.collection='';visCatalogState.limit=12;if(visCatalogState.tab==='design')visCatalogState.tab='models';render();}
+function visCatalogCollection(value){visCatalogState.collection=value;visCatalogState.limit=12;render();}
+function visCatalogReadyOnly(checked){visCatalogState.readyOnly=!!checked;visCatalogState.limit=12;if(visCatalogState.tab==='design')visCatalogState.tab='models';render();}
 window.visCatalogSearch=visCatalogSearch;window.visCatalogManufacturer=visCatalogManufacturer;window.visCatalogCollection=visCatalogCollection;window.visCatalogReadyOnly=visCatalogReadyOnly;
 
 function showMoreVisDoors(){
-  visCatalogState.limit+=80;
+  visCatalogState.limit+=12;
   render();
   const cards=document.querySelectorAll('.vg-door-card');
-  cards[Math.max(0,visCatalogState.limit-80)]?.focus({preventScroll:true});
+  cards[Math.max(0,visCatalogState.limit-12)]?.focus({preventScroll:true});
 }
 window.showMoreVisDoors=showMoreVisDoors;
 function setVisOpacity(idx,value){
@@ -129,7 +132,7 @@ async function uploadVisualizerOverlay(productId,input){
   const file=input?.files?.[0]; if(!file)return;
   try{
     const res=await uploadAsset(file,'visualizer-overlays');
-    await dbSet('products',productId,{visualizerOverlayUrl:res.url,visualizerOverlayId:res.id});
+    await dbSet('products',productId,{visualizerOverlayUrl:res.url,visualizerOverlayId:res.id,visualizerOverlayAsset:res});
     visState.doors.forEach(d=>{if(d.referenceProductId===productId){delete d.visualDesignOverride;delete d.designPreview;}});
     toast('Visualizer overlay saved');
     render();
@@ -137,32 +140,45 @@ async function uploadVisualizerOverlay(productId,input){
 }
 window.uploadVisualizerOverlay=uploadVisualizerOverlay;
 
-const baseRenderVisualizer=renderVisualizer;
+let visWorkspaceTab='designer',savedDesignSearch='';
+window.setVisWorkspaceTab=function(tab){visWorkspaceTab=tab==='saved'?'saved':'designer';render();};
+window.searchSavedVisualizerDesigns=function(value){savedDesignSearch=value;const caret=document.activeElement?.selectionStart;render();const input=document.getElementById('savedDesignSearch');input?.focus();if(typeof caret==='number')input?.setSelectionRange(caret,caret);};
+const originalResetVisualizer=resetVisualizer;
+resetVisualizer=function(){visWorkspaceTab='designer';visCatalogState.tab='models';originalResetVisualizer();};
+window.resetVisualizer=resetVisualizer;
 renderVisualizer=function(content,actions){
-  baseRenderVisualizer(content,actions);
-  if(visState.step!==1)return;
-  const designs=[...(STORE.savedDesigns||[])].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  if(!designs.length)return;
-  const body=document.getElementById('visStepBody'); if(!body)return;
-  const library=document.createElement('section'); library.className='vg-saved-library';
-  library.innerHTML='<div class="vg-saved-head"><div><span>Saved Designs</span><h3>Continue a customer design</h3></div><b>'+designs.length+'</b></div><div class="vg-saved-grid">'+designs.map(d=>{
-    const customer=d.customerId?getOne('customers',d.customerId):null;
-    const name=d.designName||customer?.name||'Garage Door Design';
-    const doors=Array.isArray(d.doors)?d.doors:[];
-    const preview=d.previewImageUrl||d.houseImageUrl||'';
-    return '<article class="vg-saved-card">'+(preview?'<img src="'+esc(preview)+'" alt="">':'<div class="vg-saved-placeholder">Design</div>')+'<div class="vg-saved-copy"><span>'+(customer?esc(customer.name):'Unlinked design')+'</span><b>'+esc(name)+'</b><small>'+doors.length+' door'+(doors.length===1?'':'s')+(d.createdAt?' · '+fmtDate(d.createdAt):'')+'</small><div><button class="btn btn-sm btn-primary" onclick="resumeSavedVisualizerDesign(\''+d.id+'\')">Resume</button>'+(IS_OWNER?'<button class="btn btn-sm" onclick="deleteSavedVisualizerDesign(\''+d.id+'\')">Delete</button>':'')+'</div></div></article>';
-  }).join('')+'</div>';
-  body.parentNode.insertBefore(library,body);
+ if(visState.step>2&&!visState.houseImage)visState.step=2;
+ const saved=visWorkspaceTab==='saved';
+ actions.innerHTML=saved&&IS_OWNER?'<button class="btn" onclick="go(\'viscatalog\')">Door image library</button>':'<button class="btn" onclick="resetVisualizer()">New design</button>';
+ const steps=['Door size','Home image','Design door','Review & save'];
+ content.innerHTML='<div class="studio-shell"><div class="studio-workspace-tabs" role="group" aria-label="Visualizer workspace"><button class="'+(!saved?'active':'')+'" onclick="setVisWorkspaceTab(\'designer\')">Designer</button><button class="'+(saved?'active':'')+'" onclick="setVisWorkspaceTab(\'saved\')">Saved designs <span>'+(STORE.savedDesigns||[]).length+'</span></button></div>'+
+ (!saved?'<div class="vis-steps">'+steps.map((label,i)=>'<button class="vis-step '+(visState.step===i+1?'active':'')+' '+(visState.step>i+1?'done':'')+'" '+(i+1>visState.step?'disabled':'onclick="visState.step='+(i+1)+';render()"')+'><span class="vis-step-num">'+(visState.step>i+1?'✓':i+1)+'</span><span class="vis-step-label">'+label+'</span></button>').join('')+'</div>':'')+'<div id="visStepBody"></div></div>';
+ const body=document.getElementById('visStepBody');
+ if(saved){
+  const term=savedDesignSearch.toLowerCase(),designs=[...(STORE.savedDesigns||[])].filter(d=>[d.designName,getOne('customers',d.customerId)?.name].some(x=>String(x||'').toLowerCase().includes(term))).sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+  body.innerHTML='<section class="studio-library"><header><div><h2>Saved customer designs</h2><p>Open a design to continue with its home photo and selected doors.</p></div><button class="btn btn-primary" onclick="resetVisualizer()">+ New design</button></header><input id="savedDesignSearch" aria-label="Search saved designs" placeholder="Search by design or customer…" value="'+esc(savedDesignSearch)+'" oninput="searchSavedVisualizerDesigns(this.value)"><div class="vg-saved-grid">'+designs.map(d=>{
+   const customer=getOne('customers',d.customerId),preview=d.previewImageUrl||d.houseImage?.url||d.houseImageUrl||'';
+   return '<article class="vg-saved-card">'+(preview?'<img src="'+esc(preview)+'" alt="Saved customer design">':'<div class="vg-saved-placeholder">Design</div>')+'<div class="vg-saved-copy"><span>'+esc(customer?.name||'Unlinked design')+'</span><b>'+esc(d.designName||customer?.name||'Garage door design')+'</b><small>'+((d.doors||[]).length||1)+' door(s) · '+esc(fmtDate(d.updatedAt||d.createdAt))+'</small><div><button class="btn btn-sm btn-primary" data-design-id="'+esc(d.id)+'" onclick="resumeSavedVisualizerDesign(this.dataset.designId)">Open design</button>'+(IS_OWNER?'<button class="btn btn-sm" data-design-id="'+esc(d.id)+'" onclick="deleteSavedVisualizerDesign(this.dataset.designId)">Delete</button>':'')+'</div></div></article>';
+  }).join('')+'</div>'+(!designs.length?'<div class="vg-empty-state"><b>No saved designs here yet</b><p>Create a design, then save it from Review.</p></div>':'')+'</section>';return;
+ }
+ if(visState.step===1)return renderVisStep1(body);
+ if(visState.step===2)return renderVisStep2(body);
+ if(visState.step===3)return renderVisStep3(body);
+ renderVisStep4(body);
 };
 window.renderVisualizer=renderVisualizer;
-
-function resumeSavedVisualizerDesign(id){
-  const d=getOne('savedDesigns',id); if(!d)return toast('Saved design not found',true);
-  const doors=Array.isArray(d.doors)&&d.doors.length?JSON.parse(JSON.stringify(d.doors)):[freshDoorConfig()];
-  visState={step:d.houseImageUrl?3:2,doorCount:Number(d.doorCount)||doors.length||1,doors,activeDoor:0,applyToAll:false,houseImage:d.houseImageUrl?{id:d.houseImageId||null,url:d.houseImageUrl}:null,presetCustomerId:d.customerId||'',presetLeadId:'',presetJobId:'',compareList:[]};
-  render(); toast('Saved design loaded');
+async function resumeSavedVisualizerDesign(id){
+ const d=getOne('savedDesigns',id);if(!d)return toast('Saved design not found',true);
+ const house=d.houseImage?.url?{...d.houseImage}:d.houseImageId?{id:d.houseImageId,url:d.houseImageUrl}:d.houseImageUrl?{url:d.houseImageUrl}:null;
+ if(house?.id?.startsWith(ASSET_BUCKET+'/')){
+  try{const {data,error}=await SB.storage.from(ASSET_BUCKET).createSignedUrl(house.id.slice(ASSET_BUCKET.length+1),3600);if(error||!data?.signedUrl)throw error;house.url=data.signedUrl;}catch{return toast('The home photo could not be loaded. Try again.',true);}
+ }
+ const doors=(Array.isArray(d.doors)&&d.doors.length?JSON.parse(JSON.stringify(d.doors)):[freshDoorConfig()]).map(x=>({...freshDoorConfig(),...x,pos:{...freshDoorConfig().pos,...x.pos}}));
+ visState={step:house?3:2,doorCount:Math.min(4,Number(d.doorCount)||doors.length||1),doors,activeDoor:0,applyToAll:false,houseImage:house,presetCustomerId:d.customerId||'',presetLeadId:'',presetJobId:'',compareList:[],savedDesignId:d.id,designName:d.designName||''};
+ visWorkspaceTab='designer';visCatalogState.tab=doors[0].referenceProductId?'design':'models';render();toast('Saved design loaded');
 }
 window.resumeSavedVisualizerDesign=resumeSavedVisualizerDesign;
+
 async function deleteSavedVisualizerDesign(id){
   if(!IS_OWNER)return toast('Owner access required',true);
   if(!confirm('Delete this saved design?'))return;
@@ -172,109 +188,104 @@ window.deleteSavedVisualizerDesign=deleteSavedVisualizerDesign;
 
 openSaveDesignModal=function(){
   const defaultCustomer=visState.presetCustomerId?getOne('customers',visState.presetCustomerId):null;
-  showModal({title:'Save this design',body:'<label class="field"><span class="lbl">Design name</span><input id="f_visdesignname" value="'+esc(defaultCustomer?defaultCustomer.name+' Garage Door Design':'Garage Door Design')+'"></label><label class="field"><span class="lbl">Link to customer (optional)</span>'+customerPickerHtml(visState.presetCustomerId)+'</label><p class="muted" style="font-size:12px">The exact door selections, positions and home photo are saved so this design can be resumed later.</p>',onSave:async()=>{
+  showModal({title:'Save this design',body:'<label class="field"><span class="lbl">Design name</span><input id="f_visdesignname" value="'+esc(visState.designName||(defaultCustomer?defaultCustomer.name+' Garage Door Design':'Garage Door Design'))+'"></label><label class="field"><span class="lbl">Link to customer (optional)</span>'+customerPickerHtml(visState.presetCustomerId)+'</label><p class="muted" style="font-size:12px">The exact door selections, positions and home photo are saved so this design can be resumed later.</p>',onSave:async()=>{
     const customerId=document.getElementById('f_customer').value;
     const designName=document.getElementById('f_visdesignname').value.trim()||'Garage Door Design';
     const previewUrl=await captureVisPreview();
-    await dbAdd('savedDesigns',{customerId:customerId||null,designName,houseImageId:visState.houseImage?.id||null,houseImageUrl:visState.houseImage?.url||null,doorCount:visState.doorCount,doors:JSON.parse(JSON.stringify(visState.doors.slice(0,visState.doorCount))),previewImageUrl:previewUrl});
-    toast('Design saved'); closeModal();
+    const record={customerId:customerId||null,designName,houseImage:visState.houseImage,houseImageId:visState.houseImage?.id||null,houseImageUrl:visState.houseImage?.url||null,doorCount:visState.doorCount,doors:JSON.parse(JSON.stringify(visState.doors.slice(0,visState.doorCount))),previewImageUrl:previewUrl};
+    if(visState.savedDesignId)await dbSet('savedDesigns',visState.savedDesignId,record);else visState.savedDesignId=await dbAdd('savedDesigns',record);visState.designName=designName;
+    toast('Design saved'); closeModal();render();
   }});
 };
 window.openSaveDesignModal=openSaveDesignModal;
 
+renderVisStep1=function(body){
+ visState.doors.forEach(d=>{if(d.customSize){d.width=d.customWidth||d.width;d.height=d.customHeight||d.height;d.customSize=false;}});
+ body.innerHTML=`<section class="studio-setup"><div class="studio-setup-heading"><span>01 / OPENINGS</span><h2>Start with the garage doors</h2><p>Set the number of openings and their dimensions.</p></div><div class="studio-count"><b>Number of doors</b><div>${[1,2,3,4].map(n=>`<button class="${visState.doorCount===n?'active':''}" aria-pressed="${visState.doorCount===n}" onclick="setVisDoorCount(${n})">${n} ${n===1?'door':'doors'}</button>`).join('')}</div></div><div class="studio-dimensions">${visState.doors.slice(0,visState.doorCount).map((d,i)=>`<section><h3>Door ${i+1}</h3><div><label>Width · ft<input type="number" aria-label="Door ${i+1} width" min="4" max="30" step=".5" value="${esc(d.customSize?d.customWidth:d.width)}" onchange="visState.doors[${i}].width=this.value;visState.doors[${i}].customSize=false"></label><span>×</span><label>Height · ft<input type="number" aria-label="Door ${i+1} height" min="4" max="20" step=".5" value="${esc(d.customSize?d.customHeight:d.height)}" onchange="visState.doors[${i}].height=this.value;visState.doors[${i}].customSize=false"></label></div></section>`).join('')}</div><footer><span>Typical openings: 8 × 7 ft or 16 × 7 ft</span><button class="btn btn-primary" onclick="continueVisualizerSetup()">Choose home photo →</button></footer></section>`;
+};
+window.continueVisualizerSetup=function(){
+ if(visState.doors.slice(0,visState.doorCount).some(d=>{const w=Number(d.customSize?d.customWidth:d.width),h=Number(d.customSize?d.customHeight:d.height);return !Number.isFinite(w)||!Number.isFinite(h)||w<4||w>30||h<4||h>20;}))return toast('Enter a width of 4–30 ft and a height of 4–20 ft.',true);
+ visState.step=2;render();
+};
+renderVisStep2=function(body){
+ body.innerHTML=`<section class="studio-setup studio-photo"><div class="studio-setup-heading"><span>02 / HOME IMAGE</span><h2>Your customer’s home</h2><p>Take a photo, upload one, or start with an EZfix reference below.</p></div><div class="studio-photo-actions"><label for="f_housecamera"><span>◎</span><b>Take a photo</b><small>Use your phone camera</small></label><label for="f_houseimg"><span>↥</span><b>Upload a photo</b><small>JPG, PNG or WebP · up to 15 MB</small></label></div><input hidden type="file" accept="image/*" capture="environment" id="f_housecamera"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="f_houseimg"><div class="studio-reference-heading"><h3>Or use an EZfix reference</h3><span>Our prepared style illustrations</span></div><div class="studio-reference-grid">${DOOR_STYLE_EXAMPLES.map(([id,name,detail])=>`<button class="studio-reference ${visState.houseImage?.referenceId===id?'selected':''}" data-reference="${id}" aria-pressed="${visState.houseImage?.referenceId===id}" onclick="selectVisReferenceImage(this.dataset.reference)"><img src="/assets/door-styles/${id}.png" alt="${esc(name)} reference" loading="lazy"><b>${esc(name)}</b><small>${esc(detail)}</small></button>`).join('')}</div>${visState.houseImage?`<div class="studio-photo-selection"><img src="${esc(visState.houseImage.url)}" alt="Selected home image"><div><span>Selected image</span><b>${esc(visState.houseImage.name||'Customer photo')}</b><small>${visState.houseImage.kind==='reference'?'EZfix illustration · choose an actual catalog model next':'Customer photo'}</small></div></div>`:''}<footer><button class="btn" onclick="visState.step=1;render()">← Door size</button><button class="btn btn-primary" ${visState.houseImage?'':'disabled'} onclick="visState.step=3;render()">Choose door design →</button></footer></section>`;
+ const upload=async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024)return toast('Choose a JPG, PNG or WebP photo smaller than 15 MB.',true);
+  try{toast('Uploading home photo…');const asset=await uploadAsset(file,'visualizer');visState.houseImage={...asset,name:file.name,kind:'customer'};visState.doors.forEach(d=>{d.pos={...freshDoorConfig().pos};});render();}catch(err){toast(err.message||'Home photo upload failed',true);}
+ };
+ document.getElementById('f_houseimg').addEventListener('change',upload);
+ document.getElementById('f_housecamera').addEventListener('change',upload);
+};
+window.selectVisReferenceImage=async function(id){
+ const ref=DOOR_STYLE_EXAMPLES.find(x=>x[0]===id);if(!ref)return;
+ try{
+  const count=visState.doorCount,cols=count===1?1:2,rows=Math.ceil(count/cols),url='/assets/door-styles/'+id+'.png';
+  let background=url;
+  if(count>1){const img=await window.DoorDesign.loadImage(url),canvas=document.createElement('canvas');canvas.width=1600;canvas.height=Math.round(1600/cols*rows*.75);const ctx=canvas.getContext('2d');ctx.fillStyle='#eef0eb';ctx.fillRect(0,0,canvas.width,canvas.height);for(let i=0;i<count;i++)ctx.drawImage(img,i%cols*canvas.width/cols,Math.floor(i/cols)*canvas.height/rows,canvas.width/cols,canvas.height/rows);background=canvas.toDataURL('image/jpeg',.88);}
+  visState.houseImage={url:background,kind:'reference',referenceId:id,name:ref[1]+' · EZfix reference'};
+  const single=id.startsWith('single-');
+  visState.doors.slice(0,count).forEach((d,i)=>{d.pos={x:(i%cols*100+50)/cols,y:(Math.floor(i/cols)*100+(single?50:48))/rows,widthPct:(single?62.5:88)/cols,heightPct:(single?75:60)/rows,scale:1,rotation:0,opacity:1};});
+  render();
+ }catch(err){toast(err.message||'Reference image could not be loaded.',true);}
+};
+
 renderVisStep3=function(body){
-  const i=visState.activeDoor,d=visState.doors[i],selected=refDoor(d);
-  const refs=filteredReferenceDoors(),shown=refs.slice(0,visCatalogState.limit),all=referenceDoors();
-  const favorites=all.filter(p=>favoriteIds().has(p.id)),tab=visCatalogState.tab;
+  const i=visState.activeDoor,d=visState.doors[i],selected=refDoor(d),c=window.DoorDesign?.choice(d);
+  const refs=filteredReferenceDoors(),all=referenceDoors(),favorites=all.filter(p=>favoriteIds().has(p.id));
+  const list=visCatalogState.tab==='favorites'?refs.filter(p=>favoriteIds().has(p.id)):refs;
+  const groups=visCatalogState.search?list:(window.DoorDesign?.groupModels(list)||list),shown=groups.slice(0,visCatalogState.limit);
   const manufacturers=[...new Set(all.map(p=>p.manufacturer).filter(Boolean))].sort();
-  const collections=[...new Set(all.filter(p=>!visCatalogState.manufacturer||p.manufacturer===visCatalogState.manufacturer).map(p=>val(p,'collection')).filter(Boolean))].sort();
-  body.innerHTML=`
-    <div class="vg-layout">
-      <section class="vg-canvas-card">
-        <div class="vg-stage-head"><div><b>Your home. Your new door.</b><span>Drag to position · use the controls below to fit the opening</span></div><button class="btn btn-sm" onclick="visState.step=2;render()">Change photo</button></div>
-        <div class="vis-stage vg-stage" id="visStage">
-          <img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Home preview">
-          ${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}
-          ${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door to preview it on your home. This model currently has a reference image only.</div>':''}
-        </div>
-        <div class="vg-position-tools">
-          <button class="btn btn-sm" onclick="nudgeVisScale(-0.05)" aria-label="Make door smaller">− Size</button>
-          <button class="btn btn-sm" onclick="nudgeVisScale(0.05)" aria-label="Make door larger">+ Size</button>
-          <button class="btn btn-sm" onclick="nudgeVisRotation(-2)">↺ Rotate</button>
-          <button class="btn btn-sm" onclick="nudgeVisRotation(2)">↻ Rotate</button>
-          <button class="btn btn-sm" onclick="resetVisPosition()">Reset</button>
-          <label>Size <input type="range" min=".2" max="3" step=".01" value="${d.pos.scale}" oninput="setVisScale(${i},this.value)"></label>
-          <label>Opacity <input type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></label>
-        </div>
-        <div class="vg-favorites-shelf"><div><b>★ Favorite models</b><button class="btn btn-sm" onclick="visPickerTab('favorites')">View all (${favorites.length})</button></div>
-          ${favorites.length?'<div class="vg-favorite-strip">'+favorites.slice(0,8).map(p=>'<button data-product-id="'+esc(p.id)+'" onclick="selectVisReferenceDoor('+i+',this.dataset.productId)"><img src="'+esc(val(p,'imageUrl'))+'" alt=""><span>'+esc(p.name)+'</span></button>').join('')+'</div>':'<p>Tap the ☆ on any model to keep your go-to doors here.</p>'}
-        </div>
-      </section>
-      <section class="vg-picker-card">
-        <div class="vg-picker-title"><div><span class="vg-eyebrow">EZfix door studio</span><h3>Design Door ${i+1}</h3><p>Choose a model, then make it yours.</p></div><span>${all.length} models</span></div>
-        ${visState.doorCount>1?'<div class="vis-door-tabs">'+visState.doors.slice(0,visState.doorCount).map((dd,idx)=>'<button class="vis-door-tab '+(i===idx?'active':'')+'" onclick="visState.activeDoor='+idx+';render()">Door '+(idx+1)+'</button>').join('')+'</div>':''}
-        <div class="vg-picker-tabs" role="group" aria-label="Door selection view">${[['models','Models'],['design','Customize'],['favorites','★ Favorites ('+favorites.length+')']].map(([key,label])=>'<button aria-pressed="'+(tab===key)+'" class="'+(tab===key?'active':'')+'" onclick="visPickerTab(\''+key+'\')">'+label+'</button>').join('')}</div>
-        ${tab==='design'? (selected?`<div class="vg-selected-door">
-          <div class="vg-selected-image">${(overlayUrl(d)||val(selected,'imageUrl'))?'<img src="'+esc(overlayUrl(d)||val(selected,'imageUrl'))+'" alt="'+esc(selected.name)+'">':'🚪'}</div>
-          <div><b>${esc(selected.name)}</b><div>${esc(doorSpec(d))}</div><span class="${overlayUrl(d)?'vg-success':'vg-warning'}">${overlayUrl(d)?'On-home preview':'Reference image'}</span></div>${favoriteButton(selected)}
-        </div>${window.DoorDesign?.controls(d,i)||'<div class="vg-empty-state"><b>Manufacturer reference</b><p>This model has a catalog image. An exact front-view overlay is needed to preview it on a home.</p></div>'}
-        <button class="btn vg-change-model" onclick="visPickerTab('models')">Choose another model</button>
-        ${IS_OWNER?'<details class="vg-overlay-details"><summary>Use a custom door image</summary><label class="btn btn-sm vg-upload-btn">Upload front-view overlay<input type="file" accept="image/png,image/webp,image/jpeg" hidden data-product-id="'+esc(selected.id)+'" onchange="uploadVisualizerOverlay(this.dataset.productId,this)"></label></details>':''}`:'<div class="vg-empty-state"><b>Start with your door model</b><p>Panel and window options will appear here after you select a model.</p><button class="btn btn-primary" onclick="visPickerTab(\'models\')">Browse models</button></div>') : tab==='favorites' ?
-        '<p class="vg-device-note">Your starred models, saved on this device.</p>'+(favorites.length?'<div class="vg-door-grid">'+favorites.map(p=>modelCard(p,i,d)).join('')+'</div>':'<div class="vg-empty-state"><span>☆</span><b>Your favorites start here</b><p>Save the models you use most with a star.</p><button class="btn btn-primary" onclick="visPickerTab(\'models\')">Find a model</button></div>') : `
-        <div class="vg-filter-grid">
-          <input id="visModelSearch" aria-label="Search door models" placeholder="Search model, collection, material…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)">
-          <select aria-label="Manufacturer" onchange="visCatalogManufacturer(this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visCatalogState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
-          <select aria-label="Collection" onchange="visCatalogCollection(this.value)"><option value="">All collections</option>${collections.map(x=>'<option '+(visCatalogState.collection===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
-          <label class="vg-ready-filter"><input type="checkbox" ${visCatalogState.readyOnly?'checked':''} onchange="visCatalogReadyOnly(this.checked)"> On-home preview available</label>
-        </div>
-        <div class="vg-results-count">${refs.length} matching models</div><div class="vg-door-grid">${shown.map(p=>modelCard(p,i,d)).join('')}</div>
-        ${!refs.length?'<div class="vg-empty-state"><b>No matching models</b><p>Try a different model name or manufacturer.</p></div>':''}
-        ${refs.length>shown.length?'<div class="vg-more-note">Showing '+shown.length+' of '+refs.length+' doors <button class="btn btn-sm" onclick="showMoreVisDoors()">Show more doors</button></div>':''}`}
-        ${visState.doorCount>1?'<label class="vg-apply-all"><input type="checkbox" '+(visState.applyToAll?'checked':'')+' onchange="toggleVisApplyToAll(this.checked)"> Apply selected design to all doors</label>':''}
-      </section>
-    </div>
-    <div class="vg-footer-actions"><button class="btn" onclick="visState.step=2;render()">← Home Photo</button><span>Step 3 of 4 · Design your door</span><button class="btn btn-primary" ${!visState.doors.slice(0,visState.doorCount).some(x=>x.referenceProductId||x.modelId)?'disabled':''} onclick="visState.step=4;render()">Review & Save →</button></div>`;
+  const collectionBody=`<div class="vg-filter-grid"><input id="visModelSearch" aria-label="Search door models" placeholder="Search collection or exact model…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)"><select aria-label="Manufacturer" onchange="visCatalogManufacturer(this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visCatalogState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select><button class="btn btn-sm ${visCatalogState.tab==='favorites'?'btn-primary':''}" onclick="visPickerTab('${visCatalogState.tab==='favorites'?'models':'favorites'}')">★ Favorites (${favorites.length})</button><label class="vg-ready-filter"><input type="checkbox" ${visCatalogState.readyOnly?'checked':''} onchange="visCatalogReadyOnly(this.checked)"> On-home preview available</label></div><div class="vg-results-count">${groups.length} ${visCatalogState.search?'matching models':'collections'}</div><div class="vg-door-grid">${shown.map(p=>modelCard(p,i,d)).join('')}</div>${!groups.length?'<div class="vg-empty-state"><b>No matching doors</b><p>Change the search or manufacturer to see more.</p></div>':''}${groups.length>shown.length?'<button class="btn btn-sm studio-more" onclick="showMoreVisDoors()">Show more collections</button>':''}`;
+  body.innerHTML=`<div class="vg-layout">
+    <section class="vg-canvas-card">
+      <div class="vg-stage-head"><div><b>${visState.houseImage.kind==='reference'?'Your EZfix reference':'Your home. Your new door.'}</b><span>Drag the selected door to position it in the opening</span></div><button class="btn btn-sm" onclick="visState.step=2;render()">Change image</button></div>
+      <div class="vis-stage vg-stage" id="visStage"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Home preview">${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door from the collection panel to preview it here.</div>':''}</div>
+      <details class="studio-fit-panel"><summary>Fit door ${i+1} to the opening <span>${d.width} × ${d.height} ft</span></summary><div class="studio-fit-tools"><label>Width<input aria-label="Opening width" type="range" min="5" max="100" step=".5" value="${d.pos.widthPct||30}" oninput="setVisFit(${i},'widthPct',this.value)"></label><label>Height<input aria-label="Opening height" type="range" min="5" max="100" step=".5" value="${d.pos.heightPct||40}" oninput="setVisFit(${i},'heightPct',this.value)"></label><div><button class="btn btn-sm" onclick="nudgeVisRotation(-2)" aria-label="Rotate counterclockwise">↶</button><button class="btn btn-sm" onclick="nudgeVisRotation(2)" aria-label="Rotate clockwise">↷</button><button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button></div><details><summary>Transparency</summary><input aria-label="Door opacity" type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></details></div></details>
+      <p class="studio-preview-note">${visState.houseImage.kind==='reference'?'EZfix style illustration. ':''}Layout and finish preview · confirm final color and details against manufacturer samples.</p>
+    </section>
+    <section class="vg-picker-card studio-configurator">
+      <div class="vg-picker-title"><div><span class="vg-eyebrow">EZfix door studio</span><h3>Design Door ${i+1}</h3><p>${d.width}′ wide × ${d.height}′ tall${selected?' · '+esc(selected.manufacturer):''}</p></div>${selected?favoriteButton(selected):''}</div>
+      ${visState.doorCount>1?'<div class="vis-door-tabs">'+visState.doors.slice(0,visState.doorCount).map((dd,idx)=>'<button class="vis-door-tab '+(i===idx?'active':'')+'" onclick="visState.activeDoor='+idx+';visPickerTab(visState.doors['+idx+'].referenceProductId?\'design\':\'models\')">Door '+(idx+1)+'</button>').join('')+'</div>':''}
+      <details id="studioCollections" class="studio-option" name="door-configuration" ${!selected||visCatalogState.tab!=='design'?'open':''}><summary><span>Door collection</span><b>${esc(c?.f.label||doorCollection(d)||'Choose a collection')}</b></summary><div class="studio-option-body">${collectionBody}</div></details>
+      ${selected?(window.DoorDesign?.controls(d,i)||'<div class="vg-empty-state"><b>Manufacturer reference</b><p>This model has a reference photo. Its configuration options have not been verified yet.</p></div>'):'<p class="studio-selection-hint">Choose a collection to see its available designs and options.</p>'}
+      ${visState.doorCount>1?'<label class="vg-apply-all"><input type="checkbox" '+(visState.applyToAll?'checked':'')+' onchange="toggleVisApplyToAll(this.checked)"> Apply design to all doors</label>':''}
+    </section>
+  </div><div class="vg-footer-actions"><button class="btn" onclick="visState.step=2;render()">← Home image</button><span>Step 3 of 4 · Design your door</span><button class="btn btn-primary" ${!visState.doors.slice(0,visState.doorCount).every(x=>x.referenceProductId||x.modelId)?'disabled':''} onclick="visState.step=4;render()">Review & Save →</button></div>`;
 };
 window.renderVisStep3=renderVisStep3;
 
+function designSpecRows(d){
+ const p=refDoor(d),c=window.DoorDesign?.choice(d);
+ return [['Size',(d.customSize?d.customWidth:d.width)+' × '+(d.customSize?d.customHeight:d.height)+' ft'],['Brand',p?.manufacturer||getOne('manufacturers',legacyDoor(d)?.manufacturerId)?.name||''],['Collection',doorCollection(d)],['Construction',c?window.DoorDesign.modelLabel(c.p):doorTitle(d)],['Door design',c?.panel.label||''],['Color',c?.color.label||d.color||'As shown'],['Window placement',c?(window.DoorDesign.isClosed(c.panel,c.variant)?'Closed':'Top'):''],['Window design',c?.variant.label||''],['Glass',c?.glass?.label||'As shown'],['Hardware',c?.hardware?.label||'None']].filter(x=>x[1]);
+}
 function summaryCard(d,idx){
-  const p=refDoor(d),m=legacyDoor(d);
-  const size=d.customSize?(d.customWidth+"' × "+d.customHeight+"'"):(d.width+"' × "+d.height+"'");
-  const title=p?.name||m?.modelName||'Door not selected';
-  const meta=p?[p.manufacturer,val(p,'collection'),val(p,'material'),val(p,'rValue')?('R-'+val(p,'rValue')):'']:[getOne('manufacturers',m?.manufacturerId)?.name,m?.collectionName];
-  return '<article class="vg-summary-card"><span>Door '+(idx+1)+'</span><b>'+esc(title)+'</b><div>'+esc(meta.filter(Boolean).join(' · '))+'</div><small>'+esc(size)+'</small><div>'+esc(window.DoorDesign?.description(d)||'')+'</div></article>';
+ const img=overlayUrl(d)||val(refDoor(d),'imageUrl');
+ return '<article class="vg-summary-card studio-spec-card"><header><b>Door '+(idx+1)+'</b><button class="btn btn-sm" aria-label="Edit Door '+(idx+1)+'" onclick="visState.activeDoor='+idx+';visState.step=3;visPickerTab(\'design\')">Edit</button></header>'+(img?'<img src="'+esc(img)+'" alt="Configured door '+(idx+1)+'">':'')+'<dl>'+designSpecRows(d).map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl></article>';
 }
 renderVisStep4=function(body){
-  const configured=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId);
-  body.innerHTML=`
-    <div class="vg-review-grid">
-      <section class="vg-canvas-card">
-        <div class="vg-stage-head"><div><b>Before / After</b><span>Drag the divider to compare the original home and your design</span></div></div>
-        <div class="vis-ba-wrap vg-review-stage" id="visBaWrap">
-          <img src="${esc(visState.houseImage.url)}" class="vis-ba-after-bg">
-          ${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>{const u=overlayUrl(dd);return u?'<img src="'+esc(u)+'" class="vis-door-overlay" style="left:'+dd.pos.x+'%;top:'+dd.pos.y+'%;transform:translate(-50%,-50%) rotate('+dd.pos.rotation+'deg) scale('+dd.pos.scale+');opacity:'+dd.pos.opacity+';position:absolute">':''}).join('')}
-          <div class="vis-ba-before-wrap" id="visBaBeforeWrap" style="clip-path:inset(0 50% 0 0)"><img src="${esc(visState.houseImage.url)}" class="vis-ba-before-bg"></div>
-          <div class="vis-ba-handle" id="visBaHandle" style="left:50%" onpointerdown="startBaDrag(event)"></div>
-          <div class="vis-ba-label" style="left:8px">BEFORE</div><div class="vis-ba-label" style="right:8px">AFTER</div>
-        </div>
-      </section>
-      <aside class="vg-review-panel"><h3>Design Summary</h3><div class="vg-summary-list">${visState.doors.slice(0,visState.doorCount).map(summaryCard).join('')}</div></aside>
-    </div>
-    <div class="vg-review-actions">
-      <button class="btn" onclick="visState.step=3;render()">← Edit Design</button>
-      <button class="btn" onclick="addVisToCompare()">Compare</button>
-      <button class="btn" onclick="seeSimilarInstallations()">Similar Installations</button>
-      <button class="btn" onclick="shareDesign()">Share</button>
-      <button class="btn" onclick="openSaveDesignModal()">Save Design</button>
-      <button class="btn btn-primary" ${configured.length?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button>
-    </div>
-    ${visState.compareList.length?'<div class="panel vg-compare-strip"><div class="panel-head"><h3>Compare ('+visState.compareList.length+'/4)</h3></div><div class="panel-body">'+visState.compareList.map((c,ci)=>'<button class="btn" onclick="restoreVisCompare('+ci+')">Design '+String.fromCharCode(65+ci)+'</button>').join('')+'</div></div>':''}
-  `;
+ const doors=visState.doors.slice(0,visState.doorCount),configured=doors.every(d=>d.referenceProductId||d.modelId);
+ body.innerHTML=`<section class="studio-review"><div class="studio-review-heading"><span>04 / REVIEW & SAVE</span><h2>Your new garage door</h2><p>Review the image and the full specification before saving or creating an estimate.</p></div><div class="studio-beforeafter"><section><h3>Before</h3><div class="studio-review-image"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Before the door design"></div></section><section><h3>After</h3><div class="studio-review-image" id="visBaWrap"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="After design background">${doors.map(d=>{const u=overlayUrl(d);return u?'<img src="'+esc(u)+'" alt="Selected door overlay" class="vis-door-overlay" style="'+visDoorStyle(d)+';position:absolute">':''}).join('')}</div></section></div><p class="studio-preview-note">Preview colors and proportions may vary from the installed door.${doors.some(d=>{const c=window.DoorDesign?.choice(d);return c?.glass||c?.hardware;})?' Selected glass and hardware are listed below. Their appearance in the preview remains as shown in the original catalog image.':''}</p><div class="vg-review-actions studio-review-actions"><button class="btn" onclick="visState.step=3;render()">← Edit design</button><button class="btn" onclick="openSaveDesignModal()">Save Design</button><button class="btn" onclick="downloadVisPdf()">Save as PDF</button><button class="btn" onclick="window.print()">Print</button><button class="btn" onclick="shareDesign()">Share</button><button class="btn btn-primary" ${configured?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button></div><div class="studio-spec-grid">${doors.map(summaryCard).join('')}</div></section>`;
 };
 window.renderVisStep4=renderVisStep4;
+window.downloadVisPdf=async function(){
+ if(!window.jspdf)return toast('PDF tools are still loading. Please try again.',true);
+ try{
+  const after=await captureVisPreview(),house=await window.DoorDesign.loadImage(visState.houseImage.url),cv=document.createElement('canvas');cv.width=1000;cv.height=Math.round(1000*house.naturalHeight/house.naturalWidth);cv.getContext('2d').drawImage(house,0,0,cv.width,cv.height);
+  const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter'}),margin=36,w=258,ratio=house.naturalHeight/house.naturalWidth,iw=Math.min(w,290/ratio),h=iw*ratio;
+  pdf.setFont('helvetica','bold');pdf.setFontSize(21);pdf.text('EZfix | Garage door design',margin,46);pdf.setFontSize(10);pdf.setTextColor(105);pdf.text(visState.designName||'Your door selection',margin,66);
+  pdf.text('BEFORE',margin,94);pdf.text('AFTER',318,94);pdf.addImage(cv.toDataURL('image/jpeg',.85),'JPEG',margin+(w-iw)/2,106,iw,h);pdf.addImage(after,'JPEG',318+(w-iw)/2,106,iw,h);
+  let y=125+h;pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.text('Layout preview. Confirm colors, glass and hardware against manufacturer samples.',margin,y);y+=28;
+  for(const [idx,d] of visState.doors.slice(0,visState.doorCount).entries()){
+   if(y>620){pdf.addPage();y=44;}pdf.setTextColor(30);pdf.setFont('helvetica','bold');pdf.setFontSize(13);pdf.text('Door '+(idx+1),margin,y);y+=20;pdf.setFontSize(10);
+   for(const [label,value] of designSpecRows(d)){const lines=pdf.splitTextToSize(String(value).replace(/×/g,'x'),390);if(y+lines.length*12>745){pdf.addPage();y=44;}pdf.setFont('helvetica','normal');pdf.setTextColor(110);pdf.text(label,margin,y);pdf.setTextColor(30);pdf.text(lines,155,y);y+=Math.max(18,lines.length*12+5);}y+=20;
+  }
+  pdf.save((visState.designName||'EZfix-door-design').replace(/[^a-z0-9_-]/gi,'-')+'.pdf');
+ }catch(err){toast(err.message||'The design PDF could not be created.',true);}
+};
 
 shareDesign=function(){
-  const lines=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId).map((d,i)=>'Door '+(i+1)+': '+doorTitle(d)+(doorCollection(d)?' · '+doorCollection(d):'')).join('\n');
+  const lines=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId).map((d,i)=>'Door '+(i+1)+': '+doorTitle(d)+(doorCollection(d)?' · '+doorCollection(d):'')+' · '+designSpecRows(d).map(x=>x.join(': ')).join(' · ')).join('\n');
   shareOrCopy('Your garage door design',"Here's the garage door design we put together at "+COMPANY.name+":\n\n"+lines+"\n\nQuestions or ready to move forward? Call "+COMPANY.phone+".",'');
 };
 window.shareDesign=shareDesign;
@@ -296,7 +307,7 @@ captureVisPreview=async function(){
   const canvas=document.createElement('canvas');canvas.width=house.naturalWidth;canvas.height=house.naturalHeight;const ctx=canvas.getContext('2d');ctx.drawImage(house,0,0);
   for(const d of visState.doors.slice(0,visState.doorCount)){
     const src=overlayUrl(d);if(!src)continue;
-    try{const img=new Image();img.crossOrigin='anonymous';await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=src});const dw=canvas.width*.3*d.pos.scale,dh=dw*(img.naturalHeight/img.naturalWidth),cx=d.pos.x/100*canvas.width,cy=d.pos.y/100*canvas.height;ctx.save();ctx.globalAlpha=d.pos.opacity;ctx.translate(cx,cy);ctx.rotate(d.pos.rotation*Math.PI/180);ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore()}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
+    try{const img=new Image();img.crossOrigin='anonymous';await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=src});const dw=canvas.width*(d.pos.widthPct||30)/100*d.pos.scale,dh=d.pos.heightPct?canvas.height*d.pos.heightPct/100*d.pos.scale:dw*(img.naturalHeight/img.naturalWidth),cx=d.pos.x/100*canvas.width,cy=d.pos.y/100*canvas.height;ctx.save();ctx.globalAlpha=d.pos.opacity;ctx.translate(cx,cy);ctx.rotate(d.pos.rotation*Math.PI/180);ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore()}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
   }
   return canvas.toDataURL('image/jpeg',.86);
 };
@@ -338,7 +349,7 @@ window.setVisAdminFilter=setVisAdminFilter;
 async function clearVisualizerOverlay(productId){
   if(!IS_OWNER)return toast('Owner access required',true);
   if(!confirm('Remove the Visualizer overlay from this model? The reference product will remain.'))return;
-  await dbSet('products',productId,{visualizerOverlayUrl:null,visualizerOverlayId:null});
+  await dbSet('products',productId,{visualizerOverlayUrl:null,visualizerOverlayId:null,visualizerOverlayAsset:null});
   toast('Overlay removed'); render();
 }
 window.clearVisualizerOverlay=clearVisualizerOverlay;

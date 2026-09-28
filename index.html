@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/assets/vendor/jspdf-2.5.1.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -705,7 +705,7 @@
 <!-- EZFIX_PRODUCT_CATALOG_UI_V1_HEAD --><link rel="stylesheet" href="/product-catalog-ui.css" data-ezfix-product-catalog="v1"><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_HEAD -->
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_HEAD --><link rel="stylesheet" href="/marketing-connections-ui.css" data-ezfix-marketing-ui="v1"><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_HEAD -->
-<!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
+<link rel="stylesheet" href="/workspace-overview.css"><link rel="stylesheet" href="/lead-dispatch.css"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#181818"><!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
 .cal-week-toolbar,.cal-day-toolbar{grid-template-columns:auto minmax(0,1fr);gap:12px 18px;padding:16px;border-radius:16px;box-shadow:0 2px 8px rgba(16,24,40,.035)}
@@ -1007,18 +1007,19 @@ const SB = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY,
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 const TABLE_MAP = {
-  customers:'customers', leads:'leads', estimates:'estimates', jobs:'jobs', invoices:'invoices', products:'products', team:'team',
+  leadPartners:'lead_partners', leadOffers:'lead_offers', jobEvidence:'job_evidence', customers:'customers', leads:'leads', estimates:'estimates', jobs:'jobs', invoices:'invoices', products:'products', team:'team',
   expenses:'expenses', properties:'properties', tasks:'tasks', warranties:'warranties', suppliers:'suppliers', purchaseOrders:'purchase_orders',
   inspections:'inspections', auditLog:'audit_log', galleryProjects:'gallery_projects', manufacturers:'manufacturers', doorCollections:'door_collections',
   doorModels:'door_models', savedDesigns:'saved_designs', waNotifications:'wa_notifications', calls:'calls', inventoryAdjustments:'inventory_adjustments', smsMessages:'sms_messages'
 };
 const SOFT_DELETE = new Set(['customers','leads','estimates','jobs','invoices','purchaseOrders']);
 const KNOWN_COLUMNS = {
+ leadPartners:['id','name','company','phone','whatsapp','email','notes','active','created_at','updated_at'],
  settings:['id','stripe_link','google_review_link','email_logo_url','cc_surcharge_percent','templates','ai_receptionist','inkbox_phone','created_at','updated_at','row_version','app_data'],
  customers:['id','name','email','phone','address','notes','created_at','updated_at','row_version','deleted_at','app_data'],
- leads:['id','name','email','phone','address','notes','service_requested','source','source_email_id','source_provider','source_channel','source_call_id','status','decline_reason','next_follow_up','last_contact','assignment_status','converted_customer_id','converted_job_id','assigned_technician_id','created_at','updated_at','row_version','deleted_at','app_data'],
+ leads:['partner_id','id','name','email','phone','address','notes','service_requested','source','source_email_id','source_provider','source_channel','source_call_id','status','decline_reason','next_follow_up','last_contact','assignment_status','converted_customer_id','converted_job_id','assigned_technician_id','created_at','updated_at','row_version','deleted_at','app_data'],
  estimates:['id','number','customer_id','converted_job_id','converted_invoice_id','option_group_id','customer_name','customer_phone','customer_address','customer_email','notes','status','decline_reason','option_label','due_term','date','tax_rate','discount','deposit_required','items','signature','photos','created_at','updated_at','row_version','deleted_at','app_data'],
- jobs:['id','customer_id','technician_id','estimate_id','customer_name','technician','title','description','complaint','diagnosis','recommended_repair','internal_notes','payment_method','property_type','door_size','cancel_reason','status','door_quantity','material_cost','scheduled_date','appointment_window','job_number','checklist','status_history','photos','created_at','updated_at','row_version','deleted_at','app_data'],
+ jobs:['workflow_version','id','customer_id','technician_id','estimate_id','customer_name','technician','title','description','complaint','diagnosis','recommended_repair','internal_notes','payment_method','property_type','door_size','cancel_reason','status','door_quantity','material_cost','scheduled_date','appointment_window','job_number','checklist','status_history','photos','created_at','updated_at','row_version','deleted_at','app_data'],
  invoices:['id','number','customer_id','job_id','customer_name','customer_phone','customer_address','customer_email','due_term','date','tax_rate','discount','deposit_required','items','payments','photos','payment_link','payment_provider','created_at','updated_at','row_version','deleted_at','app_data'],
  products:['id','name','category','category_id','sku','unit','manufacturer','model','internal_notes','details','rate','cost','qty','default_qty','taxable','active','favorite','track_stock','warranty','created_at','updated_at','row_version','app_data'],
  team:['id','name','email','phone','role','commission_percent','status','auth_user_id','created_at','updated_at','row_version','app_data'],
@@ -1097,7 +1098,17 @@ async function refreshCollection(col){
     if(page.length<pageSize) break;
   }
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
-  const records=rows.map(fromDbRow); await Promise.all(records.map(refreshSignedAssetUrls)); if(col==='calls') records.forEach(r=>{ if(r?.recordingAsset?.url) r.recordingUrl=r.recordingAsset.url; });
+  const records=rows.map(fromDbRow);
+  records.forEach(r=>{
+    if(col==='products'&&r.visualizerOverlayId&&!r.visualizerOverlayAsset)r.visualizerOverlayAsset={id:r.visualizerOverlayId,url:r.visualizerOverlayUrl};
+    if(col==='savedDesigns'&&r.houseImageId&&!r.houseImage)r.houseImage={id:r.houseImageId,url:r.houseImageUrl};
+  });
+  await Promise.all(records.map(refreshSignedAssetUrls));
+  records.forEach(r=>{
+    if(col==='products'&&r.visualizerOverlayAsset?.url)r.visualizerOverlayUrl=r.visualizerOverlayAsset.url;
+    if(col==='savedDesigns'&&r.houseImage?.url)r.houseImageUrl=r.houseImage.url;
+    if(col==='calls'&&r.recordingAsset?.url)r.recordingUrl=r.recordingAsset.url;
+  });
   if(refreshVersion<(collectionAppliedVersions.get(col)||0)) return STORE[col];
   collectionAppliedVersions.set(col,refreshVersion); STORE[col]=records; if(col==='team') STORE[col].forEach(x=>{x.role=x.role==='owner'?'Owner':x.role==='admin'?'Admin':x.role==='dispatcher'?'Dispatcher':x.role==='technician'?'Technician':x.role==='marketing_manager'?'Marketing Manager':x.role; x.status=x.status==='active'?'Active':x.status==='inactive'?'Inactive':x.status==='on leave'?'On Leave':x.status;}); return STORE[col];
 }
@@ -1195,7 +1206,7 @@ async function updateJobStatusWithHistory(jobId, status, extraUpdates={}) {
     const row=toDbRowForCollection('jobs',normalized); delete row.id; delete row.created_at; delete row.updated_at; delete row.row_version;
     if(row.app_data){const {data:currentApp,error:appError}=await SB.from('jobs').select('app_data').eq('id',jobId).maybeSingle();if(appError)throw markHandled(appError);row.app_data={...((currentApp&&currentApp.app_data)||{}),...row.app_data};}
     const {data:updated,error:updateError}=await SB.from('jobs').update(row).eq('id',jobId).is('deleted_at',null).select('*').maybeSingle();
-    if(updateError){toast("Couldn't update job status. Please try again.",true);throw markHandled(updateError);}
+    if(updateError){toast(updateError.message||"Couldn't update job status. Please try again.",true);throw markHandled(updateError);}
     if(!updated){toast("Couldn't update job status because the job changed or access was revoked.",true);throw markHandled(new Error('Job status update was not acknowledged.'));}
     replaceStoreRecord('jobs',updated);
     return fromDbRow(updated);
@@ -1243,6 +1254,10 @@ const NAV = [
   { key:'invoices', label:'Invoices', emoji:'🧾', icon:'M4 4h16v16H4zM8 9h8M8 13h8M8 17h4', category:'Sales & Billing', sidebar:false, fullWidth:true },
   { key:'payments', label:'Payments', icon:'M2 10h20M6 15h4M2 6h20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z', hideForTech: true },
   { key:'settings', label:'Settings', hideForTech: true, icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.5.6.9.6H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z' },
+  { key:'attention', label:'Needs Attention', hideForTech:true, launcher:false, icon:'M12 8v5M12 17h.01M10.3 3.7L2.5 17.2a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0z' },
+  { key:'banking', label:'Banking', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M3 10h18M4 20h16M6 10v7M10 10v7M14 10v7M18 10v7M3 6l9-4 9 4v2H3z' },
+  { key:'socialposts', label:'Social Media', ownerOnly:true, launcher:false, sidebarGroup:'workspace', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6M19 8l2-2M19 12h3M19 16l2 2' },
+  { key:'office', label:'Office', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M4 21V3h12v18M16 10h4v11M2 21h20M8 7h4M8 11h4M8 15h4' },
   // Secondary modules — reachable from the More/module launcher, not the main sidebar (kept out of NAV list rendering via sidebar:false), still owner/tech-gated the same way.
   { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Service & Stock' , hideForTech: true},
   { key:'inventory', label:'Inventory', emoji:'📦', icon:'M3 7h18M3 7v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7M3 7l2-4h14l2 4M9 11h6', sidebar:false, category:'Service & Stock' , hideForTech: true},
@@ -1257,7 +1272,6 @@ const NAV = [
   { key:'checklist', label:'Dev Checklist', emoji:'📋', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
   { key:'visualizer', label:'Door Visualizer', emoji:'🏠', icon:'M3 11l9-8 9 8M5 10v10h14V10', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
-  { key:'socialposts', label:'Social Media Posts', emoji:'📣', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6', ownerOnly:true, sidebar:false, category:'Gallery & Visualizer', fullWidth:true },
   { key:'viscatalog', label:'Visualizer Catalog', emoji:'⚙️', icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', ownerOnly: true, sidebar:false, category:'Sales Tools', launcher:false },
   { key:'walog', label:'WhatsApp Log', emoji:'🟢', icon:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'receptionist', label:'AI Receptionist', emoji:'🤖', icon:'M12 8V4H8M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zM2 14h2M20 14h2M9 18h6', ownerOnly: true, sidebar:false, category:'AI Tools' },
@@ -1269,6 +1283,7 @@ const CATEGORY_META = {
   'AI Tools': { emoji:'✨', header:'#242424', paired:true, centered:true },
   'Service & Stock': { emoji:'🧰', header:'#242424', paired:true, centered:true },
   'Team & Payroll': { emoji:'👥', header:'#242424', paired:true, centered:true },
+  'Business Workspace': { emoji:'▦', header:'#242424', paired:true, centered:true },
 };
 
 function sidebarNavItems() {
@@ -1280,9 +1295,9 @@ function isSidebarItemActive(n) {
 function renderNav() {
   const el = document.getElementById('navList');
   el.innerHTML = sidebarNavItems().map(n => `
-    <button class="nav-item ${isSidebarItemActive(n)?'active':''}" onclick="go('${n.key}')" ${isSidebarItemActive(n)?'aria-current="page"':''}>
+    <button class="nav-item ${n.key==='banking'?'nav-workspace-start':''} ${isSidebarItemActive(n)?'active':''}" onclick="go('${n.key}')" ${isSidebarItemActive(n)?'aria-current="page"':''}>
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>
-      ${n.label}
+      ${n.label}${n.key==='attention'&&typeof workspaceAttention==='function'&&workspaceAttention().length?'<span class="nav-attention-count">'+workspaceAttention().reduce((sum,x)=>sum+x.count,0)+'</span>':''}
     </button>`).join('');
   renderViewAsOptions();
 }
@@ -1304,6 +1319,7 @@ function technicianAllowedPage(page) {
 function isMarketingManager(){ return CURRENT_TEAM_MEMBER?.role==='marketing_manager'; }
 function marketingAllowedPage(page){ return ['dashboard','leads','customers','more'].includes(page); }
 function go(page, id) {
+  if(page==='lead_offers'){page='leads';id=null;}
   if (isMarketingManager() && !marketingAllowedPage(page)) {
     toast('This section is not available for Marketing Manager accounts.', true);
     page='dashboard'; id=null;
@@ -1343,7 +1359,7 @@ function render() {
     btn.classList.toggle('active', active);
     if (active) btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
-  const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', socialposts:'Social Media Posts', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'AI Manager', ai_system:'AI Complete System', settings:'Settings' };
+  const titleMap = { attention:'Needs Attention',banking:'Banking',office:'Office',dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', socialposts:'Social Media Posts', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'AI Manager', ai_system:'AI Complete System', settings:'Settings' };
   const PAGE_META = {
     dashboard: { emoji:'🏠', sub:'Your business at a glance' },
     leads: { emoji:'🎯', sub:'New inquiries & follow-ups' },
@@ -1387,6 +1403,8 @@ function render() {
 
   if (!dbReady) { content.innerHTML = `<div class="empty-state">Loading…</div>`; return; }
 
+  if (route.page === 'attention') return renderWorkspaceAttention(content, actions);
+  if (route.page === 'banking' || route.page === 'office') return renderWorkspaceHub(content, actions, route.page);
   if (route.page === 'dashboard') return renderDashboard(content, actions);
   if (route.page === 'ai_system') return renderAiSystem(content, actions);
   if (route.page === 'ai_manager') return renderAiManager(content, actions);
@@ -1629,7 +1647,11 @@ async function quickPayCreateInvoice(options={}){
     const items=quickPayLines.map(x=>({...x,details:x.details||note}));
     const partsCost=Math.max(0,Number(document.getElementById('qpPartsCost')?.value)||0);
     const partsOwner=document.getElementById('qpPartsOwner')?.value||'company';
-    const {data:rid,error}=await SB.rpc('technician_create_quickpay_invoice',{
+    const relatedJobId=document.getElementById('qpJob')?.value||'';
+    const dispatchJob=relatedJobId&&getOne('jobs',relatedJobId)?.workflowVersion===1;
+    const {data:rid,error}=dispatchJob
+      ? await SB.rpc('create_dispatch_invoice',{p_job_id:relatedJobId,p_items:items,p_method:quickPayMethod,p_parts_cost:partsCost,p_parts_owner:partsOwner})
+      : await SB.rpc('technician_create_quickpay_invoice',{
       p_customer_id:c.id||null,
       p_customer_name:c.name||'',
       p_customer_phone:normalizedPhone||'',
@@ -1647,8 +1669,8 @@ async function quickPayCreateInvoice(options={}){
     createdId=id;
     await Promise.all([refreshCollection('customers'),refreshCollection('invoices')]);
     await saveQuickPaySmsConsent(id);
-    const relatedJobId=document.getElementById('qpJob')?.value||'';
-    if(relatedJobId){
+    if(dispatchJob) await refreshCollection('jobs');
+    if(relatedJobId&&!dispatchJob){
       const {data:linked,error:linkErr}=await SB.rpc('technician_link_quickpay_invoice_to_job',{
         p_invoice_id:id,p_job_id:relatedJobId,p_parts_cost:partsCost,p_parts_owner:partsOwner
       });
@@ -1895,9 +1917,10 @@ function renderTechnicianDashboard(content, actions) {
 }
 function dashboardModuleCategories() {
   const secondary = NAV.filter(n => n.launcher!==false && n.sidebar===false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
-  const order = ['Sales & Billing','Gallery & Visualizer','Service & Stock','AI Tools','Team & Payroll'];
+  const order = ['Sales & Billing','Gallery & Visualizer','Service & Stock','AI Tools','Team & Payroll','Business Workspace'];
   const groups = {};
   secondary.forEach(n => { (groups[n.category||'Other'] = groups[n.category||'Other']||[]).push(n); });
+  if(!isTechnicianView()&&!isMarketingManager())groups['Business Workspace']=['banking','socialposts','office'].map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&(!n.ownerOnly||IS_OWNER)).map(n=>({...n,fullWidth:n.key==='office'}));
   return order.filter(c=>groups[c]).map(c => ({ name: c, items: groups[c] }));
 }
 function renderModuleLauncherHtml() {
@@ -1995,8 +2018,7 @@ function renderDashboard(content, actions) {
 
   const jobsToday = STORE.jobs.filter(j=>j.scheduledDate===today);
   const unscheduledJobs = STORE.jobs.filter(j=>!j.scheduledDate && j.status!=='completed' && j.status!=='cancelled');
-  const completedToday = STORE.jobs.filter(j=>j.status==='completed' && j.scheduledDate===today).length;
-  const completedWeek = STORE.jobs.filter(j=>j.status==='completed' && j.scheduledDate>=weekStart).length;
+
 
   const newLeadsToday = STORE.leads.filter(l=>l.createdAt && fmtDate(l.createdAt)===fmtDate(Date.now())).length;
   const openLeads = STORE.leads.filter(l => !['won','lost','converted','cancelled'].includes(l.status)).length;
@@ -2017,139 +2039,25 @@ function renderDashboard(content, actions) {
     .sort((a,b)=> (a.scheduledDate||'').localeCompare(b.scheduledDate||''))
     .slice(0,5);
 
-  const unassignedJobs = STORE.jobs.filter(j=>!j.technician && !['completed','cancelled'].includes(j.status));
-  const sentEstimatesAwaiting = STORE.estimates.filter(e=>e.status==='sent');
-  const completedNoInvoice = STORE.jobs.filter(j=>j.status==='completed' && !STORE.invoices.some(i=>i.jobId===j.id));
-  const overdueInvoices = STORE.invoices.filter(i=>balanceDue(i)>0 && i.dueTerm==='On Receipt' && i.date && i.date<today);
-  const humanCallbackTasks = STORE.tasks.filter(t=>t.status==='open' && t.source==='ai_receptionist' && String(t.id||'').startsWith('ai_human_callback_'));
   const nextAppointment = [...STORE.jobs].filter(j=>j.scheduledDate && j.scheduledDate>=today && !['completed','cancelled'].includes(j.status)).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate))[0];
-  const recentEvents = [...STORE.auditLog].sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
+  const recentEvents = [...STORE.auditLog].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,6);
   const callsToday = STORE.calls.filter(c=>c.providerCallId && c.createdAt && fmtDate(c.createdAt)===fmtDate(Date.now()));
   const linkedLeadIdsToday = new Set(callsToday.map(c=>c.leadId).filter(Boolean));
   const appointmentRequestsToday = callsToday.filter(c=>c.leadExtraction?.preferredServiceWindow || c.leadExtraction?.preferred_service_window);
   const missedCallsToday = callsToday.filter(c=>String(c.outcome||'').toLowerCase()==='missed');
 
   const waAttention = (STORE.waNotifications||[]).filter(n=>['failed','not_configured','blocked_no_opt_in'].includes(String(n.status||'').toLowerCase()));
-  const smsFailed = (STORE.smsMessages||[]).filter(m=>String(m.providerStatus||'').toLowerCase()==='failed');
   const callsNeedReview = (STORE.calls||[]).filter(c=>c.providerCallId && ['ambiguous_identity','needs_review'].includes(String(c.leadExtractionStatus||'').toLowerCase()));
   const squareAwaitingPayment = (STORE.invoices||[]).filter(i=>!i.deletedAt && String(i.paymentProvider||'').toLowerCase()==='square' && !!i.paymentLink && balanceDue(i)>0);
-  const highPriorityTasks = (STORE.tasks||[]).filter(t=>['open','in_progress'].includes(String(t.status||'').toLowerCase()) && String(t.priority||'').toLowerCase()==='high');
-  const integrationAttention = waAttention.length + smsFailed.length + callsNeedReview.length + highPriorityTasks.length;
 
-  content.innerHTML = `
-    <div class="panel" style="margin-bottom:16px">
-      <div class="panel-head"><h3>📞 Phone</h3><span class="badge badge-paid">● Live Data</span></div>
-      <div class="panel-body pad">
-        <div class="stat-grid" style="margin-bottom:0">
-          <div class="stat-card"><div class="label">Calls Today</div><div class="value">${callsToday.length}</div></div>
-          <div class="stat-card"><div class="label">Linked Leads</div><div class="value">${linkedLeadIdsToday.size}</div></div>
-          <div class="stat-card"><div class="label">Appointment Requests</div><div class="value">${appointmentRequestsToday.length}</div></div>
-          <div class="stat-card"><div class="label">Missed Calls</div><div class="value">${missedCallsToday.length}</div></div>
-        </div>
-        <div style="margin-top:10px"><button class="btn btn-sm" onclick="go('receptionist')">Open AI Receptionist →</button></div>
-      </div>
-    </div>
-    <div class="panel" style="margin-bottom:16px">
-      <div class="panel-head"><h3>🩺 Integration Health</h3><span class="badge badge-${integrationAttention?'contacted':'paid'}">${integrationAttention ? integrationAttention+' need attention' : 'All clear'}</span></div>
-      <div class="panel-body pad">
-        <div class="stat-grid" style="margin-bottom:0">
-          <div class="stat-card clickable" onclick="go('team')"><div class="label">WhatsApp</div><div class="value">${waAttention.length}</div><div class="sub">${waAttention.length?'failed / setup-blocked':'no failed items'}</div></div>
-          <div class="stat-card clickable" onclick="go('communications')"><div class="label">SMS Failures</div><div class="value">${smsFailed.length}</div><div class="sub">${smsFailed.length?'review failed deliveries':'delivery looks healthy'}</div></div>
-          <div class="stat-card clickable" onclick="go('receptionist')"><div class="label">Calls Need Review</div><div class="value">${callsNeedReview.length}</div><div class="sub">${callsNeedReview.length?'identity / intake review':'no review queue'}</div></div>
-          <div class="stat-card clickable" onclick="searchTerms.invoiceFilter='outstanding';go('invoices')"><div class="label">Square Awaiting Payment</div><div class="value">${squareAwaitingPayment.length}</div><div class="sub">active Pay Now invoices</div></div>
-          <div class="stat-card clickable" onclick="go('followups')"><div class="label">High Priority Tasks</div><div class="value">${highPriorityTasks.length}</div><div class="sub">${highPriorityTasks.length?'open / in progress':'none open'}</div></div>
-        </div>
-      </div>
-    </div>
-    ${(humanCallbackTasks.length || unassignedJobs.length || sentEstimatesAwaiting.length || completedNoInvoice.length || overdueInvoices.length) ? `
-    <div class="panel" style="margin-bottom:16px;border-color:var(--orange)">
-      <div class="panel-head"><h3>Needs attention</h3></div>
-      <div class="panel-body">
-        ${humanCallbackTasks.length ? `<div class="kv clickable" onclick="go('followups')"><div class="k">📞</div><div><b>${humanCallbackTasks.length}</b> AI receptionist human callback request(s) need attention</div></div>` : ''}
-        ${overdueInvoices.length ? `<div class="kv clickable" onclick="searchTerms.invoiceFilter='outstanding'; go('invoices')"><div class="k">💰</div><div><b>${overdueInvoices.length}</b> overdue invoice(s) — ${money(overdueInvoices.reduce((s,i)=>s+balanceDue(i),0))} outstanding</div></div>` : ''}
-        ${sentEstimatesAwaiting.length ? `<div class="kv clickable" onclick="searchTerms.estimateFilter='open'; go('estimates')"><div class="k">📋</div><div><b>${sentEstimatesAwaiting.length}</b> estimate(s) sent, awaiting customer approval</div></div>` : ''}
-        ${completedNoInvoice.length ? `<div class="kv clickable" onclick="go('jobs')"><div class="k">🧾</div><div><b>${completedNoInvoice.length}</b> completed job(s) with no invoice yet</div></div>` : ''}
-        ${unassignedJobs.length ? `<div class="kv clickable" onclick="go('jobs')"><div class="k">👤</div><div><b>${unassignedJobs.length}</b> job(s) with no technician assigned</div></div>` : ''}
-      </div>
-    </div>` : ''}
-    <h3 class="section-label">Revenue</h3>
-    <div class="stat-grid">
-      <div class="stat-card accent"><div class="label">Today</div><div class="value">${money(revenueToday)}</div><div class="sub">${money(paymentsToday)} collected today</div></div>
-      <div class="stat-card"><div class="label">This week</div><div class="value">${money(revenueWeek)}</div></div>
-      <div class="stat-card"><div class="label">This month</div><div class="value">${money(revenueMonth)}</div></div>
-      <div class="stat-card"><div class="label">Average ticket</div><div class="value">${money(avgTicket)}</div></div>
-    </div>
-    <h3 class="section-label">Pipeline</h3>
-    <div class="stat-grid">
-      <div class="stat-card"><div class="label">New leads today</div><div class="value">${newLeadsToday}</div><div class="sub">${openLeads} open total</div></div>
-      <div class="stat-card"><div class="label">Lead conversion</div><div class="value">${leadConversionRate}%</div></div>
-      <div class="stat-card clickable" onclick="searchTerms.estimateFilter='open'; go('estimates')"><div class="label">Open estimates</div><div class="value">${openEstimates.length}</div></div>
-      <div class="stat-card"><div class="label">Estimate approval</div><div class="value">${estimateApprovalRate}%</div></div>
-    </div>
-    <h3 class="section-label">Operations</h3>
-    <div class="stat-grid">
-      <div class="stat-card clickable" onclick="openCalendarDay(todayISO())"><div class="label">Jobs today</div><div class="value">${jobsToday.length}</div><div class="sub">${unscheduledJobs.length} unscheduled</div></div>
-      <div class="stat-card"><div class="label">Next appointment</div><div class="value" style="font-size:16px">${nextAppointment ? fmtDate(nextAppointment.scheduledDate) : '—'}</div><div class="sub">${nextAppointment ? esc(nextAppointment.customerName||'') : 'None scheduled'}</div></div>
-      <div class="stat-card accent clickable" onclick="searchTerms.invoiceFilter='outstanding'; go('invoices')"><div class="label">Outstanding</div><div class="value">${money(outstanding)}</div><div class="sub">${unpaidInvoices.length} unpaid invoices</div></div>
-      <div class="stat-card"><div class="label">Follow-ups due</div><div class="value">${followUpsDue.length}</div></div>
-    </div>
 
-    <div class="toolbar no-print" style="margin-top:18px">
-      <button class="btn btn-primary" onclick="openLeadModal()">+ New lead</button>
-      <button class="btn" onclick="openCustomerModal()">+ New customer</button>
-      <button class="btn" onclick="openJobModal()">+ New job</button>
-      <button class="btn" onclick="openEstimateModal()">+ New estimate</button>
-      <button class="btn" onclick="openInvoiceModal()">+ New invoice</button>
-      <button class="btn" onclick="openGlobalSearch()">🔍 Search</button>
-    </div>
-
-    <div class="two-col" style="margin-top:16px">
-      <div class="panel">
-        <div class="panel-head"><h3>Upcoming jobs</h3><button class="btn btn-sm" onclick="go('jobs')">View all</button></div>
-        <div class="panel-body">
-          ${nextJobs.length ? `<table class="list"><thead><tr><th>Job</th><th>Customer</th><th>Date</th><th>Status</th></tr></thead><tbody>
-            ${nextJobs.map(j=>`<tr class="clickable" onclick="go('jobs','${j.id}')">
-              <td class="name-cell">${esc(j.title)}</td>
-              <td>${esc(j.customerName||'—')}</td>
-              <td>${fmtDate(j.scheduledDate)}</td>
-              <td><span class="badge badge-${j.status}">${labelize(j.status)}</span></td>
-            </tr>`).join('')}
-          </tbody></table>` : emptyState('📅','No jobs scheduled yet','Create a job from a customer or estimate.')}
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Recent payments</h3><button class="btn btn-sm" onclick="go('invoices')">View all</button></div>
-        <div class="panel-body">
-          ${recentPayments.length ? `<table class="list"><thead><tr><th>Invoice</th><th>Method</th><th>Date</th><th>Amount</th></tr></thead><tbody>
-            ${recentPayments.map(p=>`<tr>
-              <td class="name-cell">${esc(p.invoiceNumber)}<div class="muted" style="font-weight:400">${esc(p.customerName||'')}</div></td>
-              <td class="muted">${esc(p.method||'—')}</td>
-              <td class="muted">${fmtDate(p.date)}</td>
-              <td>${money(paymentAppliedAmount(p))}</td>
-            </tr>`).join('')}
-          </tbody></table>` : emptyState('💳','No payments recorded yet','Record a payment from any invoice.')}
-        </div>
-      </div>
-    </div>
-    <div class="two-col" style="margin-top:16px">
-      <div class="panel">
-        <div class="panel-head"><h3>Recent activity</h3></div>
-        <div class="panel-body">
-          ${recentEvents.length ? recentEvents.map(a=>`<div class="kv" style="padding:10px 18px;grid-template-columns:100px 1fr auto"><div class="k">${fmtDate(a.createdAt)}</div><div>${esc(a.summary)}</div><div>${a.entityType && a.entityId ? `<button class="btn btn-sm" onclick="${a.entityType==='jobs'?`go('jobs','${a.entityId}')`:`go('${a.entityType}','${a.entityId}')`}">View</button>` : ''}</div></div>`).join('') : emptyState('🕒','Nothing yet','Activity will show up here as you use the app.')}
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Follow-ups due</h3><button class="btn btn-sm" onclick="go('leads')">View all leads</button></div>
-        <div class="panel-body">
-          ${followUpsDue.length ? followUpsDue.map(l=>`<div class="kv clickable" onclick="openLeadModal('${l.id}')"><div class="k">${fmtDate(l.nextFollowUp)}</div><div><b>${esc(l.name)}</b> <span class="muted">${esc(l.phone||'')}</span></div></div>`).join('') : emptyState('✅','Nothing due','Set a "Next follow-up" date on a lead to track it here.')}
-        </div>
-      </div>
-    </div>
-
-    <h3 style="margin:22px 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">More tools</h3>
-    ${renderModuleLauncherHtml()}
-  `;
-  actions.innerHTML = '';
+  renderWorkspaceOverview(content, actions, {
+    revenueToday,revenueWeek,revenueMonth,avgTicket,paymentsToday,newLeadsToday,openLeads,
+    leadConversionRate,openEstimates,estimateApprovalRate,jobsToday,unscheduledJobs,
+    nextAppointment,outstanding,unpaidInvoices,followUpsDue,callsToday,linkedLeadIdsToday,
+    appointmentRequestsToday,missedCallsToday,waAttention,callsNeedReview,squareAwaitingPayment,
+    nextJobs,recentPayments,recentEvents
+  });
 }
 function emptyState(icon, title, sub) {
   return `<div class="empty-state"><div class="big">${icon}</div><h4>${title}</h4><div>${sub}</div></div>`;
@@ -2224,7 +2132,7 @@ function refreshNotifBadge() {
 }
 const INBOX_EVENT_ICONS = { new_lead:'🎯', customer_message_detected:'💬', lead_followup_detected:'💬', job_created:'🔧', job_edited:'✎', status_changed:'🔄', technician_assigned:'👤', appointment_scheduled:'📅', job_rescheduled:'📅', photo_added:'📷', note_added:'📝', job_completed:'✅', estimate_created:'📋', estimate_edited:'✎', estimate_signed:'✍️', converted_to_job:'🔧', converted_to_invoice:'🧾', created_from_estimate:'📋', invoice_created:'🧾', invoice_edited:'✎', payment_recorded:'💳', sent_email:'✉️', prepared_text:'💬', customer_edited:'✎', record_deleted:'🗑' };
 function inboxCategoryFor(a) {
-  if (['new_lead','customer_message_detected','lead_followup_detected'].includes(a.action)) return 'leads';
+  if (['new_lead','lead_offer','lead_offer_expired','partner_lead_received','customer_message_detected','lead_followup_detected'].includes(a.action)) return 'leads';
   if (['job_created','job_edited','status_changed','technician_assigned','appointment_scheduled','job_rescheduled','photo_added','note_added','job_completed'].includes(a.action)) return 'jobs';
   if (['customer_edited'].includes(a.action)) return 'customers';
   if (['payment_recorded'].includes(a.action)) return 'payments';
@@ -2485,11 +2393,13 @@ async function convertEstimateToJob(estId, silent) {
   return jobId;
 }
 window.convertEstimateToJob = convertEstimateToJob;
-function signJobCompletion(jobId) {
+async function signJobCompletion(jobId) {
   const j = getOne('jobs', jobId);
   if (!j) return;
+  if(j.workflowVersion===1){const {data,error}=await SB.rpc('dispatch_job_ready',{p_job_id:jobId});if(error||data!==true)return toast(error?.message||'Collect full payment and deliver the receipt before closing this job.',true);}
   openSignatureModal('Job completion — customer signature', j.customerName, async (dataUrl, name) => {
-    await updateJobStatusWithHistory(jobId, 'completed', { completionSignature: { dataUrl, name, at: Date.now() } });
+    if(j.workflowVersion===1){const {error}=await SB.rpc('complete_dispatch_job',{p_job_id:jobId,p_signature:{dataUrl,name}});if(error)throw error;await refreshCollection('jobs');}
+    else await updateJobStatusWithHistory(jobId, 'completed', { completionSignature: { dataUrl, name, at: Date.now() } });
     logAudit('job_completed', `Job "${j.title}" completed for ${j.customerName}`, 'jobs', jobId);
     toast('Job completed and signed');
     closeModal();
@@ -3688,6 +3598,7 @@ function openLeadModal(id) {
       ${l ? (() => { const commEvents = buildCommunicationTimeline('leads', l.id); return commEvents.length ? `<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>Communication</h3></div><div class="panel-body">
         ${commEvents.map(ev=>`<div class="kv" style="padding:8px 18px"><div class="k">${fmtDate(ev.createdAt)}</div><div>${esc(ev.summary)}${ev.status==='prepared'?' <span class="muted" style="font-size:11px">(prepared — delivery not confirmed)</span>':''}</div></div>`).join('')}
       </div></div>` : ''; })() : ''}
+      <label class="field"><span class="lbl">Linked lead source</span><select id="f_partner"><option value="">Direct inquiry</option>${(STORE.leadPartners||[]).filter(p=>p.active||p.id===l?.partnerId).map(p=>`<option value="${esc(p.id)}" ${p.id===l?.partnerId?'selected':''}>${esc(p.name)}${p.company?' · '+esc(p.company):''}</option>`).join('')}</select></label>
       <label class="field"><span class="lbl">Name *</span><input type="text" id="f_name" value="${esc(l?.name)}"></label>
       <div class="field-row">
         <label class="field"><span class="lbl">Phone</span><input type="tel" id="f_phone" value="${esc(l?.phone)}"></label>
@@ -3710,7 +3621,7 @@ function openLeadModal(id) {
       </div>
       <div class="field-row">
         <label class="field"><span class="lbl">Preferred appointment</span><input type="date" id="f_preferred" value="${l?.preferredAppointment||''}"></label>
-        <label class="field"><span class="lbl">Assigned technician</span>${technicianPickerHtml(l?.assignedTechnicianId, l?.assignedTechnician, 'f_leadtech')}</label>
+        <label class="field"><span class="lbl">Time window</span><input id="f_preferred_time" value="${esc(l?.preferredTime||'')}" placeholder="8:00 AM – 10:00 AM"></label>
       </div>
       <div class="field-row">
         <label class="field"><span class="lbl">Last contact</span><input type="date" id="f_lastcontact" value="${l?.lastContact||''}"></label>
@@ -3727,9 +3638,8 @@ function openLeadModal(id) {
     onSave: async () => {
       const name = document.getElementById('f_name').value.trim();
       if (!name) return toast('Name is required');
-      const newTechId = document.getElementById('f_leadtech_id').value;
-      const newTech = document.getElementById('f_leadtech_name').value.trim();
-      const techChanged = newTech && (newTech !== (l?.assignedTechnician||'') || newTechId !== (l?.assignedTechnicianId||''));
+      const partnerId = document.getElementById('f_partner').value;
+      const partner = (STORE.leadPartners||[]).find(p=>p.id===partnerId);
       const data = {
         name,
         phone: document.getElementById('f_phone').value.trim(),
@@ -3738,15 +3648,12 @@ function openLeadModal(id) {
         city: document.getElementById('f_city').value.trim(),
         state: document.getElementById('f_state').value.trim(),
         zip: document.getElementById('f_zip').value.trim(),
-        source: document.getElementById('f_source').value,
+        partnerId: partnerId||null,
+        source: partner?.name||document.getElementById('f_source').value,
         serviceRequested: document.getElementById('f_service').value.trim(),
         estimatedValue: parseFloat(document.getElementById('f_value').value)||0,
         preferredAppointment: document.getElementById('f_preferred').value,
-        ...(techChanged || !l ? {
-          assignedTechnician: newTech,
-          assignedTechnicianId: newTechId || null,
-          assignmentStatus: newTech ? (techChanged ? 'pending' : (l?.assignmentStatus||'pending')) : null,
-        } : {}),
+        preferredTime: document.getElementById('f_preferred_time').value.trim(),
         lastContact: document.getElementById('f_lastcontact').value || null,
         nextFollowUp: document.getElementById('f_nextfollowup').value || null,
         status: document.getElementById('f_status').value,
@@ -3755,10 +3662,6 @@ function openLeadModal(id) {
       };
       if (l) await dbSet('leads', l.id, data);
       else await dbAdd('leads', { ...data, status: data.status||'new' });
-      if (techChanged && techWantsNotification(newTech, 'newLead')) {
-        const msg = `New lead assigned: ${data.name}${data.address?' — '+data.address:''}${data.serviceRequested?' — '+data.serviceRequested:''}`;
-        logWaNotification(newTech, 'newLead', 'leads', l?.id||null, msg);
-      }
       toast(l ? 'Lead updated' : 'Lead added');
       closeModal();
     }
@@ -8713,7 +8616,7 @@ window.confirmCsvImport = confirmCsvImport;
 /* ============================================================
    JOBS
    ============================================================ */
-const JOB_STATUSES = ['new','scheduled','confirmed','technician_assigned','on_the_way','arrived','inspection','estimate_presented','approved','work_in_progress','waiting_for_parts','completed','invoice_sent','paid','cancelled'];
+const JOB_STATUSES = ['new','scheduled','confirmed','technician_assigned','on_the_way','arrived','inspection','estimate_presented','approved','work_in_progress','waiting_for_parts','work_finished','completed','invoice_sent','paid','cancelled'];
 const APPOINTMENT_WINDOWS = ['8–10 AM','10–12 PM','12–2 PM','2–4 PM','4–6 PM','Custom'];
 const JOB_CHECKLIST_ITEMS = [
   { key:'workCompleted', label:'Work completed' },
@@ -8756,6 +8659,7 @@ function renderJobDetail(content, id) {
     smartAction = { text:`Invoice ${linkedInvoice.number} paid in full.`, btn:'⭐ Send Receipt / Request Review', fn:`sendReviewRequest('${id}')` };
   }
 
+  if (j.workflowVersion===1) smartAction=null;
   const hasNotes = j.complaint || j.diagnosis || j.recommendedRepair || j.internalNotes;
   const photosByCategory = {};
   (j.photos||[]).forEach(p => { const c = p.category||'Other'; (photosByCategory[c]=photosByCategory[c]||[]).push(p); });
@@ -8776,13 +8680,13 @@ function renderJobDetail(content, id) {
           <span class="badge badge-${j.status}" style="font-size:12px">${labelize(j.status)}</span>
         </div>
         <div class="kv" style="padding:8px 0 0"><div class="k">Appointment</div><div>${j.scheduledDate?fmtDate(j.scheduledDate):'Not scheduled'}${j.appointmentWindow?' · '+esc(j.appointmentWindow):''}</div></div>
-        <div class="kv"><div class="k">Address</div><div>${esc(cust?.address||'—')}</div></div>
+        <div class="kv"><div class="k">Address</div><div>${esc(j.serviceAddress||cust?.address||'—')}</div></div>
         <div class="kv"><div class="k">Phone</div><div>${esc(cust?.phone||'—')}</div></div>
         <div class="kv"><div class="k">Technician</div><div>${esc(j.technician||'Unassigned')}</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
           ${cust?.phone ? `<a class="btn btn-sm" href="tel:${cust.phone}">📞 Call</a>` : ''}
           ${cust?.phone ? `<a class="btn btn-sm" href="sms:${cust.phone}">💬 Text</a>` : ''}
-          ${cust?.address ? `<a class="btn btn-sm" href="https://maps.google.com/?q=${encodeURIComponent(cust.address)}" target="_blank" rel="noopener">🧭 Navigate</a>` : ''}
+          ${(j.serviceAddress||cust?.address) ? `<a class="btn btn-sm" href="https://maps.google.com/?q=${encodeURIComponent(j.serviceAddress||cust.address)}" target="_blank" rel="noopener">🧭 Navigate</a>` : ''}
           <button class="btn btn-sm" onclick="openJobModal('${id}')">✎ Edit</button>
           <button class="btn btn-sm" onclick="openJobModal('${id}')">📷 Add Photo</button>
           ${(j.status==='completed' && IS_OWNER) ? `<button class="btn btn-sm" onclick="addJobToGallery('${id}')">🖼️ Add to Gallery</button>` : ''}
@@ -8945,7 +8849,7 @@ function renderJobs(content, actions) {
   }
   const term = (searchTerms.jobsSearch||'').toLowerCase();
   let list = [...STORE.jobs].sort((a,b)=> (a.scheduledDate||'').localeCompare(b.scheduledDate||''));
-  if (isTechnicianView()) list = list.filter(j=>j.technician===VIEW_AS);
+  if (isTechnicianView()) list = list.filter(j=>j.technicianId===quickPayActiveTechId());
   if (term) list = list.filter(j=>[(j.title||''),(j.customerName||''),(j.jobNumber||'')].some(v=>v.toLowerCase().includes(term)));
   content.innerHTML = `
     ${renderWorkNavigation()}
@@ -9385,6 +9289,7 @@ window.handleJobDrop = handleJobDrop;
 window.handleJobTimeDrop = handleJobTimeDrop;
 window.startOfWeek = startOfWeek; window.addDays = addDays;
 async function setJobStatus(jobId, status) {
+  if (status === 'completed') return signJobCompletion(jobId);
   const j = getOne('jobs', jobId);
   if (!j) return;
   await updateJobStatusWithHistory(jobId, status);
@@ -9670,7 +9575,7 @@ function openInvoiceModal(id, presetCustomerId, presetJobId, presetItems) {
   docTaxRateDraft = inv?.taxRate ?? 0;
   docDiscountDraft = inv?.discount ?? 0;
   docDepositDraft = inv?.depositRequired ?? 0;
-  docPhotosDraft = inv?.photos ? JSON.parse(JSON.stringify(inv.photos)) : [];
+  docPhotosDraft = inv?.photos ? JSON.parse(JSON.stringify(inv.photos)) : JSON.parse(JSON.stringify((getOne('jobs',presetJobId)?.photos||[]).filter(p=>p.evidenceId&&p.category==='After')));
   docPhotosDirty = false;
   const jobsForCustomer = (custId) => STORE.jobs.filter(j=>j.customerId===custId);
   showModal({
@@ -10787,11 +10692,11 @@ async function textDocument(type, id) {
     if (!token) throw new Error('Your CRM session expired. Please sign in again.');
     const res = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/send-inkbox-sms`, {
       method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`,'apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({to:e164,message:body})
+      body:JSON.stringify({to:e164,message:body,entity_type:col,entity_id:id,receipt_invoice_id:type==='invoice'&&invoiceTotal(doc)>0&&balanceDue(doc)<=0?id:undefined})
     });
     const result=await res.json().catch(()=>({}));
     if(!res.ok || !result.success) throw new Error(result.error||'SMS provider rejected the message.');
-    toast('Text message sent');
+    toast(result.delivered?'Carrier confirmed SMS delivery':'SMS accepted — awaiting carrier delivery');
     logAudit('prepared_text', `${type==='invoice'?'Invoice':'Estimate'} ${doc.number} SMS sent to ${e164}`, col, id, null, result?.providerMessageId||null);
     SupabaseCommunicationBridge?.syncInkboxEvents?.().catch(()=>{});
   } catch(e) { console.error('Production SMS send failed',e); toast(e?.message||'Could not send text message',true); }
@@ -11001,6 +10906,13 @@ function renderViewAsOptions() {
 function isTechnicianView() { return CURRENT_TEAM_MEMBER?.role==='technician' || (IS_OWNER && !!VIEW_AS); }
 async function signOutCrm() {
   try {
+    try {
+    if('serviceWorker' in navigator){
+      const registration=await navigator.serviceWorker.getRegistration('/');
+      const subscription=await registration?.pushManager?.getSubscription();
+      if(subscription){await SB.from('push_subscriptions').delete().eq('endpoint',subscription.endpoint);await subscription.unsubscribe();}
+    }
+    } catch(e) { console.warn('Push subscription cleanup failed during sign out',e); }
     await SB.auth.signOut();
     CURRENT_TEAM_MEMBER=null; IS_OWNER=false; CAN_EDIT=false; VIEW_AS='';
     try { localStorage.removeItem('ezfix_view_as'); } catch(e) {}
@@ -11028,9 +10940,10 @@ async function initUserRole() {
 (async()=>{ await initDb(); if(await requireSession()) await initUserRole(); })();
 </script>
 <!-- EZFIX_PRODUCT_CATALOG_UI_V1_BODY --><script src="/product-catalog-ui.js" data-ezfix-product-catalog="v1"></script><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_BODY -->
-<!-- EZFIX_DOOR_DESIGN_LIBRARY_V1 --><script src="/door-design-data.js"></script><script src="/door-design-library.js"></script>
+<!-- EZFIX_DOOR_DESIGN_LIBRARY_V1 --><script src="/door-design-data.js"></script><script src="/door-config-options.js"></script><script src="/door-design-library.js"></script>
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
+<script src="/workspace-overview.js"></script><script src="/lead-dispatch.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>
 </html>

@@ -106,11 +106,13 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => null);
   const to = normalizeE164(String(body?.to || "").trim());
-  const message = String(body?.message || "").trim();
+  let message = String(body?.message || "").trim();
   const approvalId = String(body?.approval_id || "").trim();
   const entityType = String(body?.entity_type || "").trim();
   const entityId = String(body?.entity_id || "").trim();
-  if (!message || message.length > MAX) return json({ error: "Invalid message." }, 400);
+  const receiptInvoiceId = String(body?.receipt_invoice_id || "").trim();
+  if ((!message && !receiptInvoiceId) || message.length > MAX) return json({ error: "Invalid message." }, 400);
+  if (receiptInvoiceId && (entityType !== "invoices" || entityId !== receiptInvoiceId || approvalId)) return json({error:"Invalid receipt request."},400);
   if (!E164.test(to)) return json({ error: "A valid E.164 phone number is required.", code: "SMS_INVALID_RECIPIENT" }, 400);
 
   const { data: consent, error: consentError } = await admin.from("sms_consent").select("status,source,last_keyword,opted_in_at,opted_out_at").eq("phone_e164", to).maybeSingle();
@@ -164,6 +166,32 @@ Deno.serve(async (req) => {
     }
   }
   if (!approvalId && !directOwner && !directTechnician) return json({ error: "Technicians can only text customers or leads assigned to them." }, 403);
+
+  if (receiptInvoiceId) {
+    // Read through the caller's RLS, then generate the actual paid receipt on the
+    // server. A client-supplied "receipt sent" flag or arbitrary text cannot count.
+    const {data:invoice,error:invoiceError}=await authClient.from("invoices").select("id,number,customer_phone,customer_id,items,tax_rate,discount,payments").eq("id",receiptInvoiceId).is("deleted_at",null).maybeSingle();
+    if(invoiceError||!invoice)return json({error:"Receipt invoice not available."},403);
+    let receiptPhone=invoice.customer_phone;
+    if(!receiptPhone&&invoice.customer_id){const {data:customer}=await authClient.from("customers").select("phone").eq("id",invoice.customer_id).maybeSingle();receiptPhone=customer?.phone;}
+    if(normalizeE164(receiptPhone||"")!==to)return json({error:"Send the receipt to the invoice customer's phone."},403);
+    const round2=(n:number)=>Math.round((n+Number.EPSILON)*100)/100;
+    const items=Array.isArray(invoice.items)?invoice.items:[];
+    let subtotal=0,taxable=0;
+    for(const item of items){const amount=Number(item.qty??1)*Number(item.rate??0);subtotal+=amount;if(item.taxable!==false)taxable+=amount;}
+    const discount=Math.min(Math.max(0,Number(invoice.discount)||0),Math.max(0,subtotal));
+    const tax=round2(taxable*(subtotal>0?(subtotal-discount)/subtotal:1)*(Number(invoice.tax_rate)||0)/100);
+    const total=round2(subtotal-discount+tax);
+    const paid=(Array.isArray(invoice.payments)?invoice.payments:[]).reduce((sum:number,p:any)=>sum+Math.max(0,Number(p.appliedAmount??p.amount??0)),0);
+    if(!Number.isFinite(total)||!Number.isFinite(paid)||total<=0||paid+0.005<total)return json({error:"Collect full payment before sending a receipt."},409);
+    const {data:access,error:accessError}=await authClient.rpc("issue_public_invoice_access_token",{p_invoice_id:receiptInvoiceId});
+    if(accessError||!/^[0-9a-fA-F]{64}$/.test(access?.token||""))return json({error:"Could not create the secure receipt link."},503);
+    const base=(Deno.env.get("CRM_PUBLIC_BASE_URL")||"https://ezfix-crm-sms-length-fixed.vercel.app").replace(/\/$/,"");
+    const receiptUrl=new URL("invoice-pay.html",base+"/");
+    receiptUrl.searchParams.set("invoice",receiptInvoiceId);receiptUrl.searchParams.set("token",access.token);
+    message=`EZfix: Paid receipt ${invoice.number}. Thank you! ${receiptUrl.toString()} Reply STOP to opt out.`;
+    if(message.length>MAX)return json({error:"Receipt link exceeds the SMS limit."},400);
+  }
 
   let claimToken: string | null = null;
   if (approvalId) {
@@ -220,6 +248,11 @@ Deno.serve(async (req) => {
     if (failedImmediately) {
       if (approvalId && claimToken) await admin.from("outbound_communication_approvals").update({ status: "approved", claimed_at: null, claim_token: null, last_error: failureReason || "Provider reported delivery failure" }).eq("id", approvalId).eq("status", "sending").eq("claim_token", claimToken).is("sent_at", null);
       return json({ success: false, accepted: false, delivered: false, retrySafe: true, error: failureReason || "Provider reported delivery failure.", code: "SMS_PROVIDER_REJECTED", smsId, providerMessageId: sent.id ?? null, status: "failed" }, 502);
+    }
+
+    if(receiptInvoiceId){
+      const {error:receiptError}=await admin.from("invoice_sms_receipts").insert({invoice_id:receiptInvoiceId,sms_message_id:smsId,created_by_team_id:member.id});
+      if(receiptError)return json({success:false,accepted:true,delivered:false,retrySafe:false,error:"Receipt SMS accepted but delivery tracking failed; do not resend automatically.",code:"SMS_RECEIPT_TRACKING_FAILED",smsId},500);
     }
 
     if (approvalId && claimToken) {

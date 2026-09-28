@@ -15,6 +15,7 @@ const scripts = [
   'audit-product-catalog-ui.mjs',
   'audit-catalog-labor-metadata.mjs',
   'audit-quickpay-recovery.mjs',
+  'audit-dispatch-sms-receipts.mjs',
   'audit-modal-actions.mjs',
   'audit-navigation-groups.mjs',
   'build-product-catalog-ui.mjs',
@@ -46,6 +47,7 @@ const scripts = [
   'audit-superezx-telephony-adapter.mjs',
   'build-door-design-library.mjs',
   'audit-door-design-library.mjs',
+  'audit-door-config-options.mjs',
   'build-door-gallery.mjs',
   'audit-door-gallery.mjs'
 ];
