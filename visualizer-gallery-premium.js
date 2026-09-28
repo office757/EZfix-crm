@@ -3,7 +3,7 @@
 
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:false};
 window.__visCatalogState=visCatalogState;
-const val=(p,key)=>p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '';
+const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
 const referenceDoors=()=>STORE.products.filter(p=>val(p,'catalogKind')==='garage_door_model');
 const refDoor=d=>d?.referenceProductId?getOne('products',d.referenceProductId):null;
 const legacyDoor=d=>d?.modelId?getOne('doorModels',d.modelId):null;
@@ -68,7 +68,7 @@ function selectVisReferenceDoor(idx,id){
   render();
 }
 window.selectVisReferenceDoor=selectVisReferenceDoor;
-function visCatalogSearch(value){visCatalogState.search=value;render();}
+function visCatalogSearch(value){const el=document.activeElement,at=el?.selectionStart;visCatalogState.search=value;render();const input=document.getElementById('visModelSearch');input?.focus();if(typeof at==='number')input?.setSelectionRange(at,at);}
 function visCatalogManufacturer(value){visCatalogState.manufacturer=value;visCatalogState.collection='';render();}
 function visCatalogCollection(value){visCatalogState.collection=value;render();}
 function visCatalogReadyOnly(checked){visCatalogState.readyOnly=!!checked;render();}
@@ -156,9 +156,9 @@ renderVisStep3=function(body){
         </div>
       </section>
       <section class="vg-picker-card">
-        <div class="vg-picker-title"><div><h3>Choose Garage Door</h3><p>253-model reference catalog · selling price stays in Estimate/Invoice</p></div><span>${refs.length} match${refs.length===1?'':'es'}</span></div>
+        <div class="vg-picker-title"><div><h3>Choose Garage Door</h3><p>${all.length}-model reference catalog · selling price stays in Estimate/Invoice</p></div><span>${refs.length} match${refs.length===1?'':'es'}</span></div>
         <div class="vg-filter-grid">
-          <input placeholder="Search model, collection, material…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)">
+          <input id="visModelSearch" placeholder="Search model, collection, material…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)">
           <select onchange="visCatalogManufacturer(this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visCatalogState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
           <select onchange="visCatalogCollection(this.value)"><option value="">All collections</option>${collections.map(x=>'<option '+(visCatalogState.collection===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
           <label class="vg-ready-filter"><input type="checkbox" ${visCatalogState.readyOnly?'checked':''} onchange="visCatalogReadyOnly(this.checked)"> Visualizer Ready only</label>
@@ -253,7 +253,7 @@ createEstimateFromDesign=function(){
     const p=refDoor(d),m=legacyDoor(d),size=d.customSize?(d.customWidth+"'x"+d.customHeight+"'"):(d.width+"'x"+d.height+"'");
     if(p){
       const specs=[val(p,'collection')?'Collection: '+val(p,'collection'):'','Size: '+size,val(p,'panelStyle')?'Design: '+val(p,'panelStyle'):'',val(p,'material')?'Material: '+val(p,'material'):'',val(p,'construction')?'Construction: '+val(p,'construction'):'',val(p,'rValue')?'R-Value: '+val(p,'rValue'):''].filter(Boolean).join('\n');
-      return {desc:(doors.length>1?'Garage door #'+(i+1)+' — ':'')+(p.name||'Garage Door'),details:specs,qty:1,rate:0,taxable:true,productId:p.id,catalogItemId:p.id};
+      return {desc:(doors.length>1?'Garage door #'+(i+1)+' — ':'')+(p.name||'Garage Door'),details:specs,qty:1,rate:0,taxable:true,productId:p.id,catalogItemId:p.id,doorImage:catalogDoorImage(p)};
     }
     const mf=getOne('manufacturers',m?.manufacturerId),details=[m?.collectionName?'Collection: '+m.collectionName:'','Size: '+size,d.color?'Color: '+d.color:''].filter(Boolean).join('\n');
     return {desc:(doors.length>1?'Garage door #'+(i+1)+' — ':'')+[mf?.name,m?.modelName].filter(Boolean).join(' '),details,qty:1,rate:Number(m?.basePrice)||0,taxable:true};
@@ -299,7 +299,7 @@ window.renderVisCatalog=renderVisCatalog;
 function galleryCover(p){return (p.photos||[]).find(ph=>ph.id===p.coverPhotoId)||(p.photos||[]).find(ph=>ph.tag==='After')||(p.photos||[])[0]}
 function galleryBefore(p){return (p.photos||[]).find(ph=>ph.tag==='Before')}
 function galleryAfter(p){return (p.photos||[]).find(ph=>ph.tag==='After')||galleryCover(p)}
-function premiumViewGalleryProject(id){galleryFilter.presenting=true;galleryFilter.presentIdx=[...STORE.galleryProjects].sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0)).findIndex(p=>p.id===id);galleryFilter.presentPhotoIdx=0;render()}
+function premiumViewGalleryProject(id){galleryFilter.presenting=true;galleryFilter.presentIdx=[...STORE.galleryProjects].sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0)).findIndex(p=>p.id===id);galleryFilter.presentPhotoIdx=0;galleryFilter.singlePhoto=false;render()}
 window.premiumViewGalleryProject=premiumViewGalleryProject;
 
 renderGallery=function(content,actions){
@@ -326,11 +326,11 @@ renderGalleryPresentation=function(content){
     <div class="pg-present">
       <div class="pg-present-top"><button class="btn btn-sm" onclick="galleryFilter.presenting=false;render()">Close Showroom</button><div><b>${idx+1} / ${list.length}</b><span>${esc(p.category||'Project')}</span></div>${IS_OWNER?'<button class="btn btn-sm" onclick="galleryFilter.presenting=false;render();openGalleryProjectModal(\''+p.id+'\')">Edit Project</button>':'<span></span>'}</div>
       <div class="pg-present-stage">
-        ${before&&after?'<div class="pg-ba"><figure><figcaption>BEFORE</figcaption><img src="'+esc(before.url)+'"></figure><figure><figcaption>AFTER</figcaption><img src="'+esc(after.url)+'"></figure></div>':photo?'<img class="pg-feature" src="'+esc(photo.url)+'">':'<div class="pg-no-photo">No photo</div>'}
+        ${before&&after&&!galleryFilter.singlePhoto?'<div class="pg-ba"><figure><figcaption>BEFORE</figcaption><img src="'+esc(before.url)+'"></figure><figure><figcaption>AFTER</figcaption><img src="'+esc(after.url)+'"></figure></div>':photo?'<img class="pg-feature" src="'+esc(photo.url)+'">':'<div class="pg-no-photo">No photo</div>'}
       </div>
-      ${photos.length>1?'<div class="pg-thumbs">'+photos.map((ph,n)=>'<button class="'+(n===pi?'active':'')+'" onclick="galleryFilter.presentPhotoIdx='+n+';render()"><img src="'+esc(ph.url)+'"></button>').join('')+'</div>':''}
+      ${photos.length>1?'<div class="pg-thumbs">'+photos.map((ph,n)=>'<button class="'+(n===pi?'active':'')+'" onclick="galleryFilter.presentPhotoIdx='+n+';galleryFilter.singlePhoto=true;render()"><img src="'+esc(ph.url)+'"></button>').join('')+'</div>':''}
       <div class="pg-present-copy"><span>${esc([p.category,p.city].filter(Boolean).join(' · '))}</span><h1>${esc(p.title)}</h1>${p.description?'<p>'+esc(p.description)+'</p>':''}<div class="pg-specs">${[['Manufacturer',p.doorManufacturer],['Collection / Model',p.doorCollection],['Color',p.doorColor],['Panel / Design',p.panelStyle],['Windows',p.windowStyle],['Insulation',p.insulation]].filter(x=>x[1]).map(x=>'<div><span>'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>').join('')}</div></div>
-      <div class="pg-present-nav"><button class="btn" onclick="galleryFilter.presentIdx=${(idx-1+list.length)%list.length};galleryFilter.presentPhotoIdx=0;render()">← Previous</button><button class="btn btn-primary" onclick="galleryFilter.presentIdx=${(idx+1)%list.length};galleryFilter.presentPhotoIdx=0;render()">Next Project →</button></div>
+      <div class="pg-present-nav"><button class="btn" onclick="galleryFilter.presentIdx=${(idx-1+list.length)%list.length};galleryFilter.presentPhotoIdx=0;galleryFilter.singlePhoto=false;render()">← Previous</button><button class="btn btn-primary" onclick="galleryFilter.presentIdx=${(idx+1)%list.length};galleryFilter.presentPhotoIdx=0;galleryFilter.singlePhoto=false;render()">Next Project →</button></div>
     </div>`;
 };
 window.renderGalleryPresentation=renderGalleryPresentation;

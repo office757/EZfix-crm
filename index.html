@@ -700,6 +700,85 @@
     }
   }
 </style>
+<!-- EZFIX_PRODUCT_CATALOG_UI_V1_HEAD --><link rel="stylesheet" href="/product-catalog-ui.css" data-ezfix-product-catalog="v1"><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_HEAD -->
+<!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
+<!-- EZFIX_MARKETING_CONNECTION_UI_V1_HEAD --><link rel="stylesheet" href="/marketing-connections-ui.css" data-ezfix-marketing-ui="v1"><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_HEAD -->
+<!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
+<style id="ezfix-calendar-premium">
+/* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
+.cal-week-toolbar,.cal-day-toolbar{grid-template-columns:auto minmax(0,1fr);gap:12px 18px;padding:16px;border-radius:16px;box-shadow:0 2px 8px rgba(16,24,40,.035)}
+.cal-week-toolbar .cal-title-block,.cal-day-toolbar .cal-title-block{min-width:0;text-align:right}
+.cal-title{font-size:20px;line-height:1.3;letter-spacing:-.035em}
+.cal-title-sub{color:var(--ink-soft);line-height:1.5}
+.cal-nav-group{gap:6px}
+.cal-nav-group .btn{min-width:40px;min-height:40px;border-radius:10px}
+.cal-nav-group>.btn:nth-child(2){background:rgba(247,148,29,.09);border-color:rgba(247,148,29,.32);color:var(--ink);font-weight:800;padding-inline:16px}
+.cal-week-toolbar .cal-filter-block,.cal-day-toolbar .cal-filter-block{grid-column:1/-1;justify-content:flex-start;border-top:1px solid var(--line);padding-top:12px;gap:8px;min-width:0}
+.cal-filter-block select{flex:1 1 160px;min-width:0;max-width:260px;min-height:40px;border-radius:10px}
+.cal-legend{gap:7px;margin-top:12px;color:var(--ink-soft);font-size:11px}
+.cal-legend-item{gap:7px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 9px;line-height:1.4}
+.cal-legend-dot{flex:none;width:7px;height:7px}
+.cal-legend-item strong{min-width:18px;padding:1px 4px;border-radius:6px;text-align:center;background:var(--paper-2);color:var(--ink);font-variant-numeric:tabular-nums}
+.cal-schedule-layout{gap:16px}
+.cal-schedule-main{min-width:0}
+/* The original mobile min-width:1234px must not expand the page itself. */
+.cal-schedule-main>div:first-child{overflow:visible!important}
+.cal-week-grid.with-all-day{width:100%;min-width:0;max-width:100%;max-height:min(76vh,820px);overflow:auto;overscroll-behavior-x:contain;scrollbar-gutter:stable;isolation:isolate;padding-bottom:0;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+/* One scroll owner lets sticky days and sticky hours work in both directions. */
+.cal-week-grid.with-all-day .cal-hour-board{min-width:980px;border:0;overflow:visible;border-radius:16px;box-shadow:none}
+.cal-hour-head{background:var(--card);box-shadow:0 1px 0 var(--line);border-radius:16px 16px 0 0}
+.cal-hour-dayhead{padding:10px 6px;background:var(--card)}
+.cal-hour-dow{font-size:10px;letter-spacing:.08em;color:var(--ink-soft)}
+.cal-hour-num{width:32px;height:32px;line-height:32px;margin:3px auto;font-size:19px;font-weight:800;border-radius:10px;font-variant-numeric:tabular-nums}
+.cal-hour-dayhead.is-today .cal-hour-num{background:var(--orange);color:#231600;box-shadow:0 2px 6px rgba(247,148,29,.2)}
+.cal-hour-corner,.cal-hour-times,.cal-hour-time,.cal-all-day-label{background:var(--paper-2);color:var(--ink-soft)}
+.cal-hour-time{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;padding:8px 7px}
+.cal-all-day-label{position:sticky;left:0;z-index:6;display:grid;place-items:center;font-size:9px;letter-spacing:.03em}
+.cal-all-day-cell{padding:6px;gap:5px;min-height:44px}
+.cal-all-day-pill{padding:5px 7px;min-height:28px;border-radius:7px;font-size:10px}
+.cal-hour-column:focus-within{box-shadow:inset 0 0 0 1px rgba(247,148,29,.4)}
+/* Preserve each job's inline time/height/lane position. Short cards show name + time first. */
+.cal-hour-job{display:flex;flex-direction:column;justify-content:flex-start;gap:2px;padding:5px 6px;border-radius:9px;color:#202c3d;box-shadow:0 1px 3px rgba(16,24,40,.07);line-height:1.25;transition:box-shadow .15s ease,border-color .15s ease}
+.cal-hour-job>*{flex-shrink:0;min-width:0}
+.cal-hour-job-customer{order:-1;width:100%;margin:0;font-size:11.5px;line-height:1.3;font-weight:800;color:#202c3d}
+.cal-hour-job-time{min-width:0;align-items:center;gap:3px;font-size:9.5px;line-height:1.25;color:#344054;font-variant-numeric:tabular-nums}
+.cal-hour-job-time>span:first-child{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-hour-job-status{flex:0 1 auto;max-width:44%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 4px;font-size:8px;line-height:1.2;color:#344054;background:rgba(255,255,255,.72);text-transform:none;letter-spacing:0}
+.cal-hour-job-meta,.cal-hour-job-address{margin:0;font-size:10px;line-height:1.3;color:#475467}
+.cal-hour-job:hover{transform:none;box-shadow:0 4px 12px rgba(16,24,40,.16)}
+.cal-hour-job:focus-visible{z-index:4}
+.cal-hour-now-label{font-size:9px;padding:3px 6px;line-height:1.1;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.cal-side-card,.cal-week-stat{border-radius:14px;box-shadow:0 2px 8px rgba(16,24,40,.035)}
+.cal-side-head{padding:13px 14px;font-size:13px}
+.cal-side-body{padding:12px 14px}
+.cal-mini-nav button{width:30px;height:30px}
+.cal-mini-day{font-size:11px;min-height:28px}
+.cal-today-row{padding:10px 0}
+.cal-today-name,.cal-tech-name{font-size:12px;line-height:1.4}
+.cal-today-meta,.cal-tech-count{font-size:10.5px;color:var(--ink-soft)}
+.cal-week-stat{padding:13px 14px;min-width:0}
+.cal-week-stat-value{font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
+.cal-week-stat-label{font-size:11px;color:var(--ink-soft)}
+.cal-friendly-toolbar{padding:14px;border-radius:16px}
+.cal-day-job{border-radius:14px;box-shadow:0 2px 8px rgba(16,24,40,.035)}
+:where(.cal-week-toolbar,.cal-day-toolbar,.cal-schedule-layout,.cal-month-layout,.cal-friendly-toolbar,.cal-day-view) :is(button,a,select):focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+@media(max-width:1550px){
+  .cal-schedule-layout{grid-template-columns:minmax(0,1fr)}
+  .cal-side-stack{position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+}
+@media(max-width:860px){
+  .cal-week-toolbar,.cal-day-toolbar{grid-template-columns:minmax(0,1fr);gap:10px;padding:12px}
+  .cal-week-toolbar .cal-title-block,.cal-day-toolbar .cal-title-block{text-align:left}
+  .cal-filter-block select{flex-basis:140px;width:auto!important;max-width:none}
+  .cal-week-grid.with-all-day{min-width:0;max-height:72vh}
+  .cal-side-stack{grid-template-columns:minmax(0,1fr)}
+  .cal-week-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .cal-hour-job,.cal-month-day{transition:none;animation:none}
+}
+</style>
+<!-- EZFIX_CALENDAR_PREMIUM_END --><link rel="stylesheet" href="/door-gallery.css" data-door-gallery="v1">
 </head>
 <body>
 
@@ -820,6 +899,7 @@ let route = { page: "dashboard", id: null };
 let searchTerms = {};
 let globalSearchQuery = '';
 const UI_STATE_KEY='ezfix_crm_ui_state_v1';
+/* EZFIX_UI_STATE_SAVE_V1_START */
 function saveUiState(){
   try{
     sessionStorage.setItem(UI_STATE_KEY, JSON.stringify({
@@ -828,27 +908,43 @@ function saveUiState(){
       calendarMonthCursor: typeof calendarMonthCursor==='undefined' ? null : calendarMonthCursor,
       calendarWeekStart: typeof calendarWeekStart==='undefined' ? null : calendarWeekStart,
       calendarTech: searchTerms.calendarTech||'',
-      calendarSelectedDate: searchTerms.calendarSelectedDate||''
+      calendarSelectedDate: searchTerms.calendarSelectedDate||'',
+      calendarJobType: searchTerms.calendarJobType||'',
+      calendarStatus: searchTerms.calendarStatus||'',
+      calendarMiniMonth: searchTerms.calendarMiniMonth||''
     }));
   }catch(e){}
 }
+/* EZFIX_UI_STATE_SAVE_V1_END */
+/* EZFIX_UI_STATE_RESTORE_V1_START */
 function restoreUiState(){
   try{
     const raw=sessionStorage.getItem(UI_STATE_KEY); if(!raw)return;
-    const s=JSON.parse(raw)||{};
-    if(s.route?.page) route={page:String(s.route.page),id:s.route.id||null};
-    if(s.calendarTech) searchTerms.calendarTech=String(s.calendarTech);
-    if(s.calendarSelectedDate) searchTerms.calendarSelectedDate=String(s.calendarSelectedDate);
-    window.__pendingCalendarUiState={
-      view:s.calendarViewMode||'month',
-      month:s.calendarMonthCursor||null,
-      week:s.calendarWeekStart||null
+    const s=JSON.parse(raw);
+    if(!s || typeof s!=='object' || Array.isArray(s)) return;
+    const text=(value,max=512)=>typeof value==='string' && value.length<=max ? value : '';
+    const date=value=>{
+      if(typeof value!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+      const d=new Date(value+'T12:00:00');
+      return Number.isFinite(d.getTime()) && d.getFullYear()===Number(value.slice(0,4)) && d.getMonth()+1===Number(value.slice(5,7)) && d.getDate()===Number(value.slice(8,10)) ? value : '';
     };
-    if(typeof calendarViewMode!=='undefined') calendarViewMode=s.calendarViewMode||'month';
-    if(typeof calendarMonthCursor!=='undefined') calendarMonthCursor=s.calendarMonthCursor||null;
-    if(typeof calendarWeekStart!=='undefined') calendarWeekStart=s.calendarWeekStart||null;
+    const page=text(s.route?.page,64);
+    if(/^[a-z][a-z0-9_-]*$/.test(page)) route={page,id:text(s.route?.id,256)||null};
+    searchTerms.calendarTech=text(s.calendarTech,256);
+    searchTerms.calendarSelectedDate=date(s.calendarSelectedDate);
+    searchTerms.calendarJobType=text(s.calendarJobType);
+    searchTerms.calendarStatus=text(s.calendarStatus,64);
+    searchTerms.calendarMiniMonth=date(s.calendarMiniMonth);
+    const view=['month','week','day'].includes(s.calendarViewMode)?s.calendarViewMode:'month';
+    const month=date(s.calendarMonthCursor)||null;
+    const week=date(s.calendarWeekStart)||null;
+    window.__pendingCalendarUiState={view,month,week};
+    if(typeof calendarViewMode!=='undefined') calendarViewMode=view;
+    if(typeof calendarMonthCursor!=='undefined') calendarMonthCursor=month;
+    if(typeof calendarWeekStart!=='undefined') calendarWeekStart=week;
   }catch(e){}
 }
+/* EZFIX_UI_STATE_RESTORE_V1_END */
 function validateRestoredRoute(){
   if(isMarketingManager() && !marketingAllowedPage(route.page)) route={page:'dashboard',id:null};
   if(isTechnicianView()){
@@ -929,7 +1025,7 @@ const KNOWN_COLUMNS = {
  suppliers:['id','name','email','phone','address','notes','created_at','updated_at','row_version','app_data'], purchaseOrders:['id','supplier_id','status','line_items','created_at','updated_at','row_version','deleted_at','app_data'],
  inspections:['id','customer_id','job_id','notes','status','created_at','updated_at','row_version','app_data'], galleryProjects:['id','title','category','city','description','cover_photo_id','photos','tags','door_collection','door_color','door_manufacturer','install_date','insulation','panel_style','window_style','sort_order','created_at','updated_at','row_version','app_data'],
  manufacturers:['id','name','created_at','updated_at','row_version','app_data'], doorCollections:['id','name','manufacturer_id','created_at','updated_at','row_version','app_data'], doorModels:['id','name','door_collection_id','details','created_at','updated_at','row_version','app_data'], savedDesigns:['id','customer_id','design_data','created_at','updated_at','row_version','app_data'], waNotifications:['id','recipient_team_id','kind','entity_type','entity_id','message','read','created_at','app_data'],
- auditLog:['id','action','summary','entity_type','entity_id','related_type','related_id','source','priority','read','created_by_team_id','created_at'], calls:['id','mode','outcome','summary','duration_sec','transcript','lead_id','customer_id','provider_call_id','direction','remote_number','local_number','status','started_at','ended_at','recording_url','recording_asset','provider_data','lead_extraction_status','lead_extraction','lead_extracted_at','created_at'], inventoryAdjustments:['id','product_id','product_name','qty_before','qty_after','delta','type','reason','source','created_by_team_id','created_at'], smsMessages:['id','provider','channel','provider_event_ids','provider_message_id','provider_conversation_id','direction','local_phone_number','remote_phone_number','normalized_remote_phone','message_text','message_type','provider_status','customer_id','lead_id','match_ambiguous','provider_created_at','received_at','sent_at','delivered_at','failed_at','failure_reason','created_at','updated_at','row_version']
+ auditLog:['id','action','summary','entity_type','entity_id','related_type','related_id','source','priority','read','created_by_team_id','created_at'], calls:['id','mode','outcome','summary','duration_sec','transcript','lead_id','customer_id','provider_call_id','direction','remote_number','local_number','status','started_at','ended_at','recording_url','recording_asset','transcript_replay_asset','transcript_replay_status','transcript_replay_source_hash','transcript_replay_error','transcript_replay_updated_at','transcript_replay_generation','provider_data','lead_extraction_status','lead_extraction','lead_extracted_at','created_at'], inventoryAdjustments:['id','product_id','product_name','qty_before','qty_after','delta','type','reason','source','created_by_team_id','created_at'], smsMessages:['id','provider','channel','provider_event_ids','provider_message_id','provider_conversation_id','direction','local_phone_number','remote_phone_number','normalized_remote_phone','message_text','message_type','provider_status','customer_id','lead_id','match_ambiguous','provider_created_at','received_at','sent_at','delivered_at','failed_at','failure_reason','created_at','updated_at','row_version']
 };
 const ASSET_BUCKET='crm-assets';
 // Writes and refreshes can be triggered by a form save, an audit entry and a
@@ -1159,6 +1255,7 @@ const NAV = [
   { key:'checklist', label:'Dev Checklist', emoji:'📋', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
   { key:'visualizer', label:'Door Visualizer', emoji:'🏠', icon:'M3 11l9-8 9 8M5 10v10h14V10', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
+  { key:'socialposts', label:'Social Media Posts', emoji:'📣', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6', ownerOnly:true, sidebar:false, category:'Social Media', fullWidth:true },
   { key:'viscatalog', label:'Visualizer Catalog', emoji:'⚙️', icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', ownerOnly: true, sidebar:false, category:'Sales Tools', launcher:false },
   { key:'walog', label:'WhatsApp Log', emoji:'🟢', icon:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'receptionist', label:'AI Receptionist', emoji:'🤖', icon:'M12 8V4H8M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zM2 14h2M20 14h2M9 18h6', ownerOnly: true, sidebar:false, category:'Sales Tools' },
@@ -1166,6 +1263,7 @@ const NAV = [
 const CATEGORY_META = {
   'Sales & Billing': { emoji:'💳', header:'#242424' },
   'Gallery & Visualizer': { emoji:'🖼️', header:'#242424', paired:true },
+  'Social Media': { emoji:'📣', header:'#242424' },
   'Service & Stock': { emoji:'🧰', header:'#242424' },
   'Team & Payroll': { emoji:'👥', header:'#242424', paired:true, centered:true },
 };
@@ -1242,7 +1340,7 @@ function render() {
     btn.classList.toggle('active', active);
     if (active) btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
-  const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'GPT AI Manager', settings:'Settings' };
+  const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', socialposts:'Social Media Posts', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'GPT AI Manager', settings:'Settings' };
   const PAGE_META = {
     dashboard: { emoji:'🏠', sub:'Your business at a glance' },
     leads: { emoji:'🎯', sub:'New inquiries & follow-ups' },
@@ -1309,6 +1407,7 @@ function render() {
   if (route.page === 'communications') return renderCommunications(content, actions);
   if (route.page === 'auditlog') return renderAuditLog(content, actions);
   if (route.page === 'more') return renderMoreScreen(content, actions);
+  if (route.page === 'socialposts') return renderSocialPosts(content, actions);
   if (route.page === 'gallery') return renderGallery(content, actions);
   if (route.page === 'visualizer') return renderVisualizer(content, actions);
   if (route.page === 'viscatalog') return renderVisCatalog(content, actions);
@@ -1398,7 +1497,7 @@ function quickPayRenderLines(){
 }
 function quickPayLineRow(li,idx){
  return `<tr>
-   <td><input type="text" value="${esc(li.desc)}" placeholder="e.g. Spring replacement" oninput="quickPayUpdateLine(${idx},'desc',this.value)"></td>
+   <td>${doorImageHtml(li)}<input type="text" value="${esc(li.desc)}" placeholder="e.g. Spring replacement" oninput="quickPayUpdateLine(${idx},'desc',this.value)"></td>
    <td><input type="number" min="0" step="1" value="${Number(li.qty)||1}" oninput="quickPayUpdateLine(${idx},'qty',this.value)"></td>
    <td><input type="number" min="0" step="0.01" value="${Number(li.rate)||0}" oninput="quickPayUpdateLine(${idx},'rate',this.value)"></td>
    <td style="padding-top:9px" id="qpLiAmt${idx}">${money((Number(li.qty)||1)*(Number(li.rate)||0))}</td>
@@ -1781,7 +1880,7 @@ function renderTechnicianDashboard(content, actions) {
 }
 function dashboardModuleCategories() {
   const secondary = NAV.filter(n => n.launcher!==false && n.key!=='receptionist' && n.sidebar===false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
-  const order = ['Sales & Billing','Gallery & Visualizer','Service & Stock','Team & Payroll'];
+  const order = ['Sales & Billing','Gallery & Visualizer','Social Media','Service & Stock','Team & Payroll'];
   const groups = {};
   secondary.forEach(n => { (groups[n.category||'Other'] = groups[n.category||'Other']||[]).push(n); });
   return order.filter(c=>groups[c]).map(c => ({ name: c, items: groups[c] }));
@@ -3673,7 +3772,7 @@ function jobPhotoUploaderHtml() {
             <div class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:4px">${esc(cat)}</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px">
               ${grouped[cat].map(ph=>`<div style="position:relative;width:72px;height:72px">
-                <img src="${ph.url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
+                <img src="${esc(ph.url)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
                 <button type="button" onclick="removeJobPhoto(${ph.idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer">×</button>
               </div>`).join('')}
             </div>
@@ -3729,7 +3828,7 @@ function photoUploaderHtml() {
       <div id="photoThumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
         ${docPhotosDraft.map((ph,idx)=>`
           <div style="position:relative;width:72px;height:72px">
-            <img src="${ph.url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
+            <img src="${esc(ph.url)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
             <button type="button" onclick="removeDocPhoto(${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer">×</button>
           </div>`).join('')}
       </div>
@@ -3763,7 +3862,7 @@ function refreshPhotoThumbs() {
   if (!wrap) return;
   wrap.innerHTML = docPhotosDraft.map((ph,idx)=>`
     <div style="position:relative;width:72px;height:72px">
-      <img src="${ph.url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line);${ph.uploading?'opacity:.5':''}">
+      <img src="${esc(ph.url)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line);${ph.uploading?'opacity:.5':''}">
       ${!ph.uploading ? `<button type="button" onclick="removeDocPhoto(${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer">×</button>` : ''}
     </div>`).join('');
 }
@@ -3819,7 +3918,7 @@ function lineItemsHtml() {
 }
 function liRow(li, idx) {
   return `<tr data-idx="${idx}">
-    <td><input type="text" value="${esc(li.desc)}" placeholder="e.g. Spring replacement" oninput="updateLI(${idx},'desc',this.value)"></td>
+    <td>${doorImageHtml(li)}<input type="text" value="${esc(li.desc)}" placeholder="e.g. Spring replacement" oninput="updateLI(${idx},'desc',this.value)"></td>
     <td><input type="number" min="0" step="1" value="${li.qty}" oninput="updateLI(${idx},'qty',this.value)"></td>
     <td><input type="number" min="0" step="0.01" value="${li.rate}" oninput="updateLI(${idx},'rate',this.value)"></td>
     <td style="padding-top:9px" id="liAmt${idx}">${money(li.qty*li.rate)}</td>
@@ -3985,7 +4084,7 @@ function addFromCatalog(productId) {
   if (!productId) return;
   const p = getOne('products', productId);
   if (!p) return;
-  lineItemsDraft.push({ desc: p.name, details: p.details||'', qty: p.defaultQty||1, rate: Number(p.rate)||0, taxable: p.taxable!==false, productId: p.id, catalogItemId: p.id });
+  lineItemsDraft.push({ desc: p.name, details: p.details||'', qty: p.defaultQty||1, rate: Number(p.rate)||0, taxable: p.taxable!==false, productId: p.id, catalogItemId: p.id, doorImage: catalogDoorImage(p) });
   refreshLI();
 }
 function updateLI(idx, field, val) {
@@ -4141,7 +4240,7 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
       const customerId = document.getElementById('f_customer').value;
       if (!customerId) return toast('Please select a customer');
       const cust = getOne('customers', customerId);
-      const items = lineItemsDraft.filter(li=>li.desc.trim());
+      const items = await Promise.all(lineItemsDraft.filter(li=>li.desc.trim()).map(freezeDoorImage));
       if (!items.length) return toast('Add at least one line item');
       const data = {
         number: (e && e.number) || await nextProductionNumber('estimate'),
@@ -6712,37 +6811,42 @@ function renderChecklistBody() {
    ============================================================ */
 const GALLERY_CATEGORIES = ['Garage Door Installations','Before & After','Garage Door Openers','Repairs','Window Designs','Door Colors','Commercial Doors','Residential Doors'];
 let galleryPhotosDraft = [];
+let galleryCoverDraft = null;
 let galleryFilter = { category: '', search: '', presenting: false, presentIdx: 0 };
 function galleryPhotoUploaderHtml() {
   return `
-    <label class="field"><span class="lbl">Photos</span>
+    <div class="field"><span class="lbl">Photos</span>
       <div id="galleryPhotoThumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-        ${galleryPhotosDraft.map((ph,idx)=>`<div style="position:relative;width:76px;height:76px">
-          <img src="${ph.url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
-          <select onchange="galleryPhotosDraft[${idx}].tag=this.value" style="position:absolute;bottom:-2px;left:0;right:0;font-size:9px;padding:1px;border-radius:0 0 6px 6px">
+        ${galleryPhotosDraft.map((ph,idx)=>`<div style="position:relative;width:100px;height:124px">
+          <img src="${esc(ph.url)}" style="width:100%;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
+          <label style="position:absolute;top:80px;left:0;font-size:12px"><input type="radio" name="galleryCover" style="width:auto" ${galleryCoverDraft===ph.id?'checked':''} ${ph.uploading?'disabled':''} onchange="galleryCoverDraft=galleryPhotosDraft[${idx}].id"> Cover</label><select onchange="galleryPhotosDraft[${idx}].tag=this.value" style="position:absolute;bottom:-2px;left:0;right:0;font-size:12px;padding:1px;border-radius:0 0 6px 6px">
             ${['Before','After','Other'].map(t=>`<option ${ph.tag===t?'selected':''}>${t}</option>`).join('')}
           </select>
           <button type="button" onclick="galleryPhotosDraft.splice(${idx},1); refreshGalleryPhotoThumbs()" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;font-size:12px;cursor:pointer">×</button>
         </div>`).join('')}
       </div>
-      <input type="file" accept="image/*" id="f_galleryphoto">
-    </label>
+      <input type="file" accept="image/jpeg,image/png,image/webp" multiple id="f_galleryphoto"><span class="dg-photo-upload-state">Select multiple photos of the same model. Choose the cover below.</span>
+    </div>
   `;
 }
 async function handleGalleryPhotoInput() {
-  const input = document.getElementById('f_galleryphoto');
-  if (!input.files || !input.files[0]) return;
-  const file = input.files[0];
-  input.value = '';
-  const tempUrl = URL.createObjectURL(file);
-  const idx = galleryPhotosDraft.length;
-  galleryPhotosDraft.push({ id:null, url: tempUrl, uploading:true, tag:'Other' });
-  refreshGalleryPhotoThumbs();
-  try {
-    const res = await uploadAsset(file,'gallery');
-    galleryPhotosDraft[idx] = { id: res.id, url: res.url, tag: galleryPhotosDraft[idx].tag };
-  } catch(e) { console.error(e); toast('Photo upload failed', true); galleryPhotosDraft.splice(idx,1); }
-  refreshGalleryPhotoThumbs();
+  if(!IS_OWNER)return toast('Owner access required',true);
+  const input=document.getElementById('f_galleryphoto'),files=Array.from(input?.files||[]);
+  if(!files.length)return;
+  input.value='';
+  const draft=galleryPhotosDraft;
+  for(const file of files){
+    if(galleryPhotosDraft!==draft)break;
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024){toast(file.name+': use JPG, PNG or WebP up to 15 MB',true);continue;}
+    const tempUrl=URL.createObjectURL(file),pending={id:null,url:tempUrl,uploading:true,tag:'Other'};
+    draft.push(pending);refreshGalleryPhotoThumbs();
+    try{
+      const res=await uploadAsset(file,'gallery');
+      const idx=draft.indexOf(pending);
+      if(idx>=0){draft[idx]={id:res.id,url:res.url,tag:pending.tag};if(galleryPhotosDraft===draft&&!galleryCoverDraft)galleryCoverDraft=res.id;}
+    }catch(e){console.error(e);toast(file.name+': photo upload failed',true);const idx=draft.indexOf(pending);if(idx>=0)draft.splice(idx,1);}
+    finally{URL.revokeObjectURL(tempUrl);if(galleryPhotosDraft===draft)refreshGalleryPhotoThumbs();}
+  }
 }
 function refreshGalleryPhotoThumbs() {
   const wrap = document.getElementById('galleryPhotoThumbs');
@@ -6786,9 +6890,11 @@ function renderGallery(content, actions) {
     </div>` : emptyState('🖼️','No gallery projects yet', IS_OWNER ? 'Add a completed project to start building your showroom.' : 'Check back soon!')}
   `;
 }
-function openGalleryProjectModal(id, presetPhotos) {
+function openGalleryProjectModal(id, presetPhotos, presetProductId) {
+  if(!IS_OWNER)return toast('Owner access required',true);
   const p = id ? getOne('galleryProjects', id) : null;
   galleryPhotosDraft = p?.photos ? JSON.parse(JSON.stringify(p.photos)) : (presetPhotos || []);
+  galleryCoverDraft = p?.coverPhotoId || galleryPhotosDraft[0]?.id || null;
   showModal({
     title: p ? 'Edit gallery project' : 'New gallery project',
     wide: true,
@@ -6797,7 +6903,10 @@ function openGalleryProjectModal(id, presetPhotos) {
       <label class="field"><span class="lbl">Category</span>
         <select id="f_category">${GALLERY_CATEGORIES.map(c=>`<option ${p?.category===c?'selected':''}>${c}</option>`).join('')}</select>
       </label>
+      <label class="field"><span class="lbl">Catalog model</span><select id="f_gallerymodel"><option value="">Not linked yet</option>${galleryDoorProducts().map(d=>`<option value="${esc(d.id)}" ${(p?.referenceProductId||presetProductId)===d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>
+      <div class="field-row"><label class="field"><span class="lbl">Door size (width × height)</span><input id="f_gallerysize" value="${esc(p?.doorSize)}" placeholder="e.g. 16 × 7 ft — enter confirmed size"></label><label class="field"><span class="lbl">Door type</span><input id="f_gallerytype" value="${esc(p?.doorType)}" placeholder="e.g. Carriage house"></label></div>
       ${galleryPhotoUploaderHtml()}
+      <label class="dg-image-default"><input type="checkbox" id="f_gallerydefault"><span>Use this cover as the model's catalog photo. Confirm the linked model, color and size before selecting.</span></label>
       <div class="field-row">
         <label class="field"><span class="lbl">Door manufacturer</span><input type="text" id="f_doormfr3" value="${esc(p?.doorManufacturer)}"></label>
         <label class="field"><span class="lbl">Collection/model</span><input type="text" id="f_doormodel3" value="${esc(p?.doorCollection)}"></label>
@@ -6822,11 +6931,18 @@ function openGalleryProjectModal(id, presetPhotos) {
     onSave: async () => {
       const title = document.getElementById('f_title').value.trim();
       if (!title) return toast('Give the project a title');
+      if(galleryPhotosDraft.some(ph=>ph.uploading))return toast('Wait for photo uploads to finish',true);
       const photos = galleryPhotosDraft.filter(ph=>!ph.uploading);
+      const referenceProductId=document.getElementById('f_gallerymodel').value;
+      const useDefault=document.getElementById('f_gallerydefault').checked;
+      if(useDefault&&(!referenceProductId||!photos.length))return toast('Choose a catalog model and upload its photo first',true);
       const data = {
         title, category: document.getElementById('f_category').value,
+        referenceProductId:referenceProductId||null,
+        doorSize:document.getElementById('f_gallerysize').value.trim(),
+        doorType:document.getElementById('f_gallerytype').value.trim(),
         photos,
-        coverPhotoId: p?.coverPhotoId && photos.some(ph=>ph.id===p.coverPhotoId) ? p.coverPhotoId : (photos[0]?.id||null),
+        coverPhotoId: galleryCoverDraft && photos.some(ph=>ph.id===galleryCoverDraft) ? galleryCoverDraft : (photos[0]?.id||null),
         doorManufacturer: document.getElementById('f_doormfr3').value.trim(),
         doorCollection: document.getElementById('f_doormodel3').value.trim(),
         doorColor: document.getElementById('f_doorcolor3').value.trim(),
@@ -6840,6 +6956,11 @@ function openGalleryProjectModal(id, presetPhotos) {
       };
       if (p) await dbSet('galleryProjects', p.id, data);
       else await dbAdd('galleryProjects', { ...data, sortOrder: STORE.galleryProjects.length });
+      if(useDefault){
+        const cover=photos.find(ph=>ph.id===data.coverPhotoId)||photos[0];
+        try{await dbSet('products',referenceProductId,{imageAsset:{id:cover.id,url:cover.url},imageUrl:cover.url,doorSize:data.doorSize,doorColor:data.doorColor,doorType:data.doorType,panelStyle:data.panelStyle});}
+        catch(e){console.error(e);closeModal();render();return toast('Photos saved. The catalog photo could not be updated; edit this project to retry.',true);}
+      }
       toast(p ? 'Project updated' : 'Project added to gallery');
       closeModal();
     }
@@ -8179,10 +8300,22 @@ async function viewCallDetail(id) {
   const recordingUrl=callRecordingUrl(c);
   const recordingButtons=canManageCallRecording()?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn btn-sm" onclick="promptCallRecordingUpload('${esc(c.id)}')">${c.recordingAsset?'Replace':'Attach'} recording</button>${c.recordingAsset?`<button type="button" class="btn btn-sm btn-danger" onclick="removeCallRecording('${esc(c.id)}')">Remove</button>`:''}</div>`:'';
   const audio=recordingUrl?`<div style="margin-bottom:14px"><b style="font-size:12px">Call recording</b><audio controls preload="metadata" style="width:100%;margin-top:6px" src="${esc(recordingUrl)}"></audio>${recordingButtons}</div>`:(canManageCallRecording()?`<div class="panel" style="margin-bottom:14px"><div class="panel-body pad"><b style="font-size:12px">Call recording</b><div class="muted" style="font-size:12px;margin:5px 0 9px">Inkbox has not supplied a recording for this call. You can attach an audio file manually.</div>${recordingButtons}</div></div>`:'');
+/* EZFIX_TRANSCRIPT_REPLAY_UI_V1 */
+  const replayAsset=c.transcriptReplayAsset&&typeof c.transcriptReplayAsset==='object'?c.transcriptReplayAsset:null;
+  const replayUrl=replayAsset?.url||'';
+  const replayStatus=String(c.transcriptReplayStatus||'');
+  const replayNote='<div class="muted" style="font-size:11.5px;margin-top:5px">AI-generated reading of the transcript — not the original call recording. Voices and timing are synthetic.</div>';
+  const replayPanel=replayUrl
+    ?`<div class="panel" style="margin-bottom:14px"><div class="panel-body pad"><b style="font-size:12px">AI transcript replay</b>${replayNote}<audio controls preload="metadata" style="width:100%;margin-top:8px" src="${esc(replayUrl)}"></audio></div></div>`
+    : replayStatus==='pending'||replayStatus==='generating'
+      ?`<div class="panel" style="margin-bottom:14px"><div class="panel-body pad"><b style="font-size:12px">AI transcript replay</b>${replayNote}<div style="font-size:12px;margin-top:8px">${replayStatus==='generating'?'Generating automatically…':'Queued for automatic generation.'}</div></div></div>`
+      : replayStatus==='failed'
+        ?`<div class="panel" style="margin-bottom:14px"><div class="panel-body pad"><b style="font-size:12px">AI transcript replay</b>${replayNote}<div style="font-size:12px;margin-top:8px">Generation failed. The original transcript is unchanged.</div></div></div>`
+        :'';
   const lead = c.leadId ? getOne('leads', c.leadId) : null;
   const extracted = c.leadExtraction && typeof c.leadExtraction==='object' ? c.leadExtraction : {};
   const leadPanel = `<div class="panel" style="margin-bottom:14px"><div class="panel-body pad"><b>Lead intake</b><div class="muted" style="font-size:12px;margin-top:5px">${lead ? `Linked to ${esc(lead.name||'lead')}` : c.leadExtractionStatus==='needs_review' ? 'Needs review — Ashley did not capture enough structured information to create a lead safely.' : 'Processing / no linked lead yet.'}</div>${lead?`<button class="btn btn-sm btn-primary" style="margin-top:9px" onclick="closeModal();go('leads','${lead.id}')">Open lead</button>`:''}${Object.values(extracted).some(Boolean)?`<div style="font-size:12px;margin-top:10px">${extracted.name?`<div><b>Name:</b> ${esc(extracted.name)}</div>`:''}${extracted.phone?`<div><b>Phone:</b> ${esc(extracted.phone)}</div>`:''}${extracted.email?`<div><b>Email:</b> ${esc(extracted.email)}</div>`:''}${extracted.address?`<div><b>Address:</b> ${esc(extracted.address)}</div>`:''}${extracted.service_requested?`<div><b>Service:</b> ${esc(extracted.service_requested)}</div>`:''}</div>`:''}</div></div>`;
-  showModal({ title: 'Call details', wide: true, body: `${audio}${leadPanel}<div class="muted" style="font-size:12px;margin-bottom:12px">${esc(c.direction||'')} ${c.remoteNumber?'· '+esc(c.remoteNumber):''} ${c.status?'· '+esc(c.status):''}</div>${transcript}`, onSave: async () => closeModal() });
+  showModal({ title: 'Call details', wide: true, body: `${replayPanel}${audio}${leadPanel}<div class="muted" style="font-size:12px;margin-bottom:12px">${esc(c.direction||'')} ${c.remoteNumber?'· '+esc(c.remoteNumber):''} ${c.status?'· '+esc(c.status):''}</div>${transcript}`, onSave: async () => closeModal() });
   document.getElementById('modalSaveBtn').textContent = 'Close';
 }
 window.viewCallDetail = viewCallDetail;
@@ -9041,12 +9174,45 @@ function renderCalendarWeek(content) {
   const windowTimes=j=>{ const ms=String(j.appointmentWindow||'').match(/\d{1,2}(?::\d{2})?\s*(?:AM|PM)/ig)||[]; const st=parseClock(ms[0]), en=parseClock(ms[1]); return {start:st??8,end:en&&en>(st??8)?en:(st??8)+1}; };
   const weekJobs=days.flatMap(d=>jobsForDay(d));
   const timed=d=>jobsForDay(d).filter(j=>parseClock(j.appointmentWindow)!=null);
+  // EZFIX_CALENDAR_OVERLAPS_V1: independent groups, using actual painted card bounds.
   const layoutTimed=d=>{
-    const items=timed(d).map(j=>({job:j,wt:windowTimes(j)})).sort((a,b)=>a.wt.start-b.wt.start||a.wt.end-b.wt.end);
-    const laneEnds=[];
-    items.forEach(x=>{let lane=laneEnds.findIndex(end=>end<=x.wt.start);if(lane<0)lane=laneEnds.length;laneEnds[lane]=x.wt.end;x.lane=lane;});
-    const lanes=Math.max(1,laneEnds.length);
-    return items.map(x=>({job:x.job,wt:x.wt,lane:x.lane,lanes}));
+    const layout=function layoutCalendarIntervals(intervals) {
+  if (!Array.isArray(intervals)) throw new TypeError('Expected calendar intervals');
+  const items = intervals.map((item, order) => {
+    if (!item || !Number.isFinite(item.start) || !Number.isFinite(item.end) || item.end <= item.start) {
+      throw new TypeError('Calendar intervals must have finite start < end');
+    }
+    return { ...item, order };
+  }).sort((a, b) => a.start - b.start || a.end - b.end || a.order - b.order);
+  const output = [];
+  let group = [], groupEnd = -Infinity;
+  const flush = () => {
+    const laneEnds = [];
+    for (const item of group) {
+      let lane = laneEnds.findIndex(end => end <= item.start);
+      if (lane < 0) lane = laneEnds.length;
+      laneEnds[lane] = item.end;
+      item.lane = lane;
+    }
+    for (const { order, ...item } of group) output.push({ ...item, lanes: laneEnds.length });
+    group = [];
+    groupEnd = -Infinity;
+  };
+  for (const item of items) {
+    // Touching intervals are not overlapping. Each disconnected group starts fresh.
+    if (group.length && item.start >= groupEnd) flush();
+    group.push(item);
+    groupEnd = Math.max(groupEnd, item.end);
+  }
+  if (group.length) flush();
+  return output;
+};
+    const items=timed(d).map(j=>{
+      const wt=windowTimes(j),st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end));
+      const start=(st-8)*60,height=Math.max(48,(en-st)*60-6);
+      return {job:j,wt,start,end:start+height};
+    });
+    return layout(items);
   };
   const allDay=d=>jobsForDay(d).filter(j=>parseClock(j.appointmentWindow)==null);
   const todayJobs=jobsForDay(today).slice(0,6);
@@ -9061,6 +9227,10 @@ function renderCalendarWeek(content) {
   const statusCounts=weekJobs.reduce((acc,j)=>(acc[j.status]=(acc[j.status]||0)+1,acc),{});
   const toneForJob=j=>{const text=String(j.title||j.status||'');let h=0;for(let i=0;i<text.length;i++)h=(h*31+text.charCodeAt(i))>>>0;return h%5;};
   content.innerHTML=`
+    <style id="ezfix-calendar-overlap-cards">
+      .cal-hour-job.is-overlapping .cal-hour-job-status{display:none}
+      .cal-hour-job.is-compact .cal-hour-job-meta,.cal-hour-job.is-compact .cal-hour-job-address{display:none}
+    </style>
     <div class="cal-week-toolbar">
       <div class="cal-nav-group"><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,-7);saveUiState();render()" aria-label="Previous week">‹</button><button class="btn btn-sm" onclick="calendarWeekStart=startOfWeek(todayISO());saveUiState();render()">Today</button><button class="btn btn-sm cal-nav-btn" onclick="calendarWeekStart=addDays(calendarWeekStart,7);saveUiState();render()" aria-label="Next week">›</button></div>
       <div class="cal-title-block"><div class="cal-title">${rangeLabel}</div><div class="cal-title-sub">${weekJobs.length} scheduled jobs · Tap an empty time to add</div></div>
@@ -9073,7 +9243,7 @@ function renderCalendarWeek(content) {
           <div class="cal-hour-head"><div class="cal-hour-corner"></div>${days.map(d=>{const x=new Date(d+'T00:00:00'),it=d===today;return `<div class="cal-hour-dayhead ${it?'is-today':''} ${[0,6].includes(x.getDay())?'is-weekend':''}" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()"><div class="cal-hour-dow">${x.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="cal-hour-num">${x.getDate()}</div><div style="font-size:9px;color:var(--muted);font-weight:750">${jobsForDay(d).length} job${jobsForDay(d).length===1?'':'s'}</div></div>`}).join('')}</div>
           <div class="cal-all-day"><div class="cal-all-day-label">ALL DAY</div>${days.map(d=>`<div class="cal-all-day-cell">${allDay(d).map(j=>`<button class="cal-all-day-pill" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')">${esc(j.customerName||j.title||'Job')}</button>`).join('')}</div>`).join('')}</div>
           <div class="cal-hour-body"><div class="cal-hour-times">${hours.map(h=>`<div class="cal-hour-time">${h===12?'12 PM':h>12?(h-12)+' PM':h+' AM'}</div>`).join('')}</div>
-          ${days.map(d=>`<div class="cal-hour-column ${d===today?'is-today':''} ${[0,6].includes(new Date(d+'T00:00:00').getDay())?'is-weekend':''}" data-date="${d}" onclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondblclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondragover="event.preventDefault()" ondrop="handleJobTimeDrop(event,'${d}')">${d===nowISO&&nowHour>=8&&nowHour<=19?`<div class="cal-hour-now" style="top:${nowTop}px" title="Current time"><span class="cal-hour-now-label">${formatCalendarClock(nowHour)}</span></div>`:''}${layoutTimed(d).map((item,idx)=>{const j=item.job,wt=item.wt,st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end)),top=(st-8)*60,height=Math.max(48,(en-st)*60-6),cust=getOne('customers',j.customerId),address=cust?.address||'',laneWidth=100/item.lanes,laneLeft=item.lane*laneWidth;return `<button class="cal-hour-job tone-${toneForJob(j)}" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;height:${height}px;left:calc(${laneLeft}% + 4px);right:auto;width:calc(${laneWidth}% - 8px);--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time"><span>${esc(j.appointmentWindow||'Time TBD')}</span><span class="cal-hour-job-status">${esc(labelize(j.status))}</span></div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')}</div>${address?`<div class="cal-hour-job-address">${esc(address)}</div>`:''}<div class="cal-hour-job-meta">👷 ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
+          ${days.map(d=>`<div class="cal-hour-column ${d===today?'is-today':''} ${[0,6].includes(new Date(d+'T00:00:00').getDay())?'is-weekend':''}" data-date="${d}" onclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondblclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondragover="event.preventDefault()" ondrop="handleJobTimeDrop(event,'${d}')">${d===nowISO&&nowHour>=8&&nowHour<=19?`<div class="cal-hour-now" style="top:${nowTop}px" title="Current time"><span class="cal-hour-now-label">${formatCalendarClock(nowHour)}</span></div>`:''}${layoutTimed(d).map((item,idx)=>{const j=item.job,wt=item.wt,st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end)),top=(st-8)*60,height=Math.max(48,(en-st)*60-6),cust=getOne('customers',j.customerId),address=cust?.address||'',laneWidth=100/item.lanes,laneLeft=item.lane*laneWidth;return `<button class="cal-hour-job tone-${toneForJob(j)} ${item.lanes>1?'is-overlapping':''} ${height<64?'is-compact':''}" title="${esc([j.customerName||'Customer',j.appointmentWindow||'Time TBD',labelize(j.status),j.title||'Service',address,j.technician||'Unassigned'].filter(Boolean).join(' · '))}" aria-label="${esc([j.customerName||'Customer',j.appointmentWindow||'Time TBD',labelize(j.status),j.title||'Service',address,j.technician||'Unassigned'].filter(Boolean).join(' · '))}" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;height:${height}px;left:calc(${laneLeft}% + 4px);right:auto;width:calc(${laneWidth}% - 8px);--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time"><span>${esc(j.appointmentWindow||'Time TBD')}</span><span class="cal-hour-job-status">${esc(labelize(j.status))}</span></div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')}</div>${address?`<div class="cal-hour-job-address">${esc(address)}</div>`:''}<div class="cal-hour-job-meta">👷 ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
           </div>
         </div></div>
       </div>
@@ -9243,6 +9413,19 @@ async function syncJobAssignment(jobId, technicianId, technicianName) {
     const result=await response.json().catch(()=>({}));
     if(!response.ok || !result.ok) console.warn('Technician assignment SMS not accepted', result);
   } catch(e) { console.warn('Technician assignment SMS failed without blocking assignment', e); }
+  /* EZFIX_ASSIGNMENT_WHATSAPP_V1 */
+  if (techWantsNotification(technicianName, 'newJob')) {
+    try {
+      const when=[job.scheduledDate||'date pending',job.appointmentWindow||''].filter(Boolean).join(' · ');
+      await logWaNotification(
+        technicianName,
+        'newJob',
+        'jobs',
+        jobId,
+        `New job assigned: ${job.title||'Service call'} · ${job.customerName||'Customer'} · ${when}`
+      );
+    } catch(e) { console.warn('Technician assignment WhatsApp failed without blocking assignment', e); }
+  }
 }
 window.syncJobAssignment = syncJobAssignment;
 function openJobModal(id, presetCustomerId) {
@@ -9497,7 +9680,7 @@ function openInvoiceModal(id, presetCustomerId, presetJobId, presetItems) {
       const customerId = document.getElementById('f_customer').value;
       if (!customerId) return toast('Please select a customer');
       const cust = getOne('customers', customerId);
-      const items = lineItemsDraft.filter(li=>li.desc.trim());
+      const items = await Promise.all(lineItemsDraft.filter(li=>li.desc.trim()).map(freezeDoorImage));
       if (!items.length) return toast('Add at least one line item');
       const jobId = document.getElementById('f_job').value;
       const job = jobId ? getOne('jobs', jobId) : null;
@@ -9852,7 +10035,7 @@ function renderDocumentView(type, id) {
             <thead><tr><th>DESCRIPTION</th><th class="num">RATE</th><th class="num">QTY</th><th class="num">AMOUNT</th></tr></thead>
             <tbody>
               ${items.map(li=>`<tr>
-                <td><div class="idesc-title">${esc(li.desc)}</div>${li.details?`<div class="idesc-sub">${esc(li.details)}</div>`:''}</td>
+                <td>${doorImageHtml(li)}<div class="idesc-title">${esc(li.desc)}</div>${li.details?`<div class="idesc-sub">${esc(li.details)}</div>`:''}</td>
                 <td class="num">${money(li.rate)}</td>
                 <td class="num">${li.qty}</td>
                 <td class="num">${money(li.qty*li.rate)}</td>
@@ -10269,25 +10452,33 @@ async function buildPdfDoc(type, doc) {
   y += 22;
 
   pdf.setFont('helvetica','normal');
-  (doc.items||[]).forEach(li => {
-    const rowH = li.details ? 34 : 22;
-    pdf.setDrawColor(230,230,230); pdf.line(margin, y+rowH, pageW-margin, y+rowH);
-    pdf.setTextColor(20,20,20); pdf.setFontSize(10); pdf.setFont('helvetica','bold');
-    pdf.text(li.desc||'', margin+8, y+14);
-    pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5);
-    pdf.text(money(li.rate), pageW-margin-150, y+14, {align:'right'});
-    pdf.text(String(li.qty), pageW-margin-90, y+14, {align:'right'});
-    pdf.text(money(li.qty*li.rate), pageW-margin-8, y+14, {align:'right'});
-    if (li.details) {
-      pdf.setTextColor(110,110,110); pdf.setFontSize(8.5);
-      const wrapped = pdf.splitTextToSize(li.details, pageW-margin*2-16);
-      pdf.text(wrapped, margin+8, y+27);
+  for(const li of (doc.items||[])) {
+    const image=documentDoorImage(li),descW=pageW-margin*2-190;
+    pdf.setFontSize(10);pdf.setFont('helvetica','bold');
+    const titleLines=pdf.splitTextToSize(li.desc||'',descW);
+    pdf.setFontSize(8.5);pdf.setFont('helvetica','normal');
+    const detailLines=li.details?pdf.splitTextToSize(li.details,descW):[];
+    const textH=titleLines.length*12+detailLines.length*10+14;
+    const rowH=textH+(image?100:0);
+    if(y+rowH>700){pdf.addPage();y=40;}
+    pdf.setTextColor(20,20,20);pdf.setFontSize(10);pdf.setFont('helvetica','bold');
+    pdf.text(titleLines,margin+8,y+14);
+    pdf.setFont('helvetica','normal');pdf.setFontSize(9.5);
+    pdf.text(money(li.rate),pageW-margin-150,y+14,{align:'right'});
+    pdf.text(String(li.qty),pageW-margin-90,y+14,{align:'right'});
+    pdf.text(money(li.qty*li.rate),pageW-margin-8,y+14,{align:'right'});
+    if(detailLines.length){pdf.setTextColor(110,110,110);pdf.setFontSize(8.5);pdf.text(detailLines,margin+8,y+titleLines.length*12+14);}
+    if(image){
+      const frozen=await freezeDoorImage(li),data=frozen.imageDataUrl||image,props=pdf.getImageProperties(data);
+      const scale=Math.min(150/props.width,80/props.height);
+      pdf.addImage(data,margin+8,y+textH,props.width*scale,props.height*scale);
+      pdf.setFontSize(7.5);pdf.setTextColor(110,110,110);pdf.text(pdf.splitTextToSize(li.imageCaption||'Selected door',descW),margin+8,y+textH+90);
     }
-    y += rowH;
-    if (y > 680) { pdf.addPage(); y = 40; }
-  });
+    pdf.setDrawColor(230,230,230);pdf.line(margin,y+rowH,pageW-margin,y+rowH);y+=rowH;
+  }
   y += 20;
 
+  if(y>550){pdf.addPage();y=40;}
   // Totals
   const totalsX = pageW-margin-8;
   pdf.setFontSize(9.5);
@@ -10739,22 +10930,34 @@ function confirmDelete(col, id, backTo) {
 }
 window.confirmDelete = confirmDelete;
 
+/* EZFIX_UI_STATE_SCROLL_V1_START */
 function renderPreserveScroll() {
-  const y = window.scrollY;
+  const x = window.scrollX, y = window.scrollY;
+  const beforeRoute = JSON.stringify([route.page,route.id||null]);
+  const nestedScroll = ['.cal-week-grid','.cal-month-shell'].map(selector=>{
+    const el=document.querySelector(selector);
+    return el ? {selector,left:el.scrollLeft,top:el.scrollTop} : null;
+  }).filter(Boolean);
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = (active && typeof active.selectionStart === 'number') ? active.selectionStart : null;
   const selEnd = (active && typeof active.selectionEnd === 'number') ? active.selectionEnd : null;
   render();
-  window.scrollTo(0,y);
+  if(JSON.stringify([route.page,route.id||null])!==beforeRoute) return;
   if (activeId) {
     const el = document.getElementById(activeId);
     if (el) {
-      el.focus();
+      try { el.focus({preventScroll:true}); } catch(e) { el.focus(); }
       if (selStart!=null && el.setSelectionRange) { try { el.setSelectionRange(selStart, selEnd); } catch(e){} }
     }
   }
+  for(const saved of nestedScroll){
+    const el=document.querySelector(saved.selector);
+    if(el){ el.scrollLeft=saved.left; el.scrollTop=saved.top; }
+  }
+  window.scrollTo(x,y);
 }
+/* EZFIX_UI_STATE_SCROLL_V1_END */
 window.renderPreserveScroll = renderPreserveScroll;
 
 /* ---------- boot ---------- */
@@ -10809,5 +11012,9 @@ async function initUserRole() {
 }
 (async()=>{ await initDb(); if(await requireSession()) await initUserRole(); })();
 </script>
+<!-- EZFIX_PRODUCT_CATALOG_UI_V1_BODY --><script src="/product-catalog-ui.js" data-ezfix-product-catalog="v1"></script><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_BODY -->
+<!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
+<!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
+<script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>
 </html>

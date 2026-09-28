@@ -43,7 +43,9 @@ const scripts = [
   'audit-assignment-whatsapp.mjs',
   'audit-call-recordings.mjs',
   'audit-transcript-replay-integration.mjs',
-  'audit-superezx-telephony-adapter.mjs'
+  'audit-superezx-telephony-adapter.mjs',
+  'build-door-gallery.mjs',
+  'audit-door-gallery.mjs'
 ];
 const root = fileURLToPath(new URL('../', import.meta.url));
 for (const script of scripts) {
