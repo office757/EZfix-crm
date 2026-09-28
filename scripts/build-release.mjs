@@ -44,6 +44,8 @@ const scripts = [
   'audit-call-recordings.mjs',
   'audit-transcript-replay-integration.mjs',
   'audit-superezx-telephony-adapter.mjs',
+  'build-door-design-library.mjs',
+  'audit-door-design-library.mjs',
   'build-door-gallery.mjs',
   'audit-door-gallery.mjs'
 ];
