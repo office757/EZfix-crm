@@ -177,6 +177,8 @@
   .launcher-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); padding: var(--space-3); }
   @media (min-width: 640px) { .launcher-tiles { grid-template-columns: repeat(3, 1fr); } }
   @media (min-width: 1000px) { .launcher-tiles { grid-template-columns: repeat(4, 1fr); } }
+  .launcher-tiles-paired { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .launcher-tile-wide { grid-column: 1 / -1; }
   .launcher-tile {
     display: flex; align-items: center; justify-content: flex-start; gap: 10px;
     background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 12px;
@@ -1147,22 +1149,23 @@ const NAV = [
   { key:'suppliers', label:'Suppliers & Orders', emoji:'🚚', icon:'M3 3h18v6H3zM3 9v12h18V9M8 13h8', hideForTech: true, sidebar:false, category:'Service & Stock' },
   { key:'expenses', label:'Receipts', emoji:'🧾', icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h1', sidebar:false, category:'Sales & Billing' , hideForTech: true},
   { key:'followups', label:'Follow-Ups & Tasks', emoji:'✅', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', sidebar:false, category:'Service & Stock' , hideForTech: true},
-  { key:'warranties', label:'Warranties', emoji:'🛡️', icon:'M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z', sidebar:false, category:'Service & Stock' , hideForTech: true},
+  { key:'warranties', label:'Warranties', emoji:'🛡️', icon:'M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'team', label:'Team', emoji:'👥', icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', sidebar:false, category:'Team & Payroll' , hideForTech: true},
   { key:'payroll', label:'Tech Payroll', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', ownerOnly: true, sidebar:false, category:'Team & Payroll' },
-  { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', ownerOnly: true, sidebar:false, category:'Team & Payroll' },
+  { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', ownerOnly: true, sidebar:false, category:'Team & Payroll', fullWidth:true },
   { key:'auditlog', label:'Audit Log', emoji:'🕒', icon:'M12 8v4l3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'checklist', label:'Dev Checklist', emoji:'📋', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
-  { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Sales & Billing' , hideForTech: true},
-  { key:'visualizer', label:'Door Visualizer', emoji:'🏠', icon:'M3 11l9-8 9 8M5 10v10h14V10', sidebar:false, category:'Sales & Billing' , hideForTech: true},
+  { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
+  { key:'visualizer', label:'Door Visualizer', emoji:'🏠', icon:'M3 11l9-8 9 8M5 10v10h14V10', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
   { key:'viscatalog', label:'Visualizer Catalog', emoji:'⚙️', icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', ownerOnly: true, sidebar:false, category:'Sales Tools', launcher:false },
   { key:'walog', label:'WhatsApp Log', emoji:'🟢', icon:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'receptionist', label:'AI Receptionist', emoji:'🤖', icon:'M12 8V4H8M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zM2 14h2M20 14h2M9 18h6', ownerOnly: true, sidebar:false, category:'Sales Tools' },
 ];
 const CATEGORY_META = {
   'Sales & Billing': { emoji:'💳', header:'#242424' },
+  'Gallery & Visualizer': { emoji:'🖼️', header:'#242424', paired:true },
   'Service & Stock': { emoji:'🧰', header:'#242424' },
-  'Team & Payroll': { emoji:'👥', header:'#242424' },
+  'Team & Payroll': { emoji:'👥', header:'#242424', paired:true },
 };
 
 function sidebarNavItems() {
@@ -1776,7 +1779,7 @@ function renderTechnicianDashboard(content, actions) {
 }
 function dashboardModuleCategories() {
   const secondary = NAV.filter(n => n.launcher!==false && n.key!=='receptionist' && n.sidebar===false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
-  const order = ['Sales & Billing','Service & Stock','Team & Payroll'];
+  const order = ['Sales & Billing','Gallery & Visualizer','Service & Stock','Team & Payroll'];
   const groups = {};
   secondary.forEach(n => { (groups[n.category||'Other'] = groups[n.category||'Other']||[]).push(n); });
   return order.filter(c=>groups[c]).map(c => ({ name: c, items: groups[c] }));
@@ -1793,8 +1796,8 @@ function renderModuleLauncherHtml() {
           <div class="launcher-cat-head" style="background:${meta.header}">
             <span style="font-size:16px">${meta.emoji}</span> ${esc(cat.name.toUpperCase())}
           </div>
-          <div class="launcher-tiles">
-            ${cat.items.map(n=>`<button class="launcher-tile" onclick="go('${n.key}')" aria-label="${esc(n.label)}">
+          <div class="launcher-tiles${meta.paired?' launcher-tiles-paired':''}">
+            ${cat.items.map(n=>`<button class="launcher-tile${n.fullWidth?' launcher-tile-wide':''}" onclick="go('${n.key}')" aria-label="${esc(n.label)}">
               <span class="launcher-tile-emoji" aria-hidden="true">${n.emoji||'•'}</span>
               <span class="launcher-tile-label">${n.label}</span>
             </button>`).join('')}
