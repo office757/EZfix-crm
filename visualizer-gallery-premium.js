@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 
-const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:false};
+const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:false,limit:80};
 window.__visCatalogState=visCatalogState;
 const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
 const referenceDoors=()=>STORE.products.filter(p=>val(p,'catalogKind')==='garage_door_model');
@@ -68,11 +68,33 @@ function selectVisReferenceDoor(idx,id){
   render();
 }
 window.selectVisReferenceDoor=selectVisReferenceDoor;
-function visCatalogSearch(value){const el=document.activeElement,at=el?.selectionStart;visCatalogState.search=value;render();const input=document.getElementById('visModelSearch');input?.focus();if(typeof at==='number')input?.setSelectionRange(at,at);}
-function visCatalogManufacturer(value){visCatalogState.manufacturer=value;visCatalogState.collection='';render();}
-function visCatalogCollection(value){visCatalogState.collection=value;render();}
-function visCatalogReadyOnly(checked){visCatalogState.readyOnly=!!checked;render();}
+function visCatalogSearch(value){const el=document.activeElement,at=el?.selectionStart;visCatalogState.search=value;visCatalogState.limit=80;render();const input=document.getElementById('visModelSearch');input?.focus();if(typeof at==='number')input?.setSelectionRange(at,at);}
+function visCatalogManufacturer(value){visCatalogState.manufacturer=value;visCatalogState.collection='';visCatalogState.limit=80;render();}
+function visCatalogCollection(value){visCatalogState.collection=value;visCatalogState.limit=80;render();}
+function visCatalogReadyOnly(checked){visCatalogState.readyOnly=!!checked;visCatalogState.limit=80;render();}
 window.visCatalogSearch=visCatalogSearch;window.visCatalogManufacturer=visCatalogManufacturer;window.visCatalogCollection=visCatalogCollection;window.visCatalogReadyOnly=visCatalogReadyOnly;
+
+function showMoreVisDoors(){
+  visCatalogState.limit+=80;
+  render();
+  const cards=document.querySelectorAll('.vg-door-card');
+  cards[Math.max(0,visCatalogState.limit-80)]?.focus({preventScroll:true});
+}
+window.showMoreVisDoors=showMoreVisDoors;
+function setVisOpacity(idx,value){
+  const d=visState.doors[idx],opacity=Number(value);
+  if(!d||!Number.isFinite(opacity))return;
+  d.pos.opacity=Math.max(.35,Math.min(1,opacity));
+  const overlay=document.querySelector('#visStage [data-dooridx="'+idx+'"]');
+  if(overlay)overlay.style.opacity=d.pos.opacity;
+}
+window.setVisOpacity=setVisOpacity;
+function resetVisPosition(){
+  const d=visState.doors[visState.activeDoor];if(!d)return;
+  d.pos={...freshDoorConfig().pos};
+  render();
+}
+window.resetVisPosition=resetVisPosition;
 
 async function uploadVisualizerOverlay(productId,input){
   if(!IS_OWNER)return toast('Owner access required',true);
@@ -133,7 +155,7 @@ window.openSaveDesignModal=openSaveDesignModal;
 
 renderVisStep3=function(body){
   const i=visState.activeDoor,d=visState.doors[i],selected=refDoor(d);
-  const refs=filteredReferenceDoors(),shown=refs.slice(0,80);
+  const refs=filteredReferenceDoors(),shown=refs.slice(0,visCatalogState.limit);
   const all=referenceDoors();
   const manufacturers=[...new Set(all.map(p=>p.manufacturer).filter(Boolean))].sort();
   const collections=[...new Set(all.filter(p=>!visCatalogState.manufacturer||p.manufacturer===visCatalogState.manufacturer).map(p=>val(p,'collection')).filter(Boolean))].sort();
@@ -152,7 +174,8 @@ renderVisStep3=function(body){
           <button class="btn btn-sm" onclick="nudgeVisScale(0.05)">+ Size</button>
           <button class="btn btn-sm" onclick="nudgeVisRotation(-2)">↺ Rotate</button>
           <button class="btn btn-sm" onclick="nudgeVisRotation(2)">↻ Rotate</button>
-          <label>Opacity <input type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="visState.doors[${i}].pos.opacity=Number(this.value);render()"></label>
+          <button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button>
+          <label>Opacity <input type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></label>
         </div>
       </section>
       <section class="vg-picker-card">
@@ -174,7 +197,7 @@ renderVisStep3=function(body){
             <div class="vg-door-copy"><b>${esc(p.name)}</b><span>${esc([p.manufacturer,val(p,'collection')].filter(Boolean).join(' · '))}</span></div>
           </button>`).join('')}
         </div>
-        ${refs.length>shown.length?'<div class="vg-more-note">Showing first '+shown.length+' results — refine the search to narrow the catalog.</div>':''}
+        ${refs.length>shown.length?'<div class="vg-more-note">Showing '+shown.length+' of '+refs.length+' doors <button class="btn btn-sm" onclick="showMoreVisDoors()">Show more doors</button></div>':''}
         ${visState.doorCount>1?'<label class="vg-apply-all"><input type="checkbox" '+(visState.applyToAll?'checked':'')+' onchange="toggleVisApplyToAll(this.checked)"> Apply selected design to all doors</label>':''}
       </section>
     </div>
