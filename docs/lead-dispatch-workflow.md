@@ -53,6 +53,14 @@ Links return only ZIP, deadline and response state. Full customer details still
 require the accepting technician's signed-in account. Links stop working when
 the technician account is deactivated or its login changes.
 
+The public offer page ignores status reads started before an explicit response,
+preserves decline confirmation during polling, and checks the server after a
+response timeout. If the outcome cannot be read back, response controls remain
+locked until reconnection confirms the state. Expired offers expose the app
+link immediately. Notification links open Leads on the first authorized render,
+and returning to the app refreshes cross-channel responses without waiting for
+the next polling interval.
+
 `ashley-routing.js` adds Smart dispatch inside Ashley, with entry points in Team
 and Leads. The owner configures skills and expected closing rate, sale, parts,
 duration, commission, extra hourly cost, working hours and ZIP travel estimates.
@@ -79,6 +87,8 @@ Additional verification:
 - `audit-ashley-dispatch.mjs`: 23 ranking/capacity/cost/time-window scenarios.
 - `audit-lead-offer-channels.mjs`: 13 actual-handler scenarios with isolated
   provider/DB adapters, including read-only previews and duplicate send claims.
+- `audit-lead-offer-ui.mjs`: 14 UI scenarios covering out-of-order reads, network
+  interruption, server-clock expiry, cross-channel responses and app entry.
 - `lead_offer_channels_rollback.sql`: 18 cross-channel and permission assertions.
 - `dispatch_revalidation_rollback.sql`: 9 automatic-reservation assertions,
   including successful acceptance and cancellation after schedule/owner changes.
