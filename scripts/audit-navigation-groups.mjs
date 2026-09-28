@@ -18,11 +18,11 @@ check('Both work tabs keep their existing routes and selected state',()=>{
  f.context.route.page='leads';assert.match(f.run('renderWorkNavigation()'),/aria-current="page" onclick="go\('leads'\)"/);
 });
 check('Owner launcher keeps gallery tools separate and removes warranties from the menu',()=>{
- const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,6);
+ const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,5);
  const keys=groups.flatMap(g=>g.items.map(n=>n.key));
- for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','inventory','suppliers','expenses','ai_manager','receptionist','ai_system','team','reports','payroll'])assert.ok(keys.includes(key),key);
- for(const key of ['followups','warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);
- assert.deepEqual(groups.find(g=>g.name==='Gallery & Visualizer').items.map(n=>n.key),['gallery','visualizer']);
+ for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','inventory','suppliers','ai_manager','receptionist','ai_system','team','reports','payroll'])assert.ok(keys.includes(key),key);
+ for(const key of ['expenses','followups','warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);
+ assert.deepEqual(groups.find(g=>g.name==='Gallery & Visualizer').items.map(n=>n.key),['gallery','visualizer','socialposts']);
 });
 check('Technician launcher exposes only the existing allowed document workflows',()=>{
  const f=fixture('technician');assert.deepEqual(f.run('dashboardModuleCategories().flatMap(g=>g.items.map(n=>n.key))').sort(),['estimates','invoices','quickpay']);
