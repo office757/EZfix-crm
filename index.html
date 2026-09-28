@@ -4890,7 +4890,7 @@ function renderTeam(content, actions) {
   content.innerHTML = `
     <div class="panel" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="font-size:13px;line-height:1.6">
-        This list is for your own reference — names, roles, and contact info you can assign jobs to. It does <b>not</b> control who can open or edit this app. To actually grant or remove someone's access, use the <b>Share</b> button on this artifact itself in the Claude interface — that's the real, secure permissions system, and you stay the Owner there no matter what's listed below.
+        Manage technician details and availability here. The Owner creates each technician’s login and password through <b>Login Access</b>. Use <b>Ashley routing</b> to set job types, working hours, service areas and business estimates.
       </div>
     </div>
     ${(migration.safe.length || migration.unresolved.length || migration.ambiguous.length) ? renderTechMigrationPanel(migration) : ''}
