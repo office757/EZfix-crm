@@ -36,7 +36,14 @@ function syncOfferBanner(){
  if(!el){el=document.createElement('section');el.id='dispatchGlobalOffers';el.setAttribute('aria-label','Lead offers');content.prepend(el);}
  if(el.dataset.snapshot!==html){el.innerHTML=html;el.dataset.snapshot=html;}
 }
-const baseRender=render;render=function(...args){const result=baseRender.apply(this,args);syncOfferBanner();return result;};
+function openOfferDeepLink(){
+ if(didDeepLink||!dbReady||!CURRENT_TEAM_MEMBER||isMarketingManager()||location.hash!=='#lead-offers'||document.querySelector('.overlay'))return false;
+ didDeepLink=true;sourceTab=false;
+ try{history.replaceState(history.state,'',location.pathname+location.search);}catch{}
+ go('leads');return true;
+}
+const baseRender=render;render=function(...args){if(openOfferDeepLink())return;const result=baseRender.apply(this,args);syncOfferBanner();return result;};
+window.addEventListener('hashchange',()=>{didDeepLink=false;openOfferDeepLink();});
 function renderSources(content){
  const list=STORE.leadPartners||[];
  content.innerHTML=`${renderWorkNavigation()}<div class="dispatch-tabs"><button class="btn" onclick="Dispatch.tab(false)">Leads</button><button class="btn btn-primary" aria-current="page" onclick="Dispatch.tab(true)">Linked lead sources</button></div><div class="dispatch-notice">Save each source’s contact details. Messages from matching SMS numbers enter Leads for your review. WhatsApp and inbound email require their receiving connection.</div><div class="dispatch-grid">${list.map(p=>`<article class="dispatch-card"><h3>${esc(p.name)}</h3><div class="dispatch-meta">${esc(p.company||'Referral partner')} · ${p.active?'Active':'Paused'}</div><p>${esc(p.phone||'No SMS number')}<br>${esc(p.whatsapp||'No WhatsApp number')}<br>${esc(p.email||'No email')}</p><div class="dispatch-actions"><button class="btn btn-primary" onclick="Dispatch.editSource(${clickArg(p.id)})">Edit source</button><button class="btn" onclick="Dispatch.newReferral(${clickArg(p.id)})">Add referral</button></div><div class="dispatch-subtle">${STORE.leads.filter(l=>l.partnerId===p.id).length} linked leads</div></article>`).join('')||emptyState('↗','No linked sources yet','Add a referral partner or middleman to keep their leads together.')}</div>`;
@@ -79,7 +86,10 @@ window.Dispatch={
 };
 // Clock ticks never re-render forms. Polling supplements realtime after reconnects.
 setInterval(()=>{document.querySelectorAll('[data-countdown]').forEach(el=>{const o=(STORE.leadOffers||[]).find(x=>x.id===el.dataset.countdown);if(!o)return;const sec=remaining(o);el.textContent=sec?Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'):'Expired';if(!sec)el.closest('[data-offer]')?.querySelectorAll('[data-respond]').forEach(b=>b.disabled=true);});},1000);
-setInterval(async()=>{if(!dbReady||document.hidden||pollBusy||isMarketingManager())return;pollBusy=true;try{await refreshCollection('leadOffers');const snapshot=JSON.stringify(STORE.leadOffers||[]);if(lastOfferSnapshot!==snapshot){await Promise.all(['leads','jobs','customers'].map(refreshCollection));lastOfferSnapshot=snapshot;if(!document.querySelector('.overlay'))renderPreserveScroll();else syncOfferBanner();}if(!didDeepLink&&location.hash==='#lead-offers'){didDeepLink=true;go('leads');}}catch(e){console.warn('Lead offer refresh unavailable');}finally{pollBusy=false;}},10000);
+async function refreshOffers(){if(!dbReady||document.hidden||pollBusy||isMarketingManager())return;openOfferDeepLink();pollBusy=true;try{await refreshCollection('leadOffers');const snapshot=JSON.stringify(STORE.leadOffers||[]);if(lastOfferSnapshot!==snapshot){await Promise.all(['leads','jobs','customers'].map(refreshCollection));lastOfferSnapshot=snapshot;if(!document.querySelector('.overlay'))renderPreserveScroll();else syncOfferBanner();}}catch(e){console.warn('Lead offer refresh unavailable');}finally{pollBusy=false;}}
+setInterval(refreshOffers,10000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshOffers();});
+window.addEventListener('online',refreshOffers);
 })();
 
 // Keep routing controls modular; load after the field workflow is available.
