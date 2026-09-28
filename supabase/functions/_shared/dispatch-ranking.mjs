@@ -50,10 +50,11 @@ export function rankTechnicians({lead,team,profiles,jobs=[],invoices=[],offers=[
   if(dayJobs.length>=num(p.dailyLimit,1))excluded.push('Daily capacity reached');
   const duration=num(s?.durationMinutes,90),buffer=policy.bufferMinutes;let start=Math.max(slot.start,shift?.[0]||0)+(num(travel)+buffer);
   if(slot.date===today.date)start=Math.max(start,today.minute+num(travel)+buffer);
-  for(const j of dayJobs.sort((a,b)=>(parseWindow(a.appointment_window)?.[0]||0)-(parseWindow(b.appointment_window)?.[0]||0))){
-   const block=j.app_data?.routing_slot;
-   const win=block?[block.start,block.end]:parseWindow(j.appointment_window);
-   if(!win){excluded.push('Existing job has no reliable time window');continue;}
+  // Sort the same reserved intervals that we check. Broad arrival windows can
+  // be identical while their actual bookings are in a different order.
+  const busyWindows=dayJobs.map(j=>{const block=j.app_data?.routing_slot;return block?[block.start,block.end]:parseWindow(j.appointment_window);});
+  for(const win of busyWindows.sort((a,b)=>(a?.[0]??Infinity)-(b?.[0]??Infinity))){
+   if(!win||!win.every(Number.isInteger)||win[0]<0||win[1]>1440||win[1]<=win[0]){excluded.push('Existing job has no reliable time window');continue;}
    if(start<win[1]+buffer&&start+duration>win[0]-buffer)start=win[1]+buffer+num(travel);
   }
   if(!shift||start+duration>Math.min(slot.end,shift?.[1]||0))excluded.push('No room in the requested window');
