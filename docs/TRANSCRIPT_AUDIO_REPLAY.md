@@ -1,4 +1,49 @@
-# AI transcript audio replay — phase 1, NOT LIVE
+# AI transcript audio replay
+
+## Current verified status — September 28, 2026
+
+This section supersedes the historical phase-1 notes below.
+
+- Production frontend baseline: `3356598`; Vercel production is READY.
+- The replacement server-side OpenAI key passed a fixed synthetic speech test
+  (HTTP 200, PCM output). The earlier `billing_not_active` result is historical.
+- A full replay attempt then found a separate production defect: `crm-assets`
+  accepted images/PDFs only, so the generated WAV failed to upload.
+- The bucket was repaired through the Storage API by adding only `audio/wav`.
+  Existing MIME types, private visibility, RLS policies, and the 15 MiB file limit
+  were preserved. No credentials, original recordings, or transcripts were changed.
+- `generate-transcript-replay` v5 adds a storage preflight before claiming a call
+  or requesting paid speech. A missing/unavailable/public bucket or a MIME list
+  excluding WAV now returns a fixed error before generation starts.
+- One existing failed call was retried after the repair. The worker returned
+  HTTP 200 / `ready`. Its private Storage object exists: 4,856,684 bytes,
+  101.18 seconds, with two distinct speakers in the generated cue metadata.
+- This is synthetic transcript speech, not an original phone recording.
+- Seven actual-handler preflight regression checks pass. The full release
+  runner passes all 35 steps, including the existing 46 speech-core checks.
+- The temporary diagnostic/repair function was restored to its JWT-protected
+  HTTP 410 stub, with no secret access or outbound requests.
+- Automatic replay remains paused pending owner playback/quality acceptance.
+  Twelve calls remain pending. The browser requires owner sign-in, so in-app,
+  iPhone/iPad playback and words/numbers fidelity are not yet verified.
+
+The existing 15 MiB bucket limit and 120-second worker deadline still apply;
+long-call processing and atomic daily spending reservations are not certified
+by this fix. Do not interpret the existing successful-output count as a strict
+monetary budget or a concurrent-attempt limit.
+
+### Reproducing the bucket repair
+
+Use the authorized server-side Storage API: read `getBucket('crm-assets')`,
+require `public === false`, preserve its current `file_size_limit` and MIME list,
+then call `updateBucket` with `public: false`, the preserved file limit, and
+`allowedMimeTypes` containing the existing types plus `audio/wav`. Read it back.
+Never expose a service key or make this a public browser operation.
+
+References: [Storage bucket update](https://supabase.com/docs/reference/javascript/file-buckets-updatebucket)
+and [OpenAI text to speech](https://developers.openai.com/api/docs/guides/text-to-speech).
+
+## Historical phase-1 design (superseded status)
 
 Requested September 27, 2026: automatically read completed Inkbox call transcripts
 with a consistent Ashley voice and a different customer voice, without waiting

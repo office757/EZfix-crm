@@ -25,6 +25,7 @@ const scripts = [
   'audit-recording-download.mjs',
   'audit-transcript-replay.mjs',
   'audit-transcript-replay-integration.mjs',
+  'audit-replay-storage-preflight.mjs',
   'build-transcript-replay-ui.mjs',
   'audit-calendar-overlap.mjs',
   'build-calendar-overlap.mjs',

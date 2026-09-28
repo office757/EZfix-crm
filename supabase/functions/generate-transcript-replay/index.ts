@@ -27,6 +27,19 @@ Deno.serve(async(req:Request)=>{
   }
   const apiKey=Deno.env.get("OPENAI_API_KEY")||"";
   if(!apiKey) return json({ok:true,configured:false,processed:false,reason:"OPENAI_API_KEY missing"});
+  // Check storage before claiming a call or making any billable speech request.
+  // Production originally allowed only images/PDFs, which discarded generated WAVs.
+  try {
+    const {data:bucket,error:bucketError}=await db.storage.getBucket("crm-assets");
+    if(bucketError||!bucket) return json({ok:false,error:"replay_storage_unavailable"},503);
+    if(bucket.public!==false) return json({ok:false,error:"replay_storage_must_be_private"},503);
+    const types=bucket.allowed_mime_types;
+    if(types!==null && types!==undefined && (!Array.isArray(types)||!types.some((type:string)=>["audio/wav","audio/*","*/*"].includes(type)))) {
+      return json({ok:false,error:"replay_storage_wav_not_allowed"},503);
+    }
+  } catch {
+    return json({ok:false,error:"replay_storage_unavailable"},503);
+  }
   const dailyLimit=Math.min(100,Math.max(1,Number(Deno.env.get("TRANSCRIPT_REPLAY_MAX_DAILY")||25)||25));
   const {count:todayCount,error:countErr}=await db.from("calls").select("id",{count:"exact",head:true}).eq("transcript_replay_status","ready").gte("transcript_replay_updated_at",dayStart());
   if(countErr) return json({ok:false,error:"Replay budget lookup failed"},500);
