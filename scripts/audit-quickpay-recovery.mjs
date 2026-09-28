@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {modalDocument,modalSource} from './modal-test-fixture.mjs';
 const source=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const section=(start,end)=>source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start)));
 function harness(failAt=''){
@@ -54,5 +55,22 @@ await check('Secure card button creates checkout through the existing provider',
   const h=harness();h.run("quickPayMethod='cash'");await h.run('quickPayManualCard()');
   assert.equal(h.calls[0].args.p_preferred_payment_method,'card');assert.ok(h.calls.some(c=>c.name==='checkout'));
   assert.ok(h.modals[0].body.includes('Open Secure Square Checkout'));
+});
+await check('The real checkout dialog closes without an error or a second invoice write',async()=>{
+  const h=harness();const dom=modalDocument();
+  const originalGetElementById=h.context.document.getElementById;
+  dom.document.querySelectorAll=()=>h.buttons;
+  const modalGetElementById=dom.document.getElementById;
+  dom.document.getElementById=id=>id.startsWith('modal')?modalGetElementById(id):originalGetElementById(id);
+  Object.assign(h.context,dom);h.run(modalSource(source));
+  await h.run('quickPayManualCard()');
+  const overlay=dom.document.getElementById('modalOverlay');
+  assert.match(overlay.innerHTML,/Invoice created — secure card checkout/);
+  assert.match(overlay.innerHTML,/Open Secure Square Checkout/);
+  assert.doesNotMatch(overlay.innerHTML,/>Cancel<|>Save</);
+  const button=dom.document.getElementById('modalSaveBtn');assert.equal(button.textContent,'Close');
+  await button.onclick();assert.equal(dom.document.getElementById('modalOverlay'),null);
+  assert.equal(h.calls.filter(c=>c.name==='technician_create_quickpay_invoice').length,1);
+  assert.ok(h.notices.every(n=>!n[1]));
 });
 console.log(`QuickPay recovery audit: ${checks}/${checks} PASS`);
