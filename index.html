@@ -1187,7 +1187,8 @@ async function dbDelete(col,id){
  return queueMutation(`record:${col}:${id}`,async()=>{
   if(!await requireSession()) throw markHandled(new Error('Sign in required'));
   if(col==='auditLog'||col==='calls'||col==='inventoryAdjustments'||col==='smsMessages') throw markHandled(new Error(`${col} cannot be deleted from the browser.`));
-  let q; if(col==='team') q=SB.from('team').update({status:'inactive'}).eq('id',id); else if(SOFT_DELETE.has(col)) q=SB.from(TABLE_MAP[col]).update({deleted_at:new Date().toISOString()}).eq('id',id); else q=SB.from(TABLE_MAP[col]).delete().eq('id',id);
+  if(col==='team'){const {error}=await SB.rpc('remove_team_member',{p_team_id:id});if(error)throw error;await refreshCollection('team');return;}
+  let q; if(SOFT_DELETE.has(col)) q=SB.from(TABLE_MAP[col]).update({deleted_at:new Date().toISOString()}).eq('id',id); else q=SB.from(TABLE_MAP[col]).delete().eq('id',id);
   const {data:deleted,error}=await q.select('id').maybeSingle();
   if(error){console.error('dbDelete failed',{collection:col,id,error});toast("Couldn't delete this. Please try again.",true);throw markHandled(error);}
   if(!deleted){const missing=new Error('Delete was not permitted or record no longer exists.');console.error('dbDelete affected no record',{collection:col,id});toast("Couldn't delete this. The record may already be gone or access was denied.",true);throw markHandled(missing);}
@@ -2358,9 +2359,11 @@ function signEstimateApproval(estId) {
   });
 }
 window.signEstimateApproval = signEstimateApproval;
-async function addEstimateOption(estId) {
+async function addEstimateOption(estId, assignedJobId) {
   const e = getOne('estimates', estId);
   if (!e) return;
+  const jobId=assignedJobId||e.convertedJobId||STORE.jobs.find(j=>j.estimateId===estId)?.id;
+  if(!jobHasEstimateTechnician(getOne('jobs',jobId)))return prepareEstimateJob(e.customerId,null,id=>addEstimateOption(estId,id));
   let groupId = e.optionGroupId;
   if (!groupId) {
     groupId = uid();
@@ -2373,7 +2376,7 @@ async function addEstimateOption(estId) {
     customerId: e.customerId, customerName: e.customerName, customerPhone: e.customerPhone||'',
     customerAddress: e.customerAddress||'', customerEmail: e.customerEmail||'',
     date: todayISO(), items: [], taxRate: e.taxRate||0, notes: '', status: 'draft',
-    optionGroupId: groupId, optionLabel: nextLabel,
+    optionGroupId: groupId, optionLabel: nextLabel, convertedJobId:jobId,
   });
   toast('New option created — add its line items');
   go('estimates', newId);
@@ -4125,6 +4128,7 @@ function renderEstimates(content, actions) {
 }
 
 function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
+  if(!id && !jobHasEstimateTechnician(getOne('jobs',presetJobId)))return prepareEstimateJob(presetCustomerId,presetItems);
   const e = id ? getOne('estimates', id) : null;
   lineItemsDraft = e ? JSON.parse(JSON.stringify(e.items||[])) : (presetItems ? JSON.parse(JSON.stringify(presetItems)) : [{desc:'',details:'',qty:1,rate:0,taxable:true}]);
   docTaxRateDraft = e?.taxRate ?? 0;
@@ -4161,9 +4165,11 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
       const customerId = document.getElementById('f_customer').value;
       if (!customerId) return toast('Please select a customer');
       const cust = getOne('customers', customerId);
+      if(!e && getOne('jobs',presetJobId)?.customerId!==customerId)return toast('Choose the customer assigned to this job.',true);
       const items = await Promise.all(lineItemsDraft.filter(li=>li.desc.trim()).map(freezeDoorImage));
       if (!items.length) return toast('Add at least one line item');
       const data = {
+        ...(!e ? {convertedJobId:presetJobId} : {}),
         number: (e && e.number) || await nextProductionNumber('estimate'),
         customerId, customerName: cust.name, customerPhone: cust.phone||'', customerAddress: cust.address||'', customerEmail: cust.email||'',
         ...(docPhotosDirty || !e ? { photos: docPhotosDraft.filter(p=>!p.uploading) } : {}),
@@ -4185,7 +4191,7 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
         const newEstId = await dbAdd('estimates', data);
         logAudit('estimate_created', `Estimate ${data.number} created for ${data.customerName} (${money(estimateTotal(data))})`, 'estimates', newEstId);
         if (presetJobId) {
-          await dbSet('jobs', presetJobId, { estimateId: newEstId });
+          await refreshCollection('jobs'); // The database links the first estimate atomically.
           logAudit('estimate_created', `Estimate ${data.number} linked to this job`, 'jobs', presetJobId, 'estimates', newEstId);
         }
       }
@@ -4859,6 +4865,8 @@ function technicianHasConflict(techId, techName, date, window, excludeJobId) {
 function activeTeamMembers(roleFilter) { return STORE.team.filter(t => (!roleFilter || t.role===roleFilter) && techStatus(t)==='Active'); }
 function teamMemberPickerHtml(selectedId, selectedName, inputIdPrefix, roleFilter) {
   const opts = activeTeamMembers(roleFilter);
+  const retained=selectedId&&getOne('team',selectedId);
+  if(retained&&!opts.some(t=>t.id===selectedId))opts.push(retained);
   const legacyUnmatched = selectedName && !selectedId && !opts.some(t=>t.name===selectedName);
   return `<select id="${inputIdPrefix}_id" onchange="document.getElementById('${inputIdPrefix}_name').value = this.options[this.selectedIndex].dataset.name || ''">
     <option value="">— Unassigned —</option>
@@ -4882,7 +4890,7 @@ function renderTeam(content, actions) {
   if (isTechnicianView()) { go('dashboard'); return; }
   if (route.id) return renderTeamDetail(content, actions, route.id);
   actions.innerHTML = `<button class="btn btn-primary" onclick="openTeamModal()">+ Add team member</button>`;
-  const list = [...STORE.team].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const list = STORE.team.filter(m=>!m.archivedAt).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const migration = analyzeTechnicianMigration();
   const techMembers = list.filter(m=>String(m.role||'').toLowerCase()==='technician');
   const waReadyCount = techMembers.filter(m=>whatsappRecipientState(m).ready).length;
@@ -4924,7 +4932,7 @@ function renderTeam(content, actions) {
 function renderTeamDetail(content, actions, id) {
   if (isTechnicianView()) { go('dashboard'); return; }
   const m = getOne('team', id);
-  if (!m) { content.innerHTML = emptyState('🔍','Team member not found',''); return; }
+  if (!m || m.archivedAt) { content.innerHTML = emptyState('🔍','Team member not found',''); return; }
   actions.innerHTML = `<button class="btn btn-sm" onclick="openTeamModal('${m.id}')">✎ Edit</button>${IS_OWNER && m.role==='Technician' ? `<button class="btn btn-sm btn-primary" onclick="openTeamLoginAccess('${m.id}')">🔐 Login Access</button>` : ''}`;
   const today = todayISO();
   const myJobs = STORE.jobs.filter(j => j.technicianId ? j.technicianId===m.id : j.technician===m.name);
@@ -8644,7 +8652,9 @@ function renderJobDetail(content, id) {
 
   // Smart next action — derived strictly from real linked record state, never invented.
   let smartAction = null;
-  if (!linkedEstimate) {
+  if (!j.technicianId && !linkedEstimate) {
+    smartAction = { text:'Assign a technician before creating an estimate.', btn:'Assign technician', fn:`openJobModal('${id}')` };
+  } else if (!linkedEstimate) {
     smartAction = { text:'No estimate yet for this job.', btn:'+ Create Estimate', fn:`createEstimateFromJob('${id}')` };
   } else if (linkedEstimate.status === 'draft') {
     smartAction = { text:`Estimate ${linkedEstimate.number} is a draft.`, btn:'Send Estimate', fn:`go('estimates','${linkedEstimate.id}')` };
@@ -9323,7 +9333,8 @@ async function syncJobAssignment(jobId, technicianId, technicianName) {
   if (!job || !technicianId) return;
   const linkedLead = STORE.leads.find(l => l.convertedJobId === jobId || l.id === job?.leadId || l.id === job?.appData?.lead_id);
   if (linkedLead && linkedLead.assignedTechnicianId !== technicianId) {
-    await dbSet('leads', linkedLead.id, { assignedTechnicianId: technicianId, assignedTechnician: technicianName, assignmentStatus:'assigned' });
+    try { await dbSet('leads', linkedLead.id, { assignedTechnicianId: technicianId, assignedTechnician: technicianName, assignmentStatus:'assigned' }); }
+    catch(e) { console.warn('Job saved; linked lead assignment needs attention',e); toast('Job assignment saved. Refresh Leads to check its linked assignment.',true); }
   }
   try {
     const {data:{session}} = await SB.auth.getSession();
@@ -9351,7 +9362,7 @@ async function syncJobAssignment(jobId, technicianId, technicianName) {
   }
 }
 window.syncJobAssignment = syncJobAssignment;
-function openJobModal(id, presetCustomerId) {
+function openJobModal(id, presetCustomerId, options = {}) {
   const j = id ? getOne('jobs', id) : null;
   jobPhotosDraft = j?.photos ? JSON.parse(JSON.stringify(j.photos)) : [];
   jobPhotosDirty = false;
@@ -9369,6 +9380,7 @@ function openJobModal(id, presetCustomerId) {
         </label>
       </div>
       <label class="field"><span class="lbl">Technician</span>${technicianPickerHtml(j?.technicianId, j?.technician, 'f_tech')}</label>
+      ${j?.workflowVersion===1?'<p class="muted">Changing the technician sends a five-minute offer. The current assignment is released when the offer is saved; the new technician is assigned after accepting. Reassignment is available before arrival.</p>':''}
       ${jobPhotoUploaderHtml()}
       <label class="field"><span class="lbl">Status</span>
         <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
@@ -9446,8 +9458,13 @@ function openJobModal(id, presetCustomerId) {
       const newStatus = document.getElementById('f_status').value;
       const statusChanged = !j || j.status !== newStatus;
       const newTechId = document.getElementById('f_tech_id').value;
-      const newTech = document.getElementById('f_tech_name').value.trim();
+      const selectedTech = getOne('team',newTechId);
+      const newTech = selectedTech?.name || document.getElementById('f_tech_name').value.trim();
+      if(options.requireTechnician && !newTechId)return toast('Assign a technician before creating an estimate',true);
       const techChanged = newTech !== (j?.technician||'') || newTechId !== (j?.technicianId||'');
+      const needsOffer = j?.workflowVersion===1 && techChanged;
+      if(needsOffer && (!selectedTech || !selectedTech.authUserId))return toast('Select a technician with Login Access before sending an offer.',true);
+      if(needsOffer && !['new','scheduled','confirmed','technician_assigned','on_the_way'].includes(newStatus))return toast('Reassign the technician before arrival.',true);
       const newDate = document.getElementById('f_date').value;
       const dateChanged = newDate !== (j?.scheduledDate||'');
       const data = {
@@ -9455,7 +9472,7 @@ function openJobModal(id, presetCustomerId) {
         title, customerId, customerName: cust.name,
         scheduledDate: newDate,
         appointmentWindow: document.getElementById('f_window').value,
-        technician: newTech, technicianId: newTechId || null,
+        ...(!needsOffer ? {technician: newTech, technicianId: newTechId || null} : {}),
         status: newStatus,
         materialCost: parseFloat(document.getElementById('f_materialcost').value)||0,
         partsPaidBy: document.getElementById('f_partspaidby').value || 'company',
@@ -9478,6 +9495,7 @@ function openJobModal(id, presetCustomerId) {
         })() } : {}),
         cancelReason: newStatus==='cancelled' ? document.getElementById('f_cancelreason').value : (j?.cancelReason||''),
       };
+      let savedJobId = j?.id;
       if (j) {
         if (statusChanged) await updateJobStatusWithHistory(j.id, newStatus, data);
         else await dbSet('jobs', j.id, data);
@@ -9486,7 +9504,8 @@ function openJobModal(id, presetCustomerId) {
           logAudit('status_changed', `Status → ${labelize(newStatus)}`, 'jobs', j.id);
           if (newStatus==='cancelled' && j.technician && techWantsNotification(j.technician, 'jobCancelled')) logWaNotification(j.technician, 'jobCancelled', 'jobs', j.id, `Job cancelled: ${title}`);
         }
-        if (techChanged && newTech && newTechId) {
+        if (needsOffer) await offerJobTechnician(j,newTechId);
+        else if (techChanged && newTech && newTechId) {
           logAudit('technician_assigned', `Assigned to ${newTech}`, 'jobs', j.id);
           await syncJobAssignment(j.id, newTechId, newTech);
         }
@@ -9502,14 +9521,16 @@ function openJobModal(id, presetCustomerId) {
       } else {
         const initialStatus = data.status||'new';
         const newJobId = await dbAdd('jobs', { ...data, status: initialStatus, statusHistory: [{ status: initialStatus, at: Date.now() }] });
+        savedJobId = newJobId;
         logAudit('job_created', `Job "${title}" created for ${cust.name}`, 'jobs', newJobId);
         if (newTech && newTechId) {
           logAudit('technician_assigned', `Assigned to ${newTech}`, 'jobs', newJobId);
           await syncJobAssignment(newJobId, newTechId, newTech);
         }
       }
-      toast(j ? 'Job updated' : 'Job scheduled');
+      toast(needsOffer?'Job saved — offer pending technician acceptance':j ? 'Job updated' : 'Job scheduled');
       closeModal();
+      if(options.onSaved)options.onSaved(savedJobId);
     }
   });
   document.getElementById('f_jobphoto').addEventListener('change', handleJobPhotoInput);
@@ -10838,8 +10859,8 @@ function confirmDelete(col, id, backTo) {
     }
   }
   showModal({
-    title: 'Delete this record?',
-    body: `<p>This can't be undone. Are you sure you want to delete this ${col.slice(0,-1)}?</p>${warningHtml}`,
+    title: col==='team'?'Remove this user?':'Delete this record?',
+    body: col==='team'?'<p>This removes the user from Team and immediately disables their CRM access. Past jobs and financial records keep their history.</p>':`<p>This can't be undone. Are you sure you want to delete this ${col.slice(0,-1)}?</p>${warningHtml}`,
     onSave: async () => {
       await dbDelete(col, id);
       logAudit('record_deleted', `Deleted ${col.slice(0,-1)} (id ${id})`);
@@ -10848,7 +10869,7 @@ function confirmDelete(col, id, backTo) {
       go(backTo);
     }
   });
-  document.getElementById('modalSaveBtn').textContent = 'Delete';
+  document.getElementById('modalSaveBtn').textContent = col==='team'?'Remove user':'Delete';
   document.getElementById('modalSaveBtn').classList.add('btn-danger');
 }
 window.confirmDelete = confirmDelete;
@@ -10946,7 +10967,7 @@ async function initUserRole() {
 <!-- EZFIX_DOOR_DESIGN_LIBRARY_V1 --><script src="/door-design-data.js"></script><script src="/door-config-options.js"></script><script src="/door-design-library.js"></script>
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
-<script src="/workspace-overview.js"></script><script src="/lead-dispatch.js"></script>
+<script src="/job-assignment.js"></script><script src="/workspace-overview.js"></script><script src="/lead-dispatch.js"></script>
 <script src="/workspace-theme.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>

@@ -18,8 +18,8 @@ Deno.serve(async(req:Request)=>{
  try{
   if(body?.action==='public_key'){const config=await pushConfig(db);return out({ok:true,public_key:config.public_key});}
   if(!['owner','admin','dispatcher','office'].includes(member.role))return out({ok:false,error:'Office access required'},403);
-  if(body?.action!=='offer')return out({ok:false,error:'Unsupported action'},400);
-  const {data:offer,error}=await scoped.rpc('create_lead_offer',{p_lead_id:String(body.lead_id||''),p_technician_id:String(body.technician_id||'')});
+  if(!['offer','offer_job'].includes(body?.action))return out({ok:false,error:'Unsupported action'},400);
+  const {data:offer,error}=await scoped.rpc(body.action==='offer_job'?'offer_job_technician':'create_lead_offer',body.action==='offer_job'?{p_job_id:String(body.job_id||''),p_technician_id:String(body.technician_id||''),p_expected_technician_id:body.expected_technician_id||null}:{p_lead_id:String(body.lead_id||''),p_technician_id:String(body.technician_id||'')});
   if(error)return out({ok:false,error:error.message},409);
   const notification=await notifyLeadOffer(db,offer);
   return out({ok:true,offer_id:offer.id,notification});
