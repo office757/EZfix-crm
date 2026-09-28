@@ -4,7 +4,7 @@ const MARK='/* EZFIX_TRANSCRIPT_REPLAY_UI_V1 */';
 const OLD_COLS="calls:['id','mode','outcome','summary','duration_sec','transcript','lead_id','customer_id','provider_call_id','direction','remote_number','local_number','status','started_at','ended_at','recording_url','recording_asset','provider_data','lead_extraction_status','lead_extraction','lead_extracted_at','created_at']";
 const NEW_COLS="calls:['id','mode','outcome','summary','duration_sec','transcript','lead_id','customer_id','provider_call_id','direction','remote_number','local_number','status','started_at','ended_at','recording_url','recording_asset','transcript_replay_asset','transcript_replay_status','transcript_replay_source_hash','transcript_replay_error','transcript_replay_updated_at','transcript_replay_generation','provider_data','lead_extraction_status','lead_extraction','lead_extracted_at','created_at']";
 const OLD_BODY="showModal({ title: 'Call details', wide: true, body: \`${audio}${leadPanel}<div class=\"muted\"";
-const NEW_BODY="showModal({ title: 'Call details', wide: true, body: \`${audio}${replayPanel}${leadPanel}<div class=\"muted\"";
+const NEW_BODY="showModal({ title: 'Call details', wide: true, body: \`${replayPanel}${audio}${leadPanel}<div class=\"muted\"";
 const AUDIO_ANCHOR="  const lead = c.leadId ? getOne('leads', c.leadId) : null;";
 const REPLAY_BLOCK=`/* EZFIX_TRANSCRIPT_REPLAY_UI_V1 */
   const replayAsset=c.transcriptReplayAsset&&typeof c.transcriptReplayAsset==='object'?c.transcriptReplayAsset:null;
