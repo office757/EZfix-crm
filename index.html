@@ -966,7 +966,7 @@ function money(n) { n = Number(n)||0; return '$' + n.toLocaleString('en-US', { m
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(d) {
   if (!d) return '—';
-  const dt = new Date(d);
+  const dt = new Date(typeof d==='string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d+'T12:00:00' : d);
   if (isNaN(dt)) return d;
   return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
 }
@@ -9380,6 +9380,7 @@ async function syncJobAssignment(jobId, technicianId, technicianName) {
 window.syncJobAssignment = syncJobAssignment;
 function openJobModal(id, presetCustomerId, options = {}) {
   const j = id ? getOne('jobs', id) : null;
+  const appointmentWindows = [...new Set([...APPOINTMENT_WINDOWS, ...(j?.appointmentWindow ? [j.appointmentWindow] : [])])];
   jobPhotosDraft = j?.photos ? JSON.parse(JSON.stringify(j.photos)) : [];
   jobPhotosDirty = false;
   jobChecklistDirty = false;
@@ -9392,7 +9393,7 @@ function openJobModal(id, presetCustomerId, options = {}) {
       <div class="field-row">
         <label class="field"><span class="lbl">Scheduled date</span><input type="date" id="f_date" value="${j?.scheduledDate||''}"></label>
         <label class="field"><span class="lbl">Appointment window</span>
-          <select id="f_window">${APPOINTMENT_WINDOWS.map(w=>`<option value="${w}" ${j?.appointmentWindow===w?'selected':''}>${w}</option>`).join('')}</select>
+          <select id="f_window">${appointmentWindows.map(w=>`<option value="${esc(w)}" ${j?.appointmentWindow===w?'selected':''}>${esc(w)}</option>`).join('')}</select>
         </label>
       </div>
       <label class="field"><span class="lbl">Technician</span>${technicianPickerHtml(j?.technicianId, j?.technician, 'f_tech')}</label>

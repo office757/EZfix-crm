@@ -44,6 +44,7 @@ const scripts = [
   'audit-replay-storage-preflight.mjs',
   'build-transcript-replay-ui.mjs',
   'audit-calendar-overlap.mjs',
+  'audit-calendar-date-display.mjs',
   'build-calendar-overlap.mjs',
   'audit-calendar-premium.mjs',
   'build-calendar-premium.mjs',

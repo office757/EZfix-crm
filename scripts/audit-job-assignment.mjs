@@ -44,8 +44,9 @@ for(const job of [null,{id:'job',customerId:'customer',status:'new',workflowVers
 }
 f=fixture({id:'job',customerId:'customer',status:'completed',workflowVersion:0});f.context.openJobModal('job');
 assert.ok(f.context.modal.body.includes('value="completed"'));await f.context.modal.onSave();assert.ok(f.calls.some(c=>c[0]==='set'),'existing completed job remains editable');
-f=fixture({id:'job',customerId:null,customerName:'Website contact',source:'website_form',status:'scheduled',workflowVersion:0});
+f=fixture({id:'job',customerId:null,customerName:'Website contact',source:'website_form',status:'scheduled',workflowVersion:0,appointmentWindow:'6:00 PM - 8:00 PM'});
 f.values.f_customer='';f.values.f_date='';f.values.f_status='new';f.context.openJobModal('job');await f.context.modal.onSave();
+assert.ok(f.context.modal.body.includes('<option value="6:00 PM - 8:00 PM" selected>6:00 PM - 8:00 PM</option>'),'website appointment window must remain selected');
 const websiteEdit=f.calls.find(c=>c[0]==='status')[3];assert.equal(websiteEdit.customerId,null);assert.equal(websiteEdit.customerName,'Website contact');assert.equal(websiteEdit.scheduledDate,null);
 for(const job of [null,{id:'job',customerId:'customer',status:'new',workflowVersion:0}]){
  f=fixture(job);f.values.f_customer='';f.context.openJobModal(job?.id);await f.context.modal.onSave();assert.ok(!f.calls.some(c=>['set','add','status'].includes(c[0])),'new/linked jobs still require a customer');
