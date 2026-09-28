@@ -39,15 +39,16 @@ export async function notifyLeadOffer(db:any,offer:any){
   const apiKey=Deno.env.get('INKBOX_API_KEY');if(!apiKey)return {status:'not_configured'};
   if(!current())return {status:'expired'};
   const text=message(smsToken.raw),now=new Date().toISOString();
-  const {error}=await db.from('sms_messages').insert({id,provider:'inkbox',channel:'sms',direction:'outbound',local_phone_number:'+15083510523',remote_phone_number:to,normalized_remote_phone:to,message_type:'lead_offer',message_text:text,provider_status:'queued',provider_event_ids:['lead_offer:'+offer.id],created_at:now,updated_at:now});
-  if(error)return {status:error.code==='23505'?'unconfirmed':'failed',message_id:id};
+  // The offer notification claim above prevents repeat sends. Provider identity
+  // fields are immutable in sms_messages, so persist them at initial creation.
+  const row={id,provider:'inkbox',channel:'sms',direction:'outbound',local_phone_number:'+15083510523',remote_phone_number:to,normalized_remote_phone:to,message_type:'lead_offer',message_text:text,provider_event_ids:['lead_offer:'+offer.id],created_at:now};
   try{
    const identity=await new Inkbox({apiKey,timeoutMs:6000}).getIdentity('ashley-ezfixgaragedoorsinc');
    if(!current())throw new Error('expired');
    const sent:any=await identity.sendText({to,text});
    const at=new Date().toISOString();
    const status=sent.id?(['queued','sent','delivered','failed'].includes(sent.deliveryStatus)?sent.deliveryStatus:'queued'):'delivery_unconfirmed';
-   const saved=await db.from('sms_messages').update({provider_message_id:sent.id||null,provider_conversation_id:sent.conversationId||null,provider_status:status,provider_created_at:sent.createdAt||at,sent_at:sent.id?at:null,delivered_at:status==='delivered'?at:null,updated_at:at}).eq('id',id);
+   const saved=await db.from('sms_messages').insert({...row,provider_message_id:sent.id||null,provider_conversation_id:sent.conversationId||null,provider_status:status,provider_created_at:sent.createdAt||at,sent_at:sent.id?at:null,delivered_at:status==='delivered'?at:null,failed_at:status==='failed'?at:null,failure_reason:status==='failed'?'Provider reported delivery failure.':null,updated_at:at});
    // A signed provider callback can persist the message before sendText returns.
    // Link its existing delivery record instead of retrying the SMS or losing status.
    if(saved.error?.code==='23505'&&sent.id){
@@ -56,7 +57,7 @@ export async function notifyLeadOffer(db:any,offer:any){
    }
    return {status:saved.error?'unconfirmed':status,message_id:id};
   }catch{
-   await db.from('sms_messages').update({provider_status:'delivery_unconfirmed',failure_reason:'Provider outcome unknown. Do not resend automatically.',updated_at:new Date().toISOString()}).eq('id',id);
+   await db.from('sms_messages').insert({...row,provider_status:'delivery_unconfirmed',failure_reason:'Provider outcome unknown. Do not resend automatically.',updated_at:new Date().toISOString()});
    return {status:'unconfirmed',message_id:id};
   }
  }
