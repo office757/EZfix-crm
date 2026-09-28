@@ -3,6 +3,33 @@
 Evidence-only restart in the owner's new CRM chat. Continue this application;
 do not rebuild its working catalog, invoice, estimate, or calendar workflows.
 
+## Current acceptance update — September 28, 03:20 America/New_York
+
+The owner explicitly accepts the current synthetic transcript replay for this
+EZfix CRM. Missing original Inkbox recordings are **not a completion blocker for
+this application**. Keep the visible distinction between synthetic replay and
+original recordings. The future larger commercial application will use other
+provider plugins instead of Inkbox; do not migrate this CRM as part of that plan.
+
+Since the initial evidence below, PRs #155–#157 repaired catalog/labor metadata,
+QuickPay phone validation and saved-invoice recovery, made call audio accessible,
+removed the false Save action from information dialogs, and restored invoice
+logos. All 39 current release steps pass. Production verification confirmed
+existing invoice INV0055's Square checkout amount ($2,836.55), original logo
+loading, read-only dialog closure, calendar reload persistence, related labor
+selection, and playable synthetic audio. These were desktop browser checks;
+owner iPhone screenshots separately confirm invoice creation and logo display.
+
+The latest requested presentation changes center the document payment action
+and its secondary controls and remove Quick Payment from the sidebar, retaining
+the mobile bottom button and the existing dashboard/More module launcher.
+
+Issues #133–#139 were re-read and remain open. This does not prove each listed
+feature is broken; it means those broad acceptance records have not been closed.
+Meta/WhatsApp is the owner's stated external dependency. Final document/payment,
+technician-permission/payroll, and website-lead acceptance still need current
+end-to-end evidence before claiming Meta is the only remaining item.
+
 ## Verified this session
 
 | Area | Evidence | Status |
