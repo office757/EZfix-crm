@@ -3,6 +3,25 @@
 Evidence-only restart in the owner's new CRM chat. Continue this application;
 do not rebuild its working catalog, invoice, estimate, or calendar workflows.
 
+## Latest continuation — technician setup
+
+The Smart dispatch setup now explains each missing technician requirement and
+links directly to owner-managed login and contact/alert settings. Business
+estimates are no longer prefilled with invented example values; blank selected
+numeric fields cannot become zero. The old Team instruction about Claude artifact
+sharing has been replaced with the actual owner-managed login workflow.
+
+Production readback before this update: all three technicians have no routing
+profile; Ben and Ira have no linked app login, while the test technician account
+has one. Routing remains in Recommendations mode. Actual working hours, skills,
+ZIP travel estimates and business costs must come from the owner before enabling
+automatic offers. No technician profiles or login credentials were invented.
+
+All 50 release steps, 14 new setup cases, and 56 database workflow/cross-channel
+assertions passed. Database fixtures were rolled back. Visual browser checks for
+this update were blocked by the environment's socket restriction and must not be
+reported as passed. Live handset message delivery remains unverified.
+
 ## Current acceptance update — September 28, 03:20 America/New_York
 
 The owner explicitly accepts the current synthetic transcript replay for this

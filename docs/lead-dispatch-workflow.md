@@ -94,3 +94,26 @@ Additional verification:
   including successful acceptance and cancellation after schedule/owner changes.
 - Isolated mobile/desktop browser: profile saving, commission, lead preview,
   ZIP-only technician view, public response, reload and 390px layout.
+
+## Technician setup completion — September 28
+
+The Smart dispatch roster now shows separate checks for app login, active status,
+job types and estimates, hours, ZIP travel estimates, capacity/costs and routing
+inclusion. Owner actions open the existing login manager and contact/alerts form.
+WhatsApp recipient details are distinct from provider readiness and delivery.
+
+New profiles leave sales, conversion, expertise, duration, materials, capacity,
+additional hourly cost and selected working days empty. The existing technician
+commission (or the owner's 30% default) is retained. Required numeric fields must
+be explicitly entered; blank is never converted to zero. Duplicate ZIP entries,
+invalid hours and travel outside 0–240 minutes are rejected without closing the
+form. API validation errors preserve the owner's entries. Automatic mode stays
+unavailable in the selector until at least one technician passes setup checks;
+server authorization and eligibility checks continue to be authoritative.
+
+Current verification: 14 production-handler setup regression cases, all 50 release
+steps, 38 database workflow assertions and 18 cross-channel assertions passed.
+Database fixtures were rolled back; no external messages or payments were sent.
+This update's desktop/mobile visual verification remains unverified: the local
+browser could not start because the execution environment denied socket creation.
+The earlier browser evidence above applies to the preceding release.
