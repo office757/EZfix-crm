@@ -2012,11 +2012,11 @@ function renderDashboard(content, actions) {
   const avgTicket = STORE.invoices.length ? STORE.invoices.reduce((s,inv)=>s+invoiceTotal(inv),0)/STORE.invoices.length : 0;
 
   const allPayments = [];
-  STORE.invoices.forEach(inv => (inv.payments||[]).forEach(p => allPayments.push({...p, invoiceNumber:inv.number, customerName:inv.customerName})));
+  STORE.invoices.forEach(inv => (inv.payments||[]).forEach(p => allPayments.push({...p, invoiceId:inv.id, invoiceNumber:inv.number, customerName:inv.customerName})));
   const paymentsToday = allPayments.filter(p=>p.date===today).reduce((s,p)=>s+paymentAppliedAmount(p),0);
   const recentPayments = [...allPayments].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
 
-  const jobsToday = STORE.jobs.filter(j=>j.scheduledDate===today);
+  const jobsToday = STORE.jobs.filter(j=>j.scheduledDate===today && j.status!=='cancelled');
   const unscheduledJobs = STORE.jobs.filter(j=>!j.scheduledDate && j.status!=='completed' && j.status!=='cancelled');
 
 
@@ -2035,8 +2035,8 @@ function renderDashboard(content, actions) {
   const outstanding = unpaidInvoices.reduce((sum,inv)=> sum + balanceDue(inv), 0);
 
   const nextJobs = [...STORE.jobs]
-    .filter(j => j.status!=='completed' && j.status!=='cancelled')
-    .sort((a,b)=> (a.scheduledDate||'').localeCompare(b.scheduledDate||''))
+    .filter(j => j.scheduledDate && j.scheduledDate>=today && j.status!=='completed' && j.status!=='cancelled')
+    .sort((a,b)=> a.scheduledDate.localeCompare(b.scheduledDate))
     .slice(0,5);
 
   const nextAppointment = [...STORE.jobs].filter(j=>j.scheduledDate && j.scheduledDate>=today && !['completed','cancelled'].includes(j.status)).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate))[0];
