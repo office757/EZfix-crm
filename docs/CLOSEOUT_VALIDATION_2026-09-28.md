@@ -21,6 +21,11 @@ Baseline: production main `5d4fe1096c75c408764df5017098d12933c7e414`.
   signed-in Owner job editor and its normal authorization/audit path. The SQL
   aborts atomically if either reviewed record changed.
 
+The service-only appointment transaction creates the job and lead link together,
+reuses an existing job on retry, and recovers a previously unlinked website job
+without duplication. Existing permission guards remain intact. Failed scheduling
+preserves the lead and raises an office review alert.
+
 ## Verification completed before deployment
 
 | Database rollback suite | Assertions |
@@ -31,12 +36,13 @@ Baseline: production main `5d4fe1096c75c408764df5017098d12933c7e414`.
 | Offer channels | 18 |
 | Dispatch acceptance revalidation | 9 |
 | Unified cross-channel offer lifecycle | 72 |
-| Total | 173 |
+| Atomic website appointment creation and recovery | 15 |
+| Total | 188 |
 
 All assertions passed against the production schema using rolled-back synthetic
 fixtures. No customer messages, charges or retained test records were created.
 
-Local real-handler tests cover website intake (24 cases), invoice email (four),
+Local real-handler tests cover website intake (25 cases), invoice email (four),
 authenticated Square link creation (four), and job-editor assignment/date/status/
 photo behavior. Completion signature (13) and strict CRM safety (22) checks pass.
 These additions are wired into the release build. The full build must run on

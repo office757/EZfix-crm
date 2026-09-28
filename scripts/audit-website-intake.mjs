@@ -6,9 +6,9 @@ import {stripTypeScriptTypes} from 'node:module';
 // Execute the actual webhook with an isolated database adapter: no network,
 // real contact details, provider delivery or production writes are involved.
 const source=stripTypeScriptTypes(fs.readFileSync('supabase/functions/website-lead-webhook/index.ts','utf8').replace(/^import .*\n/gm,''));
-function fixture(){
+function fixture({scheduleFails=false}={}){
  const writes=[];let handler;
- const db={rpc:async()=>({data:{allowed:true}}),from(table){
+ const db={rpc:async(name,args)=>{if(name==='service_ensure_website_appointment'){writes.push({table:'appointment_rpc',data:args});return scheduleFails?{error:{message:'Synthetic scheduling failure'}}:{data:'job_synthetic'};}return {data:{allowed:true}};},from(table){
   const query={select:()=>query,eq:()=>query,is:()=>query,ilike:()=>query,gte:()=>query,limit:async()=>({data:[]}),
    insert:async data=>{writes.push({table,op:'insert',data});return {error:null};},
    upsert:async data=>{writes.push({table,op:'upsert',data});return {error:null};},
@@ -29,16 +29,19 @@ for(const [input,expected] of [['09/29/2026','2026-09-29'],['9/29/2026','2026-09
 const lead={name:'Synthetic intake',phone:'+12025550148',service_type:'Spring repair',preferred_time:'8–10 AM'};
 const date=(new Date().getUTCFullYear()+1)+'-01-15';
 let f=fixture();let response=await f.run({...lead,preferred_date:date});
-assert.equal(response.status,200);assert.equal(f.writes.find(x=>x.table==='jobs').data.scheduled_date,date);
+assert.equal(response.status,200);assert.equal(f.writes.find(x=>x.table==='leads').data.app_data.preferred_date,date);
+assert.equal(f.writes.find(x=>x.table==='appointment_rpc').data.p_lead_id,f.writes.find(x=>x.table==='leads').data.id);
+assert.equal(f.writes.find(x=>x.table==='ai_alerts').data.related_id,'job_synthetic');
 assert.equal(f.writes.find(x=>x.table==='leads'&&x.op==='insert').data.app_data.date_needs_review,false);count++;
 for(const input of ['8250-02-26','2026-02-31','01/33/2026']){
  f=fixture();response=await f.run({...lead,preferred_date:input});assert.equal(response.status,200);
  const saved=f.writes.find(x=>x.table==='leads'&&x.op==='insert').data;
  assert.equal(saved.app_data.preferred_date,null);assert.equal(saved.app_data.preferred_date_input,input);assert.equal(saved.app_data.date_needs_review,true);
- assert.ok(!f.writes.some(x=>x.table==='jobs'));assert.ok(f.writes.some(x=>x.table==='ai_alerts'&&x.data.rule_key==='website_date_needs_review'));count++;
+ assert.ok(!f.writes.some(x=>x.table==='appointment_rpc'));assert.ok(f.writes.some(x=>x.table==='ai_alerts'&&x.data.rule_key==='website_date_needs_review'));count++;
 }
-f=fixture();await f.run({...lead,preferred_date:''});assert.ok(f.writes.some(x=>x.table==='leads'));assert.ok(!f.writes.some(x=>['jobs','ai_alerts'].includes(x.table)));count++;
-f=fixture();await f.run({...lead,preferred_date:date,preferred_time:''});assert.ok(!f.writes.some(x=>x.table==='jobs'));count++;
+f=fixture();await f.run({...lead,preferred_date:''});assert.ok(f.writes.some(x=>x.table==='leads'));assert.ok(!f.writes.some(x=>['appointment_rpc','ai_alerts'].includes(x.table)));count++;
+f=fixture();await f.run({...lead,preferred_date:date,preferred_time:''});assert.ok(!f.writes.some(x=>x.table==='appointment_rpc'));count++;
+f=fixture({scheduleFails:true});response=await f.run({...lead,preferred_date:date});assert.equal(response.status,200);assert.ok(f.writes.some(x=>x.table==='leads'));assert.ok(f.writes.some(x=>x.table==='ai_alerts'&&x.data.rule_key==='website_schedule_needs_review'));count++;
 f=fixture();await f.run({...lead,'sms_consent[]':'on'},true);assert.equal(f.writes.find(x=>x.table==='sms_consent').data.status,'opted_in');count++;
 f=fixture();await f.run(lead,true);assert.ok(!f.writes.some(x=>x.table==='sms_consent'));count++;
 f=fixture();response=await f.run({...lead,name:''});assert.equal(response.status,400);assert.equal(f.writes.length,0);count++;
