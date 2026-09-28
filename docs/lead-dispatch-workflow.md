@@ -43,3 +43,44 @@ handset-delivery issue still needs a live-device check.
 Database migration files and Edge Function sources in this repository match the
 deployed feature. Private executor grants permit only the validated workflow
 RPCs to change protected assignment, invoice and closure fields.
+
+## Unified lead approval and Ashley routing
+
+Each offer now has a private SMS link and a private WhatsApp link. Opening a
+link is read-only; an explicit Accept or Decline calls the same locked database
+transaction used by the app. The first response wins across all three channels.
+Links return only ZIP, deadline and response state. Full customer details still
+require the accepting technician's signed-in account. Links stop working when
+the technician account is deactivated or its login changes.
+
+`ashley-routing.js` adds Smart dispatch inside Ashley, with entry points in Team
+and Leads. The owner configures skills and expected closing rate, sale, parts,
+duration, commission, extra hourly cost, working hours and ZIP travel estimates.
+Scoring combines those baselines with the last 90 days of completed/cancelled
+job outcomes and pre-tax invoice amounts. Weekly balance contributes only
+within the configured business-score tolerance and is capped at 20% of total
+weight. Travel estimates are configured by the owner; this is not live GPS or
+traffic routing. Contribution estimates are planning data, never customer quotes.
+
+The initial mode is **Recommendations** with no fabricated technician profiles.
+Automatic mode requires an enabled profile and an active technician login. The
+worker offers only new, complete Ashley leads from the enable date, excludes
+unavailable technicians, retains the customer's original service window for
+rerouting, and stops at the attempt limit. AI Manager's pause applies both at
+routing time and when an automatic offer is accepted. Changes to the technician's
+schedule, profile or the routing policy invalidate an outstanding reservation
+before assignment. Historical and incomplete intakes stay with the office.
+
+Per-channel delivery state remains visible. Provider acceptance is not handset
+delivery. WhatsApp requires its existing Meta template/connection and the
+technician's WhatsApp number and opt-in; SMS respects an existing opt-out.
+
+Additional verification:
+- `audit-ashley-dispatch.mjs`: 23 ranking/capacity/cost/time-window scenarios.
+- `audit-lead-offer-channels.mjs`: 13 actual-handler scenarios with isolated
+  provider/DB adapters, including read-only previews and duplicate send claims.
+- `lead_offer_channels_rollback.sql`: 18 cross-channel and permission assertions.
+- `dispatch_revalidation_rollback.sql`: 9 automatic-reservation assertions,
+  including successful acceptance and cancellation after schedule/owner changes.
+- Isolated mobile/desktop browser: profile saving, commission, lead preview,
+  ZIP-only technician view, public response, reload and 390px layout.
