@@ -705,7 +705,8 @@
 <!-- EZFIX_PRODUCT_CATALOG_UI_V1_HEAD --><link rel="stylesheet" href="/product-catalog-ui.css" data-ezfix-product-catalog="v1"><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_HEAD -->
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_HEAD --><link rel="stylesheet" href="/marketing-connections-ui.css" data-ezfix-marketing-ui="v1"><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_HEAD -->
-<link rel="stylesheet" href="/workspace-overview.css"><link rel="stylesheet" href="/lead-dispatch.css"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#181818"><!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
+<link rel="stylesheet" href="/workspace-overview.css"><link rel="stylesheet" href="/lead-dispatch.css"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#181818"><link rel="stylesheet" href="/workspace-theme.css">
+<!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
 .cal-week-toolbar,.cal-day-toolbar{grid-template-columns:auto minmax(0,1fr);gap:12px 18px;padding:16px;border-radius:16px;box-shadow:0 2px 8px rgba(16,24,40,.035)}
@@ -1254,7 +1255,7 @@ const NAV = [
   { key:'invoices', label:'Invoices', emoji:'🧾', icon:'M4 4h16v16H4zM8 9h8M8 13h8M8 17h4', category:'Sales & Billing', sidebar:false, fullWidth:true },
   { key:'payments', label:'Payments', icon:'M2 10h20M6 15h4M2 6h20a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z', hideForTech: true },
   { key:'settings', label:'Settings', hideForTech: true, icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.5.6.9.6H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z' },
-  { key:'attention', label:'Needs Attention', hideForTech:true, launcher:false, icon:'M12 8v5M12 17h.01M10.3 3.7L2.5 17.2a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0z' },
+  { key:'attention', label:'Needs Attention', hideForTech:true, sidebar:false, launcher:false, icon:'M12 8v5M12 17h.01M10.3 3.7L2.5 17.2a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0z' },
   { key:'banking', label:'Banking', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M3 10h18M4 20h16M6 10v7M10 10v7M14 10v7M18 10v7M3 6l9-4 9 4v2H3z' },
   { key:'socialposts', label:'Social Media', ownerOnly:true, launcher:false, sidebarGroup:'workspace', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6M19 8l2-2M19 12h3M19 16l2 2' },
   { key:'office', label:'Office', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M4 21V3h12v18M16 10h4v11M2 21h20M8 7h4M8 11h4M8 15h4' },
@@ -1295,8 +1296,8 @@ function isSidebarItemActive(n) {
 function renderNav() {
   const el = document.getElementById('navList');
   el.innerHTML = sidebarNavItems().map(n => `
-    <button class="nav-item ${n.key==='banking'?'nav-workspace-start':''} ${isSidebarItemActive(n)?'active':''}" onclick="go('${n.key}')" ${isSidebarItemActive(n)?'aria-current="page"':''}>
-      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>
+    <button class="nav-item ${n.key==='banking'?'nav-workspace-start':''} ${isSidebarItemActive(n)?'active':''}" data-workspace-nav="${n.key}" onclick="go('${n.key}')" ${isSidebarItemActive(n)?'aria-current="page"':''}>
+      ${window.EZFIXWorkspaceTheme ? window.EZFIXWorkspaceTheme.navIcon(n.key) : `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>`}
       ${n.label}${n.key==='attention'&&typeof workspaceAttention==='function'&&workspaceAttention().length?'<span class="nav-attention-count">'+workspaceAttention().reduce((sum,x)=>sum+x.count,0)+'</span>':''}
     </button>`).join('');
   renderViewAsOptions();
@@ -1400,6 +1401,8 @@ function render() {
   const content = document.getElementById('content');
   const actions = document.getElementById('topActions');
   actions.innerHTML = '';
+
+  if (window.EZFIXWorkspaceTheme) window.EZFIXWorkspaceTheme.apply(route.page);
 
   if (!dbReady) { content.innerHTML = `<div class="empty-state">Loading…</div>`; return; }
 
@@ -10944,6 +10947,7 @@ async function initUserRole() {
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
 <script src="/workspace-overview.js"></script><script src="/lead-dispatch.js"></script>
+<script src="/workspace-theme.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>
 </html>

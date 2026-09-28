@@ -10,7 +10,7 @@ function fixture(role='owner'){
 }
 let n=0;function check(name,fn){fn();n++;console.log('PASS '+name);}
 check('Owner sidebar keeps one Jobs & Leads entry and removes duplicate document links',()=>{
- const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['dashboard','communications','jobs','customers','calendar','payments','settings','attention','banking','socialposts','office']);
+ const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['dashboard','communications','jobs','customers','calendar','payments','settings','banking','socialposts','office']);
  f.context.route.page='leads';assert.equal(f.run("isSidebarItemActive({key:'jobs'})"),true);
 });
 check('Both work tabs keep their existing routes and selected state',()=>{
@@ -21,7 +21,7 @@ check('Owner launcher keeps gallery tools separate and removes warranties from t
  const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,6);
  const keys=groups.flatMap(g=>g.items.map(n=>n.key));
  for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','inventory','suppliers','ai_manager','receptionist','ai_system','team','reports','payroll'])assert.ok(keys.includes(key),key);
- for(const key of ['expenses','followups','warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);
+ for(const key of ['attention','expenses','followups','warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);
  assert.deepEqual(groups.find(g=>g.name==='Gallery & Visualizer').items.map(n=>n.key),['gallery','visualizer']);
  assert.deepEqual(groups.find(g=>g.name==='Business Workspace').items.map(n=>n.key),['banking','socialposts','office']);
 });
