@@ -10,7 +10,7 @@ function fixture(role='owner'){
 }
 let n=0;function check(name,fn){fn();n++;console.log('PASS '+name);}
 check('Owner sidebar keeps one Jobs & Leads entry and removes duplicate document links',()=>{
- const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['dashboard','communications','ai_manager','jobs','customers','calendar','payments','settings']);
+ const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['dashboard','communications','jobs','customers','calendar','payments','settings']);
  f.context.route.page='leads';assert.equal(f.run("isSidebarItemActive({key:'jobs'})"),true);
 });
 check('Both work tabs keep their existing routes and selected state',()=>{
@@ -18,10 +18,10 @@ check('Both work tabs keep their existing routes and selected state',()=>{
  f.context.route.page='leads';assert.match(f.run('renderWorkNavigation()'),/aria-current="page" onclick="go\('leads'\)"/);
 });
 check('Owner launcher keeps gallery tools separate and removes warranties from the menu',()=>{
- const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,5);
+ const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,6);
  const keys=groups.flatMap(g=>g.items.map(n=>n.key));
- for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','inventory','suppliers','expenses','followups','team','reports','payroll'])assert.ok(keys.includes(key),key);
- for(const key of ['warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);
+ for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','inventory','suppliers','expenses','ai_manager','receptionist','ai_system','team','reports','payroll'])assert.ok(keys.includes(key),key);
+ for(const key of ['followups','warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);
  assert.deepEqual(groups.find(g=>g.name==='Gallery & Visualizer').items.map(n=>n.key),['gallery','visualizer']);
 });
 check('Technician launcher exposes only the existing allowed document workflows',()=>{

@@ -265,6 +265,8 @@
   .picker-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; }
   .picker-card-price { font-weight: 800; color: var(--ink); white-space: nowrap; }
   .picker-card-bottom { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+  .ai-tool-description { display:block; margin-top:5px; font-size:12px; font-weight:400; color:var(--muted); line-height:1.5; }
+  @media (max-width:420px) { .launcher-tiles-paired { grid-template-columns:minmax(0,1fr); } }
   .launcher-tile-count { font-size: 10.5px; color: var(--muted); margin-top: -2px; }
   .catalog-product-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
   .catalog-product-card .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
@@ -1232,7 +1234,7 @@ const NAV = [
   { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales & Billing' },
   { key:'dashboard', label:'Dashboard', icon:'M4 13h7V4H4v9zm0 7h7v-5H4v5zm9 0h7V11h-7v9zm0-16v5h7V4h-7z' },
   { key:'communications', label:'Communications', emoji:'💬', icon:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', category:'Customer Care' , hideForTech: true},
-  { key:'ai_manager', label:'AI Manager', emoji:'AI', icon:'M12 2a4 4 0 0 0-4 4v1H7a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h1v1a4 4 0 0 0 8 0v-1h1a3 3 0 0 0 3-3v-4a3 3 0 0 0-3-3h-1V6a4 4 0 0 0-4-4zM9 10h.01M15 10h.01M9 14h6', ownerOnly:true, category:'Sales Tools' },
+  { key:'ai_manager', label:'AI Manager', emoji:'AI', icon:'M12 2a4 4 0 0 0-4 4v1H7a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h1v1a4 4 0 0 0 8 0v-1h1a3 3 0 0 0 3-3v-4a3 3 0 0 0-3-3h-1V6a4 4 0 0 0-4-4zM9 10h.01M15 10h.01M9 14h6', ownerOnly:true, sidebar:false, category:'AI Tools' },
   { key:'jobs', label:'Jobs & Leads', icon:'M8 2v3M16 2v3M3.5 9h17M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z' },
   { key:'leads', label:'Leads', icon:'M3 11l18-7-7 18-2.5-7.5L3 11z', sidebar:false, launcher:false },
   { key:'customers', label:'Customers', icon:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0' },
@@ -1244,9 +1246,9 @@ const NAV = [
   // Secondary modules — reachable from the More/module launcher, not the main sidebar (kept out of NAV list rendering via sidebar:false), still owner/tech-gated the same way.
   { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Service & Stock' , hideForTech: true},
   { key:'inventory', label:'Inventory', emoji:'📦', icon:'M3 7h18M3 7v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7M3 7l2-4h14l2 4M9 11h6', sidebar:false, category:'Service & Stock' , hideForTech: true},
-  { key:'suppliers', label:'Suppliers & Orders', emoji:'🚚', icon:'M3 3h18v6H3zM3 9v12h18V9M8 13h8', hideForTech: true, sidebar:false, category:'Service & Stock' },
+  { key:'suppliers', label:'Suppliers & Orders', emoji:'🚚', icon:'M3 3h18v6H3zM3 9v12h18V9M8 13h8', hideForTech: true, sidebar:false, fullWidth:true, category:'Service & Stock' },
   { key:'expenses', label:'Receipts', emoji:'🧾', icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h1', sidebar:false, category:'Sales & Billing' , hideForTech: true},
-  { key:'followups', label:'Follow-Ups & Tasks', emoji:'✅', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', sidebar:false, category:'Service & Stock' , hideForTech: true},
+  { key:'followups', label:'Follow-Ups & Tasks', emoji:'✅', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'warranties', label:'Warranties', emoji:'🛡️', icon:'M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'team', label:'Team', emoji:'👥', icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', sidebar:false, category:'Team & Payroll' , hideForTech: true},
   { key:'payroll', label:'Tech Payroll', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', ownerOnly: true, sidebar:false, category:'Team & Payroll' },
@@ -1258,13 +1260,15 @@ const NAV = [
   { key:'socialposts', label:'Social Media Posts', emoji:'📣', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6', ownerOnly:true, sidebar:false, category:'Social Media', fullWidth:true },
   { key:'viscatalog', label:'Visualizer Catalog', emoji:'⚙️', icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', ownerOnly: true, sidebar:false, category:'Sales Tools', launcher:false },
   { key:'walog', label:'WhatsApp Log', emoji:'🟢', icon:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
-  { key:'receptionist', label:'AI Receptionist', emoji:'🤖', icon:'M12 8V4H8M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zM2 14h2M20 14h2M9 18h6', ownerOnly: true, sidebar:false, category:'Sales Tools' },
+  { key:'receptionist', label:'AI Receptionist', emoji:'🤖', icon:'M12 8V4H8M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zM2 14h2M20 14h2M9 18h6', ownerOnly: true, sidebar:false, category:'AI Tools' },
+  { key:'ai_system', label:'AI Complete System', emoji:'✨', ownerOnly:true, sidebar:false, category:'AI Tools', fullWidth:true },
 ];
 const CATEGORY_META = {
   'Sales & Billing': { emoji:'💳', header:'#242424' },
   'Gallery & Visualizer': { emoji:'🖼️', header:'#242424', paired:true },
+  'AI Tools': { emoji:'✨', header:'#242424', paired:true, centered:true },
   'Social Media': { emoji:'📣', header:'#242424' },
-  'Service & Stock': { emoji:'🧰', header:'#242424' },
+  'Service & Stock': { emoji:'🧰', header:'#242424', paired:true, centered:true },
   'Team & Payroll': { emoji:'👥', header:'#242424', paired:true, centered:true },
 };
 
@@ -1340,7 +1344,7 @@ function render() {
     btn.classList.toggle('active', active);
     if (active) btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
-  const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', socialposts:'Social Media Posts', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'GPT AI Manager', settings:'Settings' };
+  const titleMap = { dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', socialposts:'Social Media Posts', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'AI Manager', ai_system:'AI Complete System', settings:'Settings' };
   const PAGE_META = {
     dashboard: { emoji:'🏠', sub:'Your business at a glance' },
     leads: { emoji:'🎯', sub:'New inquiries & follow-ups' },
@@ -1385,6 +1389,7 @@ function render() {
   if (!dbReady) { content.innerHTML = `<div class="empty-state">Loading…</div>`; return; }
 
   if (route.page === 'dashboard') return renderDashboard(content, actions);
+  if (route.page === 'ai_system') return renderAiSystem(content, actions);
   if (route.page === 'ai_manager') return renderAiManager(content, actions);
   if (route.page === 'customers') return renderCustomers(content, actions);
   if (route.page === 'leads') return renderLeads(content, actions);
@@ -1720,6 +1725,17 @@ async function loadAiManagerOverview(){
   aiManagerState.settings=settingsRes.status==='fulfilled'&&!settingsRes.value?.error?(settingsRes.value?.data||null):null;
   aiManagerState.busy=false; render();
 }
+function renderAiSystem(content,actions){
+  actions.innerHTML='';
+  if(!IS_OWNER){content.innerHTML=emptyState('🔒','Owner access only','');return;}
+  content.innerHTML=`<div class="panel"><div class="panel-head"><h3>Your AI workspace</h3></div><div class="panel-body pad">
+    <p class="muted" style="margin:0 0 20px">Manage your business and customer calls from one place.</p>
+    <div class="launcher-tiles launcher-tiles-paired" style="padding:0">
+      <button class="launcher-tile" onclick="go('ai_manager')"><span class="launcher-tile-emoji" aria-hidden="true">AI</span><span><span class="launcher-tile-label">AI Manager</span><span class="ai-tool-description">Business overview, manager chat and approvals</span></span></button>
+      <button class="launcher-tile" onclick="go('receptionist')"><span class="launcher-tile-emoji" aria-hidden="true">🤖</span><span><span class="launcher-tile-label">AI Receptionist</span><span class="ai-tool-description">Ashley, call history and receptionist settings</span></span></button>
+      <button class="launcher-tile launcher-tile-wide" onclick="aiManagerState.subview='overview';go('ai_manager')"><span class="launcher-tile-emoji" aria-hidden="true">✨</span><span><span class="launcher-tile-label">Open Command Center</span><span class="ai-tool-description">Review business data and manage AI activity</span></span></button>
+    </div></div></div>`;
+}
 function renderAiManager(content,actions){
   if(!IS_OWNER){content.innerHTML=emptyState('🔒','Owner access only','');return;}
   const paused=!!aiManagerState.settings?.paused;
@@ -1879,8 +1895,8 @@ function renderTechnicianDashboard(content, actions) {
   actions.innerHTML = '';
 }
 function dashboardModuleCategories() {
-  const secondary = NAV.filter(n => n.launcher!==false && n.key!=='receptionist' && n.sidebar===false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
-  const order = ['Sales & Billing','Gallery & Visualizer','Social Media','Service & Stock','Team & Payroll'];
+  const secondary = NAV.filter(n => n.launcher!==false && n.sidebar===false && (!n.ownerOnly || IS_OWNER) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
+  const order = ['Sales & Billing','Gallery & Visualizer','Social Media','Service & Stock','AI Tools','Team & Payroll'];
   const groups = {};
   secondary.forEach(n => { (groups[n.category||'Other'] = groups[n.category||'Other']||[]).push(n); });
   return order.filter(c=>groups[c]).map(c => ({ name: c, items: groups[c] }));
