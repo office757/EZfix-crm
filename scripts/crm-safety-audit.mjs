@@ -26,8 +26,8 @@ const failures = [];
 const warnings = [];
 const passes = [];
 
-function requirePattern(name, pattern, why) {
-  if (pattern.test(source)) passes.push(name);
+function requirePattern(name, pattern, why, input = source) {
+  if (pattern.test(input)) passes.push(name);
   else failures.push(`${name}: ${why}`);
 }
 
@@ -138,8 +138,9 @@ requirePattern(
 );
 requirePattern(
   'Job editor only writes photos after an explicit photo change',
-  /openJobModal[\s\S]{0,10500}?\.\.\.\(jobPhotosDirty\s*\|\|\s*!j\s*\?\s*\{\s*photos:/,
-  'Existing job edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.'
+  /\.\.\.\(jobPhotosDirty\s*\|\|\s*!j\s*\?\s*\{\s*photos:/,
+  'Existing job edits must not overwrite photos from a stale editor snapshot unless the user explicitly changed photos.',
+  source.slice(source.indexOf('function openJobModal('),source.indexOf('function invoiceTotal('))
 );
 
 requirePattern(

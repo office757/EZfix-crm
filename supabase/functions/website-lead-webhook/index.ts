@@ -5,7 +5,14 @@ const reply=(t:string,s=200)=>new Response(t,{status:s,headers:{...cors,"content
 const clean=(v:unknown,m=1000)=>String(v??"").trim().slice(0,m);
 const digits=(v:string)=>v.replace(/\D/g,"").slice(-10);
 const pick=(o:any,n:string[])=>{for(const k of n)if(o?.[k]!=null&&String(o[k]).trim())return o[k];return""};
-const parseDate=(v:string)=>{const s=clean(v,30);let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?s:"";};
+const parseDate=(v:string,now=new Date())=>{
+ const s=clean(v,30),us=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/),iso=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+ if(!us&&!iso)return "";
+ const year=Number(us?us[3]:iso![1]),month=Number(us?us[1]:iso![2]),day=Number(us?us[2]:iso![3]);
+ if(year<2000||year>now.getUTCFullYear()+5||month<1||month>12||day<1||day>31)return "";
+ const d=new Date(Date.UTC(year,month-1,day));
+ return d.getUTCFullYear()===year&&d.getUTCMonth()===month-1&&d.getUTCDate()===day?d.toISOString().slice(0,10):"";
+};
 const attr=(b:any,n:string[],m=500)=>clean(pick(b,n),m)||null;
 const attributionFromUrl=(value:unknown)=>{
   const out:any={};
@@ -35,16 +42,20 @@ Deno.serve(async(req)=>{
  const keys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}"),key=keys.default||Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const db=createClient(Deno.env.get("SUPABASE_URL")!,key!,{auth:{persistSession:false,autoRefreshToken:false}});
  const clientIp=clientIpOf(req);if(clientIp){const rateKey=await sha256Hex("website-lead|"+clientIp);const{data:rate,error:rateErr}=await db.rpc("service_check_website_lead_rate_limit",{p_key_hash:rateKey,p_limit:8,p_window_seconds:900});if(rateErr)console.error("website lead rate-limit check failed",rateErr);else if(rate?.allowed===false)return new Response("Too many requests. Please try again shortly.",{status:429,headers:{...cors,"content-type":"text/plain; charset=utf-8","retry-after":String(rate.retry_after||60)}})}
  const name=clean(pick(b,["name","full_name","full-name","your-name","first_name","first-name"]),160),email=clean(pick(b,["email","your-email","email_address","email-address"]),254).toLowerCase(),phone=clean(pick(b,["phone","tel","telephone","your-phone","phone_number","phone-number"]),50),address=clean(pick(b,["address","service_address","service-address","your-address"]),300),service=clean(pick(b,["service_type","service-type","service","service_requested","service-requested"]),200);
- const preferredDate=parseDate(pick(b,["preferred_date","preferred-date"])),time=clean(pick(b,["preferred_time","preferred-time"]),100),problem=clean(pick(b,["problem_description","problem-description","message","notes","your-message","comments"]),2000);
+ const dateInput=clean(pick(b,["preferred_date","preferred-date"]),30),preferredDate=parseDate(dateInput),dateNeedsReview=!!dateInput&&!preferredDate,time=clean(pick(b,["preferred_time","preferred-time"]),100),problem=clean(pick(b,["problem_description","problem-description","message","notes","your-message","comments"]),2000);
  if(!name||(!phone&&!email))return reply("Please enter your name and a phone number or email address.",400);
  const since=new Date(Date.now()-600000).toISOString();let dup:any=null;if(email){const{data}=await db.from("leads").select("id").eq("source","Website").ilike("email",email).is("deleted_at",null).gte("created_at",since).limit(1);dup=data?.[0]}if(!dup&&digits(phone).length===10){const{data}=await db.from("leads").select("id,phone").eq("source","Website").is("deleted_at",null).gte("created_at",since).limit(20);dup=(data||[]).find((x:any)=>digits(x.phone||"")===digits(phone))}if(dup)return reply(success);
  const leadId="lead_web_"+crypto.randomUUID(),emergency=/emergency|asap/i.test(time);const notes=problem||null;
  const landingPage=attr(b,["landing_page","landing-page","page_url","page-url","url"],1200)||clean(req.headers.get("referer"),1200)||null;
  const urlAttr=attributionFromUrl(landingPage);
  const gclid=attr(b,["gclid","GCLID"])||urlAttr.gclid||null,gbraid=attr(b,["gbraid","GBRAID"])||urlAttr.gbraid||null,wbraid=attr(b,["wbraid","WBRAID"])||urlAttr.wbraid||null,utmSource=attr(b,["utm_source","utm-source"])||urlAttr.utm_source||null,utmMedium=attr(b,["utm_medium","utm-medium"])||urlAttr.utm_medium||null,utmCampaign=attr(b,["utm_campaign","utm-campaign"])||urlAttr.utm_campaign||null,utmTerm=attr(b,["utm_term","utm-term"])||urlAttr.utm_term||null,utmContent=attr(b,["utm_content","utm-content"])||urlAttr.utm_content||null,googleAdsCustomerId=attr(b,["google_ads_customer_id","google-ads-customer-id","customer_id"],64)||urlAttr.google_ads_customer_id||null,campaignId=attr(b,["campaign_id","campaign-id"],64)||urlAttr.campaign_id||null,adGroupId=attr(b,["ad_group_id","ad-group-id"],64)||urlAttr.ad_group_id||null,criterionId=attr(b,["criterion_id","criterion-id"],64)||urlAttr.criterion_id||null;
- const {error:le}=await db.from("leads").insert({id:leadId,name,email:email||null,phone:phone||null,address:address||null,service_requested:service||null,source:"Website",source_provider:"WordPress Avada",source_channel:"Website Form",status:"new",assignment_status:"unassigned",notes,app_data:{website_form_id:641,preferred_date:preferredDate||null,preferred_time:time||null,problem_description:problem||null,emergency,website_received_at:new Date().toISOString(),utm_source:utmSource,utm_medium:utmMedium,utm_campaign:utmCampaign,gclid:!!gclid}});
+ const {error:le}=await db.from("leads").insert({id:leadId,name,email:email||null,phone:phone||null,address:address||null,service_requested:service||null,source:"Website",source_provider:"WordPress Avada",source_channel:"Website Form",status:"new",assignment_status:"unassigned",notes,app_data:{website_form_id:641,preferred_date:preferredDate||null,preferred_date_input:dateInput||null,date_needs_review:dateNeedsReview,preferred_time:time||null,problem_description:problem||null,emergency,website_received_at:new Date().toISOString(),utm_source:utmSource,utm_medium:utmMedium,utm_campaign:utmCampaign,gclid:!!gclid}});
 
  if(le){console.error(le);return reply("Your request could not be saved. Please call EZfix Garage Doors.",500)}
+ if(dateNeedsReview){
+   const {error:dateError}=await db.from("ai_alerts").insert({rule_key:"website_date_needs_review",severity:"warning",title:"Website request — confirm appointment date",detail:`${name} submitted an invalid appointment date. Confirm the date before scheduling.`.slice(0,1000),related_type:"lead",related_id:leadId,status:"open",evidence:{lead_id:leadId,preferred_date_input:dateInput}});
+   if(dateError)console.error("website date review alert failed",dateError);
+ }
  if(consentChecked(b)){
    const phoneE164=e164US(phone);
    if(phoneE164){
