@@ -1,15 +1,32 @@
 (() => {
 'use strict';
 
-const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:false,limit:80};
+const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:false,limit:80,tab:'models'};
 window.__visCatalogState=visCatalogState;
-const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
+const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||(window.DoorDesign?.profile(p)?window.DoorDesign.defaultImage(p):(p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''))):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
 const referenceDoors=()=>STORE.products.filter(p=>val(p,'catalogKind')==='garage_door_model');
 const refDoor=d=>d?.referenceProductId?getOne('products',d.referenceProductId):null;
 const legacyDoor=d=>d?.modelId?getOne('doorModels',d.modelId):null;
+const favoriteKey=()=> 'ezfix:door-favorites:v1:'+(CURRENT_TEAM_MEMBER?.id||'local');
+function favoriteIds(){try{const ids=JSON.parse(localStorage.getItem(favoriteKey())||'[]');return new Set(Array.isArray(ids)?ids.filter(x=>typeof x==='string'):[]);}catch{return new Set();}}
+function toggleVisFavorite(id){
+  if(!referenceDoors().some(p=>p.id===id))return;
+  const ids=favoriteIds();ids.has(id)?ids.delete(id):ids.add(id);
+  try{localStorage.setItem(favoriteKey(),JSON.stringify([...ids]));}catch{return toast('Favorites could not be saved on this device.',true);}
+  const focus=document.activeElement?.dataset.favoriteId;render();
+  if(focus)[...document.querySelectorAll('[data-favorite-id]')].find(el=>el.dataset.favoriteId===focus)?.focus({preventScroll:true});
+}
+function visPickerTab(tab){if(!['models','design','favorites'].includes(tab))return;visCatalogState.tab=tab;render();}
+window.toggleVisFavorite=toggleVisFavorite;window.visPickerTab=visPickerTab;
+window.DoorFavorites={ids:favoriteIds,toggle:toggleVisFavorite};
+function favoriteButton(p){const saved=favoriteIds().has(p.id);return '<button type="button" class="vg-star '+(saved?'saved':'')+'" data-favorite-id="'+esc(p.id)+'" aria-pressed="'+saved+'" aria-label="'+(saved?'Remove ':'Save ')+esc(p.name)+' '+(saved?'from':'to')+' favorites" title="'+(saved?'Remove favorite':'Save favorite')+'" onclick="toggleVisFavorite(this.dataset.favoriteId)">'+(saved?'★':'☆')+'</button>';}
+function modelCard(p,i,d){
+ const ready=!!(val(p,'visualizerOverlayUrl')||window.DoorDesign?.choice({referenceProductId:p.id}));
+ return '<article class="vg-model-tile '+(d.referenceProductId===p.id?'selected':'')+'"><button class="vg-door-card" data-product-id="'+esc(p.id)+'" onclick="selectVisReferenceDoor('+i+',this.dataset.productId)"><div class="vg-door-thumb">'+(val(p,'imageUrl')?'<img loading="lazy" src="'+esc(val(p,'imageUrl'))+'" alt="'+esc(p.name)+'">':'🚪')+'<span class="'+(ready?'is-ready':'')+'">'+(ready?'On-home preview':'Reference')+'</span></div><div class="vg-door-copy"><b>'+esc(p.name)+'</b><span>'+esc([p.manufacturer,val(p,'collection')].filter(Boolean).join(' · '))+'</span><small>'+esc(window.DoorDesign?.imageLabel(p)||'Model photo')+'</small></div></button>'+favoriteButton(p)+'</article>';
+}
 const overlayUrl=d=>{
   const p=refDoor(d);
-  return p ? (val(p,'visualizerOverlayUrl')||'') : (legacyDoor(d)?.doorImageUrl||'');
+  return p ? ((!d.visualDesignOverride&&val(p,'visualizerOverlayUrl'))||window.DoorDesign?.overlay(d)||val(p,'visualizerOverlayUrl')||'') : (legacyDoor(d)?.doorImageUrl||'');
 };
 const doorTitle=d=>{
   const p=refDoor(d); if(p)return p.name||'Garage Door';
@@ -40,7 +57,7 @@ function filteredReferenceDoors(){
   let items=referenceDoors();
   if(visCatalogState.manufacturer) items=items.filter(p=>String(p.manufacturer||'')===visCatalogState.manufacturer);
   if(visCatalogState.collection) items=items.filter(p=>String(val(p,'collection')||'')===visCatalogState.collection);
-  if(visCatalogState.readyOnly) items=items.filter(p=>!!val(p,'visualizerOverlayUrl'));
+  if(visCatalogState.readyOnly) items=items.filter(p=>!!(val(p,'visualizerOverlayUrl')||window.DoorDesign?.choice({referenceProductId:p.id})));
   const q=visCatalogState.search.trim().toLowerCase();
   if(q){
     const terms=q.split(/\s+/).filter(Boolean);
@@ -57,15 +74,19 @@ function syncReferenceFields(d,p){
   d.manufacturerId='';
   d.collectionKey=val(p,'collection')||'';
   d.color='';
+  delete d.visualDesign;delete d.designPreview;delete d.visualDesignOverride;
+  window.DoorDesign?.normalize(d);
   d.construction=val(p,'construction')||'';
 }
-function selectVisReferenceDoor(idx,id){
+async function selectVisReferenceDoor(idx,id){
   const p=getOne('products',id); if(!p)return;
   syncReferenceFields(visState.doors[idx],p);
+  visCatalogState.tab='design';
   if(visState.applyToAll){
     visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{if(i!==idx)syncReferenceFields(d,p)});
   }
   render();
+  try{await Promise.all(visState.doors.slice(0,visState.doorCount).map(d=>window.DoorDesign?.prepare(d)));if(route.page==='visualizer')render();}catch(e){toast(e.message,true);}
 }
 window.selectVisReferenceDoor=selectVisReferenceDoor;
 function visCatalogSearch(value){const el=document.activeElement,at=el?.selectionStart;visCatalogState.search=value;visCatalogState.limit=80;render();const input=document.getElementById('visModelSearch');input?.focus();if(typeof at==='number')input?.setSelectionRange(at,at);}
@@ -89,6 +110,13 @@ function setVisOpacity(idx,value){
   if(overlay)overlay.style.opacity=d.pos.opacity;
 }
 window.setVisOpacity=setVisOpacity;
+function setVisScale(idx,value){
+ const d=visState.doors[idx],scale=Number(value);if(!d||!Number.isFinite(scale))return;
+ d.pos.scale=Math.max(.2,Math.min(3,scale));
+ const overlay=document.querySelector('#visStage [data-dooridx="'+idx+'"]');
+ if(overlay)overlay.style.transform='translate(-50%,-50%) rotate('+d.pos.rotation+'deg) scale('+d.pos.scale+')';
+}
+window.setVisScale=setVisScale;
 function resetVisPosition(){
   const d=visState.doors[visState.activeDoor];if(!d)return;
   d.pos={...freshDoorConfig().pos};
@@ -102,6 +130,7 @@ async function uploadVisualizerOverlay(productId,input){
   try{
     const res=await uploadAsset(file,'visualizer-overlays');
     await dbSet('products',productId,{visualizerOverlayUrl:res.url,visualizerOverlayId:res.id});
+    visState.doors.forEach(d=>{if(d.referenceProductId===productId){delete d.visualDesignOverride;delete d.designPreview;}});
     toast('Visualizer overlay saved');
     render();
   }catch(e){console.error(e);toast('Overlay upload failed',true)}
@@ -146,7 +175,7 @@ openSaveDesignModal=function(){
   showModal({title:'Save this design',body:'<label class="field"><span class="lbl">Design name</span><input id="f_visdesignname" value="'+esc(defaultCustomer?defaultCustomer.name+' Garage Door Design':'Garage Door Design')+'"></label><label class="field"><span class="lbl">Link to customer (optional)</span>'+customerPickerHtml(visState.presetCustomerId)+'</label><p class="muted" style="font-size:12px">The exact door selections, positions and home photo are saved so this design can be resumed later.</p>',onSave:async()=>{
     const customerId=document.getElementById('f_customer').value;
     const designName=document.getElementById('f_visdesignname').value.trim()||'Garage Door Design';
-    let previewUrl=null; try{previewUrl=await captureVisPreview()}catch(e){console.warn('preview capture failed',e)}
+    const previewUrl=await captureVisPreview();
     await dbAdd('savedDesigns',{customerId:customerId||null,designName,houseImageId:visState.houseImage?.id||null,houseImageUrl:visState.houseImage?.url||null,doorCount:visState.doorCount,doors:JSON.parse(JSON.stringify(visState.doors.slice(0,visState.doorCount))),previewImageUrl:previewUrl});
     toast('Design saved'); closeModal();
   }});
@@ -155,53 +184,56 @@ window.openSaveDesignModal=openSaveDesignModal;
 
 renderVisStep3=function(body){
   const i=visState.activeDoor,d=visState.doors[i],selected=refDoor(d);
-  const refs=filteredReferenceDoors(),shown=refs.slice(0,visCatalogState.limit);
-  const all=referenceDoors();
+  const refs=filteredReferenceDoors(),shown=refs.slice(0,visCatalogState.limit),all=referenceDoors();
+  const favorites=all.filter(p=>favoriteIds().has(p.id)),tab=visCatalogState.tab;
   const manufacturers=[...new Set(all.map(p=>p.manufacturer).filter(Boolean))].sort();
   const collections=[...new Set(all.filter(p=>!visCatalogState.manufacturer||p.manufacturer===visCatalogState.manufacturer).map(p=>val(p,'collection')).filter(Boolean))].sort();
   body.innerHTML=`
     <div class="vg-layout">
       <section class="vg-canvas-card">
-        <div class="vg-stage-head"><div><b>Position Door ${i+1}</b><span>Drag the door directly on the home photo</span></div><span class="vg-ready-badge ${overlayUrl(d)?'ready':'not-ready'}">${overlayUrl(d)?'Visualizer Ready':'Reference only'}</span></div>
+        <div class="vg-stage-head"><div><b>Your home. Your new door.</b><span>Drag to position · use the controls below to fit the opening</span></div><button class="btn btn-sm" onclick="visState.step=2;render()">Change photo</button></div>
         <div class="vis-stage vg-stage" id="visStage">
-          <img src="${esc(visState.houseImage.url)}" class="vis-house-img">
+          <img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Home preview">
           ${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}
-          ${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door or have the owner upload an overlay for the selected model.</div>':''}
+          ${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door to preview it on your home. This model currently has a reference image only.</div>':''}
         </div>
-        ${visState.doorCount>1?'<div class="vis-door-tabs">'+visState.doors.slice(0,visState.doorCount).map((dd,idx)=>'<button class="vis-door-tab '+(i===idx?'active':'')+'" onclick="visState.activeDoor='+idx+';render()">Door '+(idx+1)+'</button>').join('')+'</div>':''}
         <div class="vg-position-tools">
-          <button class="btn btn-sm" onclick="nudgeVisScale(-0.05)">− Size</button>
-          <button class="btn btn-sm" onclick="nudgeVisScale(0.05)">+ Size</button>
+          <button class="btn btn-sm" onclick="nudgeVisScale(-0.05)" aria-label="Make door smaller">− Size</button>
+          <button class="btn btn-sm" onclick="nudgeVisScale(0.05)" aria-label="Make door larger">+ Size</button>
           <button class="btn btn-sm" onclick="nudgeVisRotation(-2)">↺ Rotate</button>
           <button class="btn btn-sm" onclick="nudgeVisRotation(2)">↻ Rotate</button>
-          <button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button>
+          <button class="btn btn-sm" onclick="resetVisPosition()">Reset</button>
+          <label>Size <input type="range" min=".2" max="3" step=".01" value="${d.pos.scale}" oninput="setVisScale(${i},this.value)"></label>
           <label>Opacity <input type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></label>
+        </div>
+        <div class="vg-favorites-shelf"><div><b>★ Favorite models</b><button class="btn btn-sm" onclick="visPickerTab('favorites')">View all (${favorites.length})</button></div>
+          ${favorites.length?'<div class="vg-favorite-strip">'+favorites.slice(0,8).map(p=>'<button data-product-id="'+esc(p.id)+'" onclick="selectVisReferenceDoor('+i+',this.dataset.productId)"><img src="'+esc(val(p,'imageUrl'))+'" alt=""><span>'+esc(p.name)+'</span></button>').join('')+'</div>':'<p>Tap the ☆ on any model to keep your go-to doors here.</p>'}
         </div>
       </section>
       <section class="vg-picker-card">
-        <div class="vg-picker-title"><div><h3>Choose Garage Door</h3><p>${all.length}-model reference catalog · selling price stays in Estimate/Invoice</p></div><span>${refs.length} match${refs.length===1?'':'es'}</span></div>
+        <div class="vg-picker-title"><div><span class="vg-eyebrow">EZfix door studio</span><h3>Design Door ${i+1}</h3><p>Choose a model, then make it yours.</p></div><span>${all.length} models</span></div>
+        ${visState.doorCount>1?'<div class="vis-door-tabs">'+visState.doors.slice(0,visState.doorCount).map((dd,idx)=>'<button class="vis-door-tab '+(i===idx?'active':'')+'" onclick="visState.activeDoor='+idx+';render()">Door '+(idx+1)+'</button>').join('')+'</div>':''}
+        <div class="vg-picker-tabs" role="group" aria-label="Door selection view">${[['models','Models'],['design','Customize'],['favorites','★ Favorites ('+favorites.length+')']].map(([key,label])=>'<button aria-pressed="'+(tab===key)+'" class="'+(tab===key?'active':'')+'" onclick="visPickerTab(\''+key+'\')">'+label+'</button>').join('')}</div>
+        ${tab==='design'? (selected?`<div class="vg-selected-door">
+          <div class="vg-selected-image">${(overlayUrl(d)||val(selected,'imageUrl'))?'<img src="'+esc(overlayUrl(d)||val(selected,'imageUrl'))+'" alt="'+esc(selected.name)+'">':'🚪'}</div>
+          <div><b>${esc(selected.name)}</b><div>${esc(doorSpec(d))}</div><span class="${overlayUrl(d)?'vg-success':'vg-warning'}">${overlayUrl(d)?'On-home preview':'Reference image'}</span></div>${favoriteButton(selected)}
+        </div>${window.DoorDesign?.controls(d,i)||'<div class="vg-empty-state"><b>Manufacturer reference</b><p>This model has a catalog image. An exact front-view overlay is needed to preview it on a home.</p></div>'}
+        <button class="btn vg-change-model" onclick="visPickerTab('models')">Choose another model</button>
+        ${IS_OWNER?'<details class="vg-overlay-details"><summary>Use a custom door image</summary><label class="btn btn-sm vg-upload-btn">Upload front-view overlay<input type="file" accept="image/png,image/webp,image/jpeg" hidden data-product-id="'+esc(selected.id)+'" onchange="uploadVisualizerOverlay(this.dataset.productId,this)"></label></details>':''}`:'<div class="vg-empty-state"><b>Start with your door model</b><p>Panel and window options will appear here after you select a model.</p><button class="btn btn-primary" onclick="visPickerTab(\'models\')">Browse models</button></div>') : tab==='favorites' ?
+        '<p class="vg-device-note">Your starred models, saved on this device.</p>'+(favorites.length?'<div class="vg-door-grid">'+favorites.map(p=>modelCard(p,i,d)).join('')+'</div>':'<div class="vg-empty-state"><span>☆</span><b>Your favorites start here</b><p>Save the models you use most with a star.</p><button class="btn btn-primary" onclick="visPickerTab(\'models\')">Find a model</button></div>') : `
         <div class="vg-filter-grid">
-          <input id="visModelSearch" placeholder="Search model, collection, material…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)">
-          <select onchange="visCatalogManufacturer(this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visCatalogState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
-          <select onchange="visCatalogCollection(this.value)"><option value="">All collections</option>${collections.map(x=>'<option '+(visCatalogState.collection===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
-          <label class="vg-ready-filter"><input type="checkbox" ${visCatalogState.readyOnly?'checked':''} onchange="visCatalogReadyOnly(this.checked)"> Visualizer Ready only</label>
+          <input id="visModelSearch" aria-label="Search door models" placeholder="Search model, collection, material…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)">
+          <select aria-label="Manufacturer" onchange="visCatalogManufacturer(this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visCatalogState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
+          <select aria-label="Collection" onchange="visCatalogCollection(this.value)"><option value="">All collections</option>${collections.map(x=>'<option '+(visCatalogState.collection===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select>
+          <label class="vg-ready-filter"><input type="checkbox" ${visCatalogState.readyOnly?'checked':''} onchange="visCatalogReadyOnly(this.checked)"> On-home preview available</label>
         </div>
-        ${selected?`<div class="vg-selected-door">
-          <div class="vg-selected-image">${val(selected,'imageUrl')?'<img src="'+esc(val(selected,'imageUrl'))+'" alt="">':'🚪'}</div>
-          <div><b>${esc(selected.name)}</b><div>${esc(doorSpec(d))}</div>${overlayUrl(d)?'<span class="vg-success">Overlay ready</span>':'<span class="vg-warning">Overlay needed for on-home preview</span>'}</div>
-          ${IS_OWNER?`<label class="btn btn-sm vg-upload-btn">Upload overlay<input type="file" accept="image/png,image/webp,image/jpeg" hidden onchange="uploadVisualizerOverlay('${esc(selected.id)}',this)"></label>`:''}
-        </div>`:''}
-        <div class="vg-door-grid">
-          ${shown.map(p=>`<button class="vg-door-card ${d.referenceProductId===p.id?'selected':''}" data-product-id="${esc(p.id)}" onclick="selectVisReferenceDoor(${i},this.dataset.productId)">
-            <div class="vg-door-thumb">${val(p,'imageUrl')?'<img loading="lazy" src="'+esc(val(p,'imageUrl'))+'" alt="">':'🚪'}<span class="${val(p,'visualizerOverlayUrl')?'is-ready':''}">${val(p,'visualizerOverlayUrl')?'Ready':'Reference'}</span></div>
-            <div class="vg-door-copy"><b>${esc(p.name)}</b><span>${esc([p.manufacturer,val(p,'collection')].filter(Boolean).join(' · '))}</span></div>
-          </button>`).join('')}
-        </div>
-        ${refs.length>shown.length?'<div class="vg-more-note">Showing '+shown.length+' of '+refs.length+' doors <button class="btn btn-sm" onclick="showMoreVisDoors()">Show more doors</button></div>':''}
+        <div class="vg-results-count">${refs.length} matching models</div><div class="vg-door-grid">${shown.map(p=>modelCard(p,i,d)).join('')}</div>
+        ${!refs.length?'<div class="vg-empty-state"><b>No matching models</b><p>Try a different model name or manufacturer.</p></div>':''}
+        ${refs.length>shown.length?'<div class="vg-more-note">Showing '+shown.length+' of '+refs.length+' doors <button class="btn btn-sm" onclick="showMoreVisDoors()">Show more doors</button></div>':''}`}
         ${visState.doorCount>1?'<label class="vg-apply-all"><input type="checkbox" '+(visState.applyToAll?'checked':'')+' onchange="toggleVisApplyToAll(this.checked)"> Apply selected design to all doors</label>':''}
       </section>
     </div>
-    <div class="vg-footer-actions"><button class="btn" onclick="visState.step=2;render()">← Home Photo</button><button class="btn btn-primary" ${!visState.doors.slice(0,visState.doorCount).some(x=>x.referenceProductId||x.modelId)?'disabled':''} onclick="visState.step=4;render()">Review Design →</button></div>`;
+    <div class="vg-footer-actions"><button class="btn" onclick="visState.step=2;render()">← Home Photo</button><span>Step 3 of 4 · Design your door</span><button class="btn btn-primary" ${!visState.doors.slice(0,visState.doorCount).some(x=>x.referenceProductId||x.modelId)?'disabled':''} onclick="visState.step=4;render()">Review & Save →</button></div>`;
 };
 window.renderVisStep3=renderVisStep3;
 
@@ -210,7 +242,7 @@ function summaryCard(d,idx){
   const size=d.customSize?(d.customWidth+"' × "+d.customHeight+"'"):(d.width+"' × "+d.height+"'");
   const title=p?.name||m?.modelName||'Door not selected';
   const meta=p?[p.manufacturer,val(p,'collection'),val(p,'material'),val(p,'rValue')?('R-'+val(p,'rValue')):'']:[getOne('manufacturers',m?.manufacturerId)?.name,m?.collectionName];
-  return '<article class="vg-summary-card"><span>Door '+(idx+1)+'</span><b>'+esc(title)+'</b><div>'+esc(meta.filter(Boolean).join(' · '))+'</div><small>'+esc(size)+'</small></article>';
+  return '<article class="vg-summary-card"><span>Door '+(idx+1)+'</span><b>'+esc(title)+'</b><div>'+esc(meta.filter(Boolean).join(' · '))+'</div><small>'+esc(size)+'</small><div>'+esc(window.DoorDesign?.description(d)||'')+'</div></article>';
 }
 renderVisStep4=function(body){
   const configured=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId);
@@ -259,24 +291,27 @@ window.seeSimilarInstallations=seeSimilarInstallations;
 
 captureVisPreview=async function(){
   if(!visState.houseImage)return null;
+  await Promise.all(visState.doors.slice(0,visState.doorCount).map(d=>window.DoorDesign?.prepare(d)));
   const house=new Image();house.crossOrigin='anonymous';await new Promise((ok,bad)=>{house.onload=ok;house.onerror=bad;house.src=visState.houseImage.url});
   const canvas=document.createElement('canvas');canvas.width=house.naturalWidth;canvas.height=house.naturalHeight;const ctx=canvas.getContext('2d');ctx.drawImage(house,0,0);
   for(const d of visState.doors.slice(0,visState.doorCount)){
     const src=overlayUrl(d);if(!src)continue;
-    try{const img=new Image();img.crossOrigin='anonymous';await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=src});const dw=canvas.width*.3*d.pos.scale,dh=dw*(img.naturalHeight/img.naturalWidth),cx=d.pos.x/100*canvas.width,cy=d.pos.y/100*canvas.height;ctx.save();ctx.globalAlpha=d.pos.opacity;ctx.translate(cx,cy);ctx.rotate(d.pos.rotation*Math.PI/180);ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore()}catch(e){console.warn('Visualizer overlay could not be included in saved preview',e)}
+    try{const img=new Image();img.crossOrigin='anonymous';await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=src});const dw=canvas.width*.3*d.pos.scale,dh=dw*(img.naturalHeight/img.naturalWidth),cx=d.pos.x/100*canvas.width,cy=d.pos.y/100*canvas.height;ctx.save();ctx.globalAlpha=d.pos.opacity;ctx.translate(cx,cy);ctx.rotate(d.pos.rotation*Math.PI/180);ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore()}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
   }
   return canvas.toDataURL('image/jpeg',.86);
 };
 window.captureVisPreview=captureVisPreview;
 
-createEstimateFromDesign=function(){
+createEstimateFromDesign=async function(){
   const doors=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId);
   if(!doors.length)return toast('Choose at least one door first');
+  try{await Promise.all(doors.map(d=>window.DoorDesign?.prepare(d)));}catch(e){return toast(e.message,true);}
   const items=doors.map((d,i)=>{
     const p=refDoor(d),m=legacyDoor(d),size=d.customSize?(d.customWidth+"'x"+d.customHeight+"'"):(d.width+"'x"+d.height+"'");
     if(p){
-      const specs=[val(p,'collection')?'Collection: '+val(p,'collection'):'','Size: '+size,val(p,'panelStyle')?'Design: '+val(p,'panelStyle'):'',val(p,'material')?'Material: '+val(p,'material'):'',val(p,'construction')?'Construction: '+val(p,'construction'):'',val(p,'rValue')?'R-Value: '+val(p,'rValue'):''].filter(Boolean).join('\n');
-      return {desc:(doors.length>1?'Garage door #'+(i+1)+' — ':'')+(p.name||'Garage Door'),details:specs,qty:1,rate:0,taxable:true,productId:p.id,catalogItemId:p.id,doorImage:catalogDoorImage(p)};
+      const design=window.DoorDesign?.choice(d)?.panel?.label||val(p,'panelStyle');
+      const specs=[val(p,'collection')?'Collection: '+val(p,'collection'):'','Size: '+size,design?'Design: '+design:'',val(p,'material')?'Material: '+val(p,'material'):'',val(p,'construction')?'Construction: '+val(p,'construction'):'',val(p,'rValue')?'R-Value: '+val(p,'rValue'):''].filter(Boolean).join('\n');
+      return {desc:(doors.length>1?'Garage door #'+(i+1)+' — ':'')+(p.name||'Garage Door'),details:[specs,window.DoorDesign?.description(d)].filter(Boolean).join('\n'),visualDesign:d.visualDesign?{...d.visualDesign}:undefined,qty:1,rate:0,taxable:true,productId:p.id,catalogItemId:p.id,doorImage:overlayUrl(d)?{id:null,url:overlayUrl(d),label:p.name+' · '+(window.DoorDesign?.description(d)||'Selected door')}:catalogDoorImage(p)};
     }
     const mf=getOne('manufacturers',m?.manufacturerId),details=[m?.collectionName?'Collection: '+m.collectionName:'','Size: '+size,d.color?'Color: '+d.color:''].filter(Boolean).join('\n');
     return {desc:(doors.length>1?'Garage door #'+(i+1)+' — ':'')+[mf?.name,m?.modelName].filter(Boolean).join(' '),details,qty:1,rate:Number(m?.basePrice)||0,taxable:true};
@@ -285,6 +320,16 @@ createEstimateFromDesign=function(){
   toast('Estimate started from design — set door price and add hardware/labor');
 };
 window.createEstimateFromDesign=createEstimateFromDesign;
+
+const baseApplyAll=toggleVisApplyToAll;
+toggleVisApplyToAll=function(checked){
+ const selected=visState.doors[visState.activeDoor];
+ if(!selected?.referenceProductId)return baseApplyAll(checked);
+ visState.applyToAll=!!checked;
+ if(checked)visState.doors.slice(0,visState.doorCount).forEach(d=>{if(d!==selected){syncReferenceFields(d,refDoor(selected));d.visualDesign=selected.visualDesign?{...selected.visualDesign}:undefined;d.visualDesignOverride=!!selected.visualDesignOverride;delete d.designPreview;}});
+ render();
+};
+window.toggleVisApplyToAll=toggleVisApplyToAll;
 
 const visAdminState={search:'',manufacturer:'',collection:'',readiness:'all'};
 window.__visAdminState=visAdminState;
@@ -300,13 +345,13 @@ window.clearVisualizerOverlay=clearVisualizerOverlay;
 renderVisCatalog=function(content,actions){
   if(!IS_OWNER){content.innerHTML=emptyState('🔒','Owner access only','');return}
   actions.innerHTML='<button class="btn btn-primary" onclick="go(\'visualizer\')">Open Visualizer</button>';
-  const all=referenceDoors(),ready=all.filter(p=>!!val(p,'visualizerOverlayUrl'));
+  const all=referenceDoors(),ready=all.filter(p=>!!(val(p,'visualizerOverlayUrl')||window.DoorDesign?.choice({referenceProductId:p.id})));
   const manufacturers=[...new Set(all.map(p=>p.manufacturer).filter(Boolean))].sort();
   const collections=[...new Set(all.filter(p=>!visAdminState.manufacturer||p.manufacturer===visAdminState.manufacturer).map(p=>val(p,'collection')).filter(Boolean))].sort();
   let list=all;
   if(visAdminState.manufacturer)list=list.filter(p=>p.manufacturer===visAdminState.manufacturer);
   if(visAdminState.collection)list=list.filter(p=>val(p,'collection')===visAdminState.collection);
-  if(visAdminState.readiness==='ready')list=list.filter(p=>!!val(p,'visualizerOverlayUrl'));
+  if(visAdminState.readiness==='ready')list=list.filter(p=>!!(val(p,'visualizerOverlayUrl')||window.DoorDesign?.choice({referenceProductId:p.id})));
   if(visAdminState.readiness==='missing')list=list.filter(p=>!val(p,'visualizerOverlayUrl'));
   const q=visAdminState.search.trim().toLowerCase();
   if(q){const ts=q.split(/\s+/).filter(Boolean);list=list.filter(p=>{const hay=[p.name,p.manufacturer,p.model,p.sku,p.details,val(p,'collection'),val(p,'modelNumber'),val(p,'material'),val(p,'construction')].join(' ').toLowerCase();return ts.every(t=>hay.includes(t))})}
