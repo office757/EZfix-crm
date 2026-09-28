@@ -1,0 +1,72 @@
+begin;
+create temporary table dispatch_test_results(test text primary key,passed boolean not null);
+create temporary table dispatch_fixture(key text primary key,value text);
+grant select,insert,update on dispatch_test_results,dispatch_fixture to authenticated,service_role;
+insert into dispatch_fixture values('owner_uid',(select auth_user_id::text from public.team where role='owner' and status='active' limit 1));
+insert into dispatch_fixture values('tech_uid',gen_random_uuid()::text),('other_uid',gen_random_uuid()::text),('lead','qa_dispatch_'||gen_random_uuid()::text),('partner','qa_partner_'||gen_random_uuid()::text),('tech','qa_tech_'||gen_random_uuid()::text),('other','qa_other_'||gen_random_uuid()::text);
+insert into auth.users(id,email) select value::uuid,'qa-dispatch-'||value||'@example.invalid' from dispatch_fixture where key in ('tech_uid','other_uid');
+insert into public.team(id,name,email,role,status,auth_user_id) values((select value from dispatch_fixture where key='tech'),'QA Dispatch Tech','qa-dispatch-tech@example.invalid','technician','active',(select value::uuid from dispatch_fixture where key='tech_uid')),((select value from dispatch_fixture where key='other'),'QA Other Tech','qa-dispatch-other@example.invalid','technician','active',(select value::uuid from dispatch_fixture where key='other_uid'));
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select value from dispatch_fixture where key='owner_uid'),'role','authenticated')::text,true);
+set local role authenticated;
+insert into public.lead_partners(id,name,phone,email) values((select value from dispatch_fixture where key='partner'),'QA partner','+12025550147','qa-source@example.invalid');
+insert into public.leads(id,name,phone,address,service_requested,source,partner_id,app_data) values((select value from dispatch_fixture where key='lead'),'QA Customer','+12025550148','10 Test Street','Spring repair','QA partner',(select value from dispatch_fixture where key='partner'),'{"zip":"01757","state":"MA","city":"Milford","preferred_appointment":"2026-10-01","preferred_time":"8–10 AM"}');
+do $$declare r jsonb;r2 jsonb;begin
+ r:=public.approve_lead_for_dispatch((select value from dispatch_fixture where key='lead'));
+ insert into dispatch_fixture values('job',r->>'job_id'),('customer',r->>'customer_id');
+ r2:=public.approve_lead_for_dispatch((select value from dispatch_fixture where key='lead'));
+ insert into dispatch_test_results values('approval is idempotent',r=r2);
+ insert into dispatch_test_results select 'schedule preserved',scheduled_date='2026-10-01'::date and appointment_window='8–10 AM' from public.jobs where id=r->>'job_id';
+ r:=public.create_lead_offer((select value from dispatch_fixture where key='lead'),(select value from dispatch_fixture where key='tech'));
+ insert into dispatch_fixture values('offer',r->>'id');
+ insert into dispatch_test_results values('five minute server deadline',(r->>'expires_at')::timestamptz-(r->>'created_at')::timestamptz=interval '5 minutes');
+ begin perform public.create_lead_offer((select value from dispatch_fixture where key='lead'),(select value from dispatch_fixture where key='other'));raise exception 'TEST_FAILED duplicate offer accepted';exception when others then if sqlerrm not like '%An offer is still awaiting%' then raise;end if;end;
+ insert into dispatch_test_results values('one pending offer per lead',true);
+end$$;
+
+reset role;
+set local role service_role;
+select public.service_claim_offer_notification((select value::uuid from dispatch_fixture where key='offer'));
+do $$begin
+ insert into dispatch_test_results values('server issues channel tokens',public.service_issue_lead_offer_tokens((select value::uuid from dispatch_fixture where key='offer'),repeat('a',64),repeat('b',64)));
+ insert into dispatch_test_results values('tokens cannot be issued twice',not public.service_issue_lead_offer_tokens((select value::uuid from dispatch_fixture where key='offer'),repeat('c',64),repeat('d',64)));
+ insert into dispatch_test_results values('invalid link returns no data',public.service_lead_offer_link(repeat('z',64),null) is null);
+ insert into dispatch_test_results select 'link preview is read only',public.service_lead_offer_link(repeat('a',64),null)->>'status'='pending';
+ insert into dispatch_test_results select 'link exposes no customer data',not(public.service_lead_offer_link(repeat('a',64),null) ?| array['name','phone','address','lead_id','job_id','technician_id']);
+end$$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select value from dispatch_fixture where key='other_uid'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$begin
+ insert into dispatch_test_results values('other technician cannot see offer',not exists(select 1 from public.lead_offers where id=(select value::uuid from dispatch_fixture where key='offer')));
+ begin perform public.respond_lead_offer((select value::uuid from dispatch_fixture where key='offer'),true);raise exception 'TEST_FAILED other technician accepted';exception when others then if sqlerrm not like '%Offer not available%' then raise;end if;end;
+ insert into dispatch_test_results values('other technician cannot accept',true);
+ begin perform public.service_lead_offer_link(repeat('a',64),true);raise exception 'TEST_FAILED client called service function';exception when insufficient_privilege then null;end;
+ insert into dispatch_test_results values('client cannot invoke capability resolver',true);
+ begin perform public.service_issue_lead_offer_tokens((select value::uuid from dispatch_fixture where key='offer'),repeat('e',64),repeat('f',64));raise exception 'TEST_FAILED client issued tokens';exception when insufficient_privilege then null;end;
+ insert into dispatch_test_results values('client cannot issue tokens',true);
+end$$;
+reset role;
+set local role service_role;
+do $$declare r jsonb;begin
+ r:=public.service_lead_offer_link(repeat('a',64),true);
+ insert into dispatch_test_results values('SMS acceptance succeeds',r->>'status'='accepted' and r->>'responded_channel'='sms');
+ r:=public.service_lead_offer_link(repeat('b',64),false);
+ insert into dispatch_test_results values('WhatsApp cannot overturn SMS acceptance',r->>'status'='accepted' and r->>'responded_channel'='sms');
+end$$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select value from dispatch_fixture where key='tech_uid'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$declare r jsonb;begin
+ r:=public.respond_lead_offer((select value::uuid from dispatch_fixture where key='offer'),false);
+ insert into dispatch_test_results values('in-app response sees existing SMS acceptance',r->>'status'='accepted' and r->>'responded_channel'='sms');
+ insert into dispatch_test_results values('acceptance reveals assigned job',exists(select 1 from public.jobs where id=(select value from dispatch_fixture where key='job')));
+end$$;
+reset role;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select value from dispatch_fixture where key='owner_uid'),'role','authenticated')::text,true);
+update public.team set status='inactive' where id=(select value from dispatch_fixture where key='tech');
+set local role service_role;
+insert into dispatch_test_results values('disabled account revokes link',public.service_lead_offer_link(repeat('a',64),null) is null);
+reset role;
+do $$begin if exists(select 1 from dispatch_test_results where not passed) then raise exception 'Cross-channel test failed';end if;end$$;
+select jsonb_build_object('passed',count(*),'failed',count(*) filter(where not passed),'tests',jsonb_agg(test)) from dispatch_test_results;
+rollback;

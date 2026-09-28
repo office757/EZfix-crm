@@ -3,26 +3,69 @@
   "outputDirectory": ".",
   "cleanUrls": true,
   "redirects": [
-    { "source": "/index.html", "destination": "/", "permanent": false },
-    { "source": "/whatsapp", "destination": "https://wa.me/message/BFINI2OHZQWUE1", "permanent": false }
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/whatsapp",
+      "destination": "https://wa.me/message/BFINI2OHZQWUE1",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/", "destination": "/auth-shell" },
-    { "source": "/crm", "destination": "/index" }
+    {
+      "source": "/",
+      "destination": "/auth-shell"
+    },
+    {
+      "source": "/crm",
+      "destination": "/index"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Referrer-Policy", "value": "same-origin" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+        {
+          "key": "Referrer-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
       ]
     },
     {
       "source": "/auth-shell",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/lead-offer(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://fylbalenuqpovwncwbah.supabase.co; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        }
       ]
     }
   ]

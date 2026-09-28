@@ -16,6 +16,8 @@ const scripts = [
   'audit-catalog-labor-metadata.mjs',
   'audit-quickpay-recovery.mjs',
   'audit-dispatch-sms-receipts.mjs',
+  'audit-ashley-dispatch.mjs',
+  'audit-lead-offer-channels.mjs',
   'audit-modal-actions.mjs',
   'audit-navigation-groups.mjs',
   'build-product-catalog-ui.mjs',
