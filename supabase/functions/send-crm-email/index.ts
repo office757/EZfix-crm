@@ -11,7 +11,7 @@ Deno.serve(async(req)=>{
  const scoped=createClient(url,anon,{global:{headers:{Authorization:auth}}}); const {data:user}=await scoped.auth.getUser(auth.slice(7)); if(!user.user)return out({error:"unauthorized"},401);
  const admin=createClient(url,adminKey); const {data:member}=await admin.from("team").select("id,name,role,status").eq("auth_user_id",user.user.id).eq("status","active").maybeSingle(); if(!member)return out({error:"forbidden"},403);
  const body=await req.json().catch(()=>null); if(!body)return out({error:"bad request"},400);
- const approvalId=String(body.approval_id||"").trim(); const directOwner=String(member.role||"").toLowerCase()==="owner";
+ const approvalId=String(body.approval_id||"").trim(); const directOwner=String(member.role||"").toLowerCase()==="owner"; const directOffice=String(member.role||"").toLowerCase()==="office";
  const entityType=String(body.entity_type||"").trim(), entityId=String(body.entity_id||"").trim();
  let directTechnician=false;
  if(!approvalId && String(member.role||"").toLowerCase()==="technician" && entityType==="invoices" && entityId){
@@ -26,7 +26,7 @@ Deno.serve(async(req)=>{
      directTechnician=recipientMatches && (assigned||createdBy);
    }
  }
- if(!approvalId&&!directOwner&&!directTechnician)return out({error:"Technicians can only email invoices for their assigned work or invoices they created in Quick Pay."},403);
+ if(!approvalId&&!directOwner&&!directOffice&&!directTechnician)return out({error:"Technicians can only email invoices for their assigned work or invoices they created in Quick Pay."},403);
  const to=String(body.to||"").trim(),subject=String(body.subject||"").trim(),text=String(body.text||"").trim(),html=String(body.html||"").trim();
  if(!to.includes("@")||!subject||(!text&&!html))return out({error:"missing fields"},400);
  const attachments=normalizeAttachments(body.attachments); const attachmentHash=attachments.length?await hex(JSON.stringify(attachments)):null; let claimToken:string|null=null;
@@ -63,6 +63,6 @@ Deno.serve(async(req)=>{
    });
    if(auditError){auditRecorded=false;console.error("email audit insert failed",auditError);}
   }catch(auditException){auditRecorded=false;console.error("email audit exception",auditException);}
-  return out({success:true,providerMessageId:result.id||null,approvalId:approvalId||null,directOwner:!approvalId,attachmentCount:attachments.length,auditRecorded});
+  return out({success:true,providerMessageId:result.id||null,approvalId:approvalId||null,directOwner:directOwner&&!approvalId,directOffice:directOffice&&!approvalId,attachmentCount:attachments.length,auditRecorded});
  }catch(e){if(approvalId&&claimToken) await admin.from("outbound_communication_approvals").update({last_error:"provider outcome unknown; do not retry automatically"}).eq("id",approvalId).eq("status","sending").eq("claim_token",claimToken).is("sent_at",null);return out({success:false,error:"provider outcome unknown; do not retry automatically",retrySafe:false},502);}
 });

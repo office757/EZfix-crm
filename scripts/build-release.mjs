@@ -19,6 +19,7 @@ const scripts = [
   'audit-ashley-dispatch.mjs',
   'audit-ashley-setup.mjs',
   'audit-job-assignment.mjs',
+  'audit-office-role.mjs',
   'audit-lead-offer-channels.mjs',
   'audit-lead-offer-ui.mjs',
   'audit-modal-actions.mjs',

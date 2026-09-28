@@ -134,6 +134,7 @@ Deno.serve(async (req) => {
 
   const role = String(member.role || "").toLowerCase();
   const directOwner = role === "owner";
+  const directOffice = role === "office";
   let directTechnician = false;
   if (role === "technician" && !approvalId) {
     // Invoice/Quick Pay is the strongest authorization context: allow the technician
@@ -165,7 +166,7 @@ Deno.serve(async (req) => {
       }
     }
   }
-  if (!approvalId && !directOwner && !directTechnician) return json({ error: "Technicians can only text customers or leads assigned to them." }, 403);
+  if (!approvalId && !directOwner && !directOffice && !directTechnician) return json({ error: "Technicians can only text customers or leads assigned to them." }, 403);
 
   if (receiptInvoiceId) {
     // Read through the caller's RLS, then generate the actual paid receipt on the
@@ -260,7 +261,7 @@ Deno.serve(async (req) => {
       if (markError || !marked) return json({ success: false, accepted: true, delivered: providerStatus === "delivered", error: "SMS accepted but approval finalization failed; do not retry automatically", code: "SMS_APPROVAL_FINALIZE_FAILED", providerMessageId: sent.id ?? null }, 500);
     }
 
-    return json({ success: true, accepted: true, delivered: providerStatus === "delivered", smsId, providerMessageId: sent.id ?? null, providerConversationId: sent.conversationId ?? null, status: providerStatus, approvalId: approvalId || null, directOwner: directOwner && !approvalId, directTechnician: directTechnician && !approvalId });
+    return json({ success: true, accepted: true, delivered: providerStatus === "delivered", smsId, providerMessageId: sent.id ?? null, providerConversationId: sent.conversationId ?? null, status: providerStatus, approvalId: approvalId || null, directOwner: directOwner && !approvalId, directOffice: directOffice && !approvalId, directTechnician: directTechnician && !approvalId });
   } catch (e: any) {
     const status = Number(e?.status || e?.statusCode || 502);
     const providerCode = String(e?.detail?.error || e?.code || e?.errorCode || e?.name || "INKBOX_ERROR");

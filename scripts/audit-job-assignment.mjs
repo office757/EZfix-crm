@@ -28,6 +28,7 @@ f.context.openJobModal('job');await f.context.modal.onSave();assert.ok(!f.calls.
 f=fixture(null);f.context.openJobModal(null,'customer',{requireTechnician:true,onSaved:id=>f.calls.push(['next',id])});await f.context.modal.onSave();
 assert.equal(f.calls.find(c=>c[0]==='next')[1],'newjob');assert.ok(f.calls.findIndex(c=>c[0]==='close')<f.calls.findIndex(c=>c[0]==='next'));
 f=fixture(null);f.values.f_tech_id='';f.context.openJobModal(null,'customer',{requireTechnician:true});await f.context.modal.onSave();assert.ok(!f.calls.some(c=>c[0]==='add'));
+f=fixture(null);f.values.f_date='';f.context.openJobModal(null,'customer');await f.context.modal.onSave();assert.equal(f.calls.find(c=>c[0]==='add')[2].scheduledDate,null);
 const eligibility={window:{},getOne:()=>({role:'Technician',status:'Active'}),techStatus:t=>t.status};vm.createContext(eligibility);vm.runInContext(fs.readFileSync('job-assignment.js','utf8'),eligibility);
 assert.equal(eligibility.window.jobHasEstimateTechnician({status:'new'}),false);
 assert.equal(eligibility.window.jobHasEstimateTechnician({status:'new',technicianId:'tech'}),true);

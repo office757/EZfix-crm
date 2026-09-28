@@ -4,8 +4,8 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const section=(start,end)=>{const a=source.indexOf(start),b=source.indexOf(end,a);assert.ok(a>=0&&b>a);return source.slice(a,b);};
 function fixture(role='owner'){
- const context=vm.createContext({IS_OWNER:role==='owner',isTechnicianView:()=>role==='technician',isMarketingManager:()=>role==='marketing',marketingAllowedPage:p=>['dashboard','leads','customers','more'].includes(p),route:{page:'jobs'},esc:s=>s});
- vm.runInContext(section('const NAV = [','function renderNav()')+section('function dashboardModuleCategories()','function renderMoreScreen(')+section('function renderWorkNavigation()','function renderLeads('),context);
+ const context=vm.createContext({CURRENT_TEAM_MEMBER:{role:role==='marketing'?'marketing_manager':role},IS_OWNER:role==='owner',isTechnicianView:()=>role==='technician',isMarketingManager:()=>role==='marketing',marketingAllowedPage:p=>['dashboard','leads','customers','more'].includes(p),route:{page:'jobs'},esc:s=>s});
+ vm.runInContext(section('function isOfficeRole()','function renderNav()')+section('function dashboardModuleCategories()','function renderMoreScreen(')+section('function renderWorkNavigation()','function renderLeads('),context);
  return {context,run:s=>JSON.parse(JSON.stringify(vm.runInContext(s,context)))};
 }
 let n=0;function check(name,fn){fn();n++;console.log('PASS '+name);}
@@ -33,6 +33,7 @@ check('Marketing manager retains Leads without gaining Jobs or billing navigatio
  const f=fixture('marketing');assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['dashboard','leads','customers']);
  assert.equal(f.run('renderWorkNavigation()'),'');assert.deepEqual(f.run('dashboardModuleCategories()'),[]);
 });
+check('Office gets billing, payroll and social without account settings',()=>{const f=fixture('office'),keys=f.run('dashboardModuleCategories().flatMap(g=>g.items.map(n=>n.key))');for(const key of ['payroll','reports','socialposts','team','suppliers','products','invoices'])assert.ok(keys.includes(key));for(const key of ['ai_manager','receptionist','ai_system','settings','viscatalog'])assert.ok(!keys.includes(key));assert.ok(!f.run('sidebarNavItems().map(n=>n.key)').includes('settings'));});
 check('Mobile bottom navigation preserves invoice, estimate and Quick Pay routes',()=>{
  const nav=source.slice(source.indexOf('<nav class="bottom-nav'),source.indexOf('</nav>',source.indexOf('<nav class="bottom-nav')));
  for(const key of ['invoices','estimates','quickpay'])assert.ok(nav.includes(`data-page="${key}" onclick="go('${key}')"`));

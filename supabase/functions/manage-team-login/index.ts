@@ -14,7 +14,8 @@ Deno.serve(async(req)=>{
   if(!caller||caller.role!=="owner"||caller.status!=="active")return json({error:"Owner access required"},403);
   const body=await req.json().catch(()=>({})),action=String(body.action||"").toLowerCase(),teamId=String(body.teamId||"").trim();
   if(!teamId)return json({error:"teamId is required"},400);
-  const {data:member}=await admin.from("team").select("id,name,email,role,status,auth_user_id").eq("id",teamId).maybeSingle(); if(!member)return json({error:"Team member not found"},404);
+  const {data:member}=await admin.from("team").select("id,name,email,role,status,auth_user_id,app_data").eq("id",teamId).maybeSingle(); if(!member)return json({error:"Team member not found"},404);
+  if(member.app_data?.archivedAt)return json({error:"This user was removed. Create or restore the team member before managing access."},403);
   if(member.role==="owner")return json({error:"Owner credentials cannot be managed here"},403);
   let uid=member.auth_user_id as string|null;
   if(action==="status"){let au:any=null;if(uid){const {data}=await admin.auth.admin.getUserById(uid);au=data?.user||null}return json({ok:true,linked:!!uid,loginEmail:au?.email||member.email||null,disabled:au?.banned_until?new Date(au.banned_until)>new Date():false,lastSignInAt:au?.last_sign_in_at||null});}
