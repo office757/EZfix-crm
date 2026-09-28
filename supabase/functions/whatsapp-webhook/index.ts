@@ -50,13 +50,20 @@ Deno.serve(async(req)=>{
 
   let body;try{body=JSON.parse(raw)}catch{return new Response("Bad Request",{status:400})}
   const statuses=[];
+  const inbound=[];
   for(const entry of Array.isArray(body?.entry)?body.entry:[]){
     for(const change of Array.isArray(entry?.changes)?entry.changes:[]){
       const value=change?.value||{};
       if(Array.isArray(value.statuses))statuses.push(...value.statuses);
+      if(Array.isArray(value.messages))inbound.push(...value.messages);
     }
   }
 
+  // Verified provider events only. Message text creates a review item, never an assignment.
+  for(const message of inbound){
+    if(message?.type!=="text"||!message?.id||!message?.from)continue;
+    await rest("rpc/ingest_partner_message",{method:"POST",body:JSON.stringify({p_channel:"whatsapp",p_sender:String(message.from),p_message_id:String(message.id),p_body:String(message.text?.body||"").slice(0,20000)})});
+  }
   for(const s of statuses){
     const providerId=String(s?.id||"").trim();
     const incoming=String(s?.status||"").toLowerCase();

@@ -47,6 +47,24 @@ Deno.serve(async(req:Request)=>{
   const type=String(evt?.type||"");const data=evt?.data||{};
   const providerMessageId=String(data?.email_id||data?.id||"").trim();
   if(!type||!providerMessageId)return out({ok:false,error:"Missing event fields"},400);
+  if(type==="email.received"){
+   const mailbox=(value:unknown)=>{const text=String(value||"").trim();const m=text.match(/<([^<>]+)>$/);return String(m?m[1]:text).trim().toLowerCase();};
+   const sender=mailbox(data.from);
+   const {data:partner}=await admin.from("lead_partners").select("id").eq("active",true).ilike("email",sender).maybeSingle();
+   if(!partner)return out({ok:true,ignored:"unknown_sender"});
+   const key=Deno.env.get("RESEND_API_KEY")||"";
+   if(!key)return out({ok:false,error:"Inbound email receiving is not configured"},503);
+   const response=await fetch("https://api.resend.com/emails/receiving/"+encodeURIComponent(providerMessageId)+"?html_format=cid",{headers:{authorization:"Bearer "+key},signal:AbortSignal.timeout(10000)});
+   if(!response.ok)throw new Error("Inbound email retrieval failed");
+   const email=await response.json();
+   // Provider-calculated authentication, never sender-supplied Authentication-Results headers.
+   const authenticated=email.authentication?.dmarc==="pass"||(email.authentication?.dmarc==="gray"&&email.authentication?.dkim==="pass");
+   if(mailbox(email.from)!==sender||!authenticated){console.warn("partner email rejected: authentication failed",providerMessageId);return out({ok:true,ignored:"sender_not_verified"});}
+   const bodyText=String(email.text||"").slice(0,18000)||"[No plain-text body. Review the original email in the receiving inbox.]";
+   const {data:leadId,error:leadError}=await admin.rpc("ingest_partner_message",{p_channel:"email",p_sender:sender,p_message_id:providerMessageId,p_body:String(email.subject||"").slice(0,500)+"\n\n"+bodyText});
+   if(leadError)throw leadError;
+   return out({ok:true,lead_created:!!leadId});
+  }
   const toRaw=data?.to;const recipient=Array.isArray(toRaw)?String(toRaw[0]||""):String(toRaw||"");
   const providerCreatedAt=evt?.created_at||data?.created_at||null;
   const {data:audit}=await admin.from("audit_log").select("entity_type,entity_id").eq("action","email_accepted").eq("related_type","resend_message").eq("related_id",providerMessageId).order("created_at",{ascending:false}).limit(1).maybeSingle();
