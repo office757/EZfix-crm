@@ -48,6 +48,12 @@ export async function notifyLeadOffer(db:any,offer:any){
    const at=new Date().toISOString();
    const status=sent.id?(['queued','sent','delivered','failed'].includes(sent.deliveryStatus)?sent.deliveryStatus:'queued'):'delivery_unconfirmed';
    const saved=await db.from('sms_messages').update({provider_message_id:sent.id||null,provider_conversation_id:sent.conversationId||null,provider_status:status,provider_created_at:sent.createdAt||at,sent_at:sent.id?at:null,delivered_at:status==='delivered'?at:null,updated_at:at}).eq('id',id);
+   // A signed provider callback can persist the message before sendText returns.
+   // Link its existing delivery record instead of retrying the SMS or losing status.
+   if(saved.error?.code==='23505'&&sent.id){
+    const existing=await db.from('sms_messages').select('id,provider_status').eq('provider','inkbox').eq('provider_message_id',sent.id).eq('direction','outbound').eq('normalized_remote_phone',to).eq('message_text',text).maybeSingle();
+    if(!existing.error&&existing.data?.id)return {status:existing.data.provider_status||'unconfirmed',message_id:existing.data.id};
+   }
    return {status:saved.error?'unconfirmed':status,message_id:id};
   }catch{
    await db.from('sms_messages').update({provider_status:'delivery_unconfirmed',failure_reason:'Provider outcome unknown. Do not resend automatically.',updated_at:new Date().toISOString()}).eq('id',id);
