@@ -1338,9 +1338,9 @@ function renderQuickPay(content, actions){
         </div></div>
         <div style="display:grid;gap:10px;margin-top:18px">
           <button class="btn" onclick="quickPayPreviewInvoice()">Preview Invoice</button>
-          <button class="btn btn-primary" onclick="quickPayCreateInvoice()">Create Invoice / Receipt Draft</button>
-          <button class="btn" onclick="quickPaySendLink()">Payment Link</button>
-          <button class="btn" id="qpCardEntryBtn" onclick="quickPayManualCard()" style="display:none">Enter Card Securely</button>
+          <button class="btn btn-primary" data-quickpay-submit onclick="quickPayCreateInvoice()">Create Invoice / Receipt Draft</button>
+          <button class="btn" data-quickpay-submit onclick="quickPaySendLink()">Create Invoice & Payment Link</button>
+          <button class="btn" data-quickpay-submit id="qpCardEntryBtn" onclick="quickPayManualCard()" style="display:none">Create Invoice & Open Card Checkout</button>
         </div>
         <div class="muted" style="font-size:11px;margin-top:12px">Card details are never typed into or stored by EZfix CRM. Manual card entry must open the connected payment provider's secure form.</div>
       </div></div>
@@ -1348,7 +1348,7 @@ function renderQuickPay(content, actions){
   quickPayRenderLines();
   updateQuickPayPreview();
 }
-let quickPayLines=[]; let quickPayMethod='cash'; let quickPaySmsConsent=null;
+let quickPayLines=[]; let quickPayMethod='cash'; let quickPaySmsConsent=null; let quickPaySubmitting=false;
 const QUICKPAY_SMS_CONSENT_TEXT='I agree to receive this invoice, receipt, and payment-related text messages from EZfix Garage Doors Inc at the phone number provided. Message and data rates may apply. Reply STOP to opt out.';
 function quickPayCaptureSmsConsent(){
  const name=document.getElementById('qpClientName')?.value.trim()||'';
@@ -1359,7 +1359,8 @@ function quickPayCaptureSmsConsent(){
 }
 async function saveQuickPaySmsConsent(invoiceId){
  if(!quickPaySmsConsent)return;
- const phone=String(quickPaySmsConsent.phone||'').replace(/\D/g,''); const e164=phone.length===10?'+1'+phone:(phone.startsWith('1')&&phone.length===11?'+'.concat(phone):'+'.concat(phone));
+ const e164=normalizeToE164(quickPaySmsConsent.phone);
+ if(!e164)throw new Error('Enter a valid phone number and sign SMS consent again');
  const {data,error}=await SB.rpc('record_quickpay_sms_consent',{
   p_phone_e164:e164,p_invoice_id:invoiceId,p_signer_name:quickPaySmsConsent.signerName,
   p_signature_data_url:quickPaySmsConsent.signatureDataUrl,p_consent_text:quickPaySmsConsent.consentText,
@@ -1480,6 +1481,10 @@ function quickPayPreviewInvoice(){
 }
 window.quickPayPreviewInvoice=quickPayPreviewInvoice;
 async function quickPayCreateInvoice(options={}){
+  if(quickPaySubmitting)return;
+  quickPaySubmitting=true;
+  document.querySelectorAll('[data-quickpay-submit]').forEach(button=>button.disabled=true);
+  let createdId=null;
   try{
     const n=quickPayNumbers();
     if(n.subtotal<=0 || !quickPayLines.length) throw new Error('Add at least one product or service');
@@ -1495,6 +1500,7 @@ async function quickPayCreateInvoice(options={}){
     const phoneInput=document.getElementById('qpClientPhone')?.value.trim()||c.phone||'';
     const normalizedPhone=phoneInput ? normalizeToE164(phoneInput) : '';
     if(phoneInput && !normalizedPhone) throw new Error('Enter a valid 10-digit phone number');
+    if(quickPaySmsConsent && normalizeToE164(quickPaySmsConsent.phone)!==normalizedPhone) throw new Error('Phone changed after signing. Sign SMS consent again for this number.');
     c={...c,phone:normalizedPhone};
     if(c.id && normalizedPhone && getOne('customers',c.id)?.phone!==normalizedPhone){
       await dbSet('customers',c.id,{phone:normalizedPhone});
@@ -1519,6 +1525,7 @@ async function quickPayCreateInvoice(options={}){
     if(error) throw error;
     const id=Array.isArray(rid)?rid[0]:rid;
     if(!id) throw new Error('Quick Payment did not return an invoice');
+    createdId=id;
     await Promise.all([refreshCollection('customers'),refreshCollection('invoices')]);
     await saveQuickPaySmsConsent(id);
     const relatedJobId=document.getElementById('qpJob')?.value||'';
@@ -1545,18 +1552,27 @@ async function quickPayCreateInvoice(options={}){
     }else{
       toast((getOne('invoices',id)?.number||'Invoice')+' created');
     }
-    if(options.createSquareLink || quickPayMethod==='card'){
-      const url=await PaymentProvider.createPaymentLink(id);
-      if(url){toast('Square payment link ready');window.open(url,'_blank','noopener');}
-    }
+    let checkoutUrl=null;
+    if(options.createSquareLink || quickPayMethod==='card') checkoutUrl=await PaymentProvider.createPaymentLink(id);
+    if(checkoutUrl && !PaymentProvider.createPaymentRequest({paymentLink:checkoutUrl})) throw new Error('Payment provider returned an invalid checkout link');
     quickPayLines=[]; quickPaySmsConsent=null; quickPayMethod='cash';
     go('invoices',id);
+    if(checkoutUrl) showModal({title:'Invoice created — secure card checkout',body:`<p>Your invoice is saved. Open Square to enter card details and complete payment.</p><a class="btn btn-primary" href="${esc(checkoutUrl)}" target="_blank" rel="noopener noreferrer">Open Secure Square Checkout</a><p class="muted" style="margin-top:12px">You can also reopen this invoice and use PAY NOW.</p>`});
+    return id;
   }catch(e){
     console.error('quickPayCreateInvoice',e);
-    toast(e?.message||'Could not create invoice',true);
+    if(createdId){
+      quickPayLines=[]; quickPaySmsConsent=null; quickPayMethod='cash';
+      go('invoices',createdId);
+      toast('Invoice '+(getOne('invoices',createdId)?.number||createdId)+' was created. A later step failed: '+(e?.message||'Please review the invoice')+'. Continue from this invoice; do not create it again.',true);
+    }else toast(e?.message||'Could not create invoice',true);
+  }finally{
+    quickPaySubmitting=false;
+    document.querySelectorAll('[data-quickpay-submit]').forEach(button=>button.disabled=false);
   }
 }
 async function quickPaySendLink(){
+  if(quickPaySubmitting)return;
   try{
     const n=quickPayNumbers(); if(n.subtotal<=0)throw new Error('Choose a service first');
     if(quickPayMethod!=='card')quickPaySetMethod('card');
@@ -1564,7 +1580,7 @@ async function quickPaySendLink(){
   }catch(e){toast(e.message||'Could not create payment link',true);}
 }
 async function quickPayManualCard(){
- toast('Create the invoice first, then use PAY NOW on the invoice. Card details stay on Square and are never collected by EZfix CRM.',true);
+ return quickPaySendLink();
 }
 window.updateQuickPayPreview=updateQuickPayPreview;
 window.quickPayCreateInvoice=quickPayCreateInvoice;
@@ -3000,7 +3016,7 @@ async function createLeadFromUnknownSms(smsId) {
 window.createLeadFromUnknownSms = createLeadFromUnknownSms;
 
 function renderCommunications(content, actions) {
-  actions.innerHTML = '';
+  actions.innerHTML = IS_OWNER ? '<button class="btn btn-primary" onclick="openCallAudioHistory()">Call History & Audio</button>' : '';
   const filter = searchTerms.commFilter || 'all';
   const q = (searchTerms.commSearch||'').toLowerCase().trim();
   let items = buildGlobalCommunicationTimeline();
@@ -8054,13 +8070,27 @@ async function ingestInkboxCall(raw) {
   return { callId, leadCreated: true, leadId, linkedExistingCustomer: !!existingCustomer };
 }
 window.ingestInkboxCall = ingestInkboxCall;
+async function openCallAudioHistory(){
+  receptionistState.subview='calls';
+  go('receptionist');
+  try{await refreshCollection('calls');if(route.page==='receptionist')render();}
+  catch(e){toast('Could not refresh call audio. Please try again.',true);}
+}
+window.openCallAudioHistory=openCallAudioHistory;
+function callAudioStatusLabel(c){
+  if(callRecordingUrl(c))return 'Original recording available';
+  if(c.transcriptReplayStatus==='ready')return 'AI transcript replay ready';
+  if(c.transcriptReplayStatus==='pending'||c.transcriptReplayStatus==='generating')return 'AI transcript replay preparing';
+  if(c.transcriptReplayStatus==='failed')return 'AI transcript replay needs attention';
+  return 'No call audio available';
+}
 function renderCallHistory(body) {
   const list = [...STORE.calls].sort((a,b)=>new Date(b.startedAt||b.createdAt||0)-new Date(a.startedAt||a.createdAt||0));
   body.innerHTML = `
     ${IS_OWNER ? `<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>📞 Inkbox Call Sync</h3><button class="btn btn-sm btn-primary" onclick="syncCallsNow(this)">Sync calls now</button></div><div class="panel-body pad" style="font-size:12px;color:var(--muted)">Ashley AI Receptionist · ${esc(SETTINGS.inkboxPhone?.number||'Not configured')}. Call history and transcripts sync securely from Inkbox. Completed calls are analyzed server-side and can automatically create or link CRM leads without exposing the Inkbox API key.</div></div>` : ''}
     <div class="panel"><div class="panel-body">
       ${list.length ? list.map(c=>`<div class="kv clickable" onclick="viewCallDetail('${c.id}')">
-        <div class="k">${fmtDate(c.startedAt||c.createdAt)}</div>
+        <div class="k">${fmtDate(c.startedAt||c.createdAt)}<div style="margin-top:8px;font-size:11px">${esc(callAudioStatusLabel(c))}</div><button type="button" class="btn btn-sm" style="margin-top:8px" onclick="event.stopPropagation();viewCallDetail('${esc(c.id)}')">Open call audio</button></div>
         <div><b>📞 ${c.direction==='inbound'?'Incoming':c.direction==='outbound'?'Outgoing':'Call'}</b>${c.remoteNumber?' — '+esc(c.remoteNumber):''}${c.status?' · '+esc(labelize(c.status)):''}<div class="muted" style="font-size:11.5px;margin-top:3px">${esc((c.summary||'No transcript yet').slice(0,100))}${(c.summary||'').length>100?'…':''}</div></div>
       </div>`).join('') : emptyState('📞','No calls yet','Call history will appear here after Inkbox receives or places a call.')}
     </div></div>
@@ -8118,7 +8148,8 @@ async function removeCallRecording(callId){
 }
 window.promptCallRecordingUpload=promptCallRecordingUpload;
 window.removeCallRecording=removeCallRecording;
-function viewCallDetail(id) {
+async function viewCallDetail(id) {
+  try{await refreshCollection('calls');}catch(e){return toast('Could not load current call audio. Please try again.',true);}
   const c = getOne('calls', id); if (!c) return;
   const transcript=(c.transcript||[]).map(t=>`<div style="margin-bottom:10px"><b style="font-size:11px;text-transform:uppercase;color:var(--muted)">${esc(t.speaker||t.party||'speaker')}</b><div style="font-size:13.5px">${esc(t.text||'')}</div></div>`).join('') || '<p class="muted">No transcript recorded yet.</p>';
   const recordingUrl=callRecordingUrl(c);
