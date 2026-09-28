@@ -48,7 +48,7 @@ function doorGallerySelect(label,key,values){
   return '<label><span>'+label+'</span><select onchange="setDoorGalleryFilter(\''+key+'\',this.value)"><option value="">All '+label.toLowerCase()+'</option>'+unique.map(v=>'<option value="'+esc(v)+'" '+(doorGalleryState[key]===v?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></label>';
 }
 const originalProjectGallery=renderGallery;
-const DOOR_STYLE_EXAMPLES=[['classic-white','Classic White','White raised panels'],['modern-black','Modern Black','Flush panels · vertical windows'],['wood-carriage','Wood-look Carriage','Walnut finish · top windows'],['glass-fullview','Full-view Glass','Black frame · frosted glass']];
+const DOOR_STYLE_EXAMPLES=[['classic-white','Classic White','White raised panels'],['modern-black','Modern Black','Flush panels · vertical windows'],['wood-carriage','Wood-look Carriage','Walnut finish · top windows'],['glass-fullview','Full-view Glass','Black frame · frosted glass'],['single-white','Single · Classic White','Single-car · raised panels'],['single-black','Single · Modern Black','Single-car · flush panels · vertical windows'],['single-gray','Single · Charcoal Gray','Single-car · long panels · top windows'],['single-wood','Single · Wood-look Carriage','Single-car · walnut finish · top windows']];
 renderGallery=function(content,actions){
   if(galleryFilter.presenting)return originalProjectGallery(content,actions);
   if(doorGalleryState.view==='projects')originalProjectGallery(content,actions);
