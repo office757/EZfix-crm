@@ -18,7 +18,7 @@ check('Both work tabs keep their existing routes and selected state',()=>{
  f.context.route.page='leads';assert.match(f.run('renderWorkNavigation()'),/aria-current="page" onclick="go\('leads'\)"/);
 });
 check('Owner launcher keeps gallery tools separate and removes warranties from the menu',()=>{
- const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,4);
+ const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,5);
  const keys=groups.flatMap(g=>g.items.map(n=>n.key));
  for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','inventory','suppliers','expenses','followups','team','reports','payroll'])assert.ok(keys.includes(key),key);
  for(const key of ['warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);

@@ -1,0 +1,12 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const path=new URL('../index.html',import.meta.url);
+let html=readFileSync(path,'utf8');
+const head='<link rel="stylesheet" href="/door-gallery.css" data-door-gallery="v1">';
+const body='<script src="/door-gallery.js" data-door-gallery="v1"></script>';
+html=html.replace(head+'\n','').replace(body+'\n','');
+html=html.replace('</head>',head+'\n</head>');
+const last=html.lastIndexOf('</body>');
+if(last<0)throw Error('Missing body');
+html=html.slice(0,last)+body+'\n'+html.slice(last);
+writeFileSync(path,html);
+console.log('Door Gallery and Social Media assets installed.');

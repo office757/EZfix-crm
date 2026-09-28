@@ -24,7 +24,7 @@
   const backButton = onclick => '<button class="btn btn-sm" style="margin-bottom:10px" onclick="'+onclick+'">← Back</button>';
   const resultCount = (shown,total) => '<div class="muted" style="font-size:11px;margin:0 0 10px">'+total.toLocaleString()+' match'+(total===1?'':'es')+(shown<total?' · showing first '+shown.toLocaleString():'')+'</div>';
   function renderDoorCard(p){
-    const image=valueOf(p,'imageUrl'), collection=valueOf(p,'collection'), model=valueOf(p,'modelNumber')||p.model||'', rv=valueOf(p,'rValue'), material=valueOf(p,'material'), construction=valueOf(p,'construction'), official=valueOf(p,'officialUrl');
+    const image=catalogDoorImage(p).url, collection=valueOf(p,'collection'), model=valueOf(p,'modelNumber')||p.model||'', rv=valueOf(p,'rValue'), material=valueOf(p,'material'), construction=valueOf(p,'construction'), official=valueOf(p,'officialUrl');
     const short=valueOf(p,'description')||p.details||'';
     return '<article class="picker-card gd-catalog-card" onclick="pickItemFromPicker(\''+esc(p.id)+'\')">'+
       (image?'<img class="gd-catalog-image" loading="lazy" src="'+esc(image)+'" alt="'+esc(p.name)+'">':'<div class="gd-catalog-image gd-catalog-placeholder">Garage Door</div>')+
