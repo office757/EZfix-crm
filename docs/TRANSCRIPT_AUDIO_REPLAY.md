@@ -23,9 +23,12 @@ This section supersedes the historical phase-1 notes below.
   runner passes all 35 steps, including the existing 46 speech-core checks.
 - The temporary diagnostic/repair function was restored to its JWT-protected
   HTTP 410 stub, with no secret access or outbound requests.
-- Automatic replay remains paused pending owner playback/quality acceptance.
-  Twelve calls remain pending. The browser requires owner sign-in, so in-app,
-  iPhone/iPad playback and words/numbers fidelity are not yet verified.
+- Owner sign-in completed securely. The production Call History player loaded
+  the 101.18-second sample, reported no audio error, and advanced while playing.
+  The synthetic disclosure and separate original-recording state were visible.
+- Existing cron job 8 was resumed. At 06:21 UTC, four calls were ready, nine
+  pending and none failed; scheduled processing had advanced beyond the sample.
+  Word-by-word listening fidelity and iPhone/iPad playback remain unverified.
 
 The existing 15 MiB bucket limit and 120-second worker deadline still apply;
 long-call processing and atomic daily spending reservations are not certified
