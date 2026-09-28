@@ -80,7 +80,7 @@ function renderWorkspaceOverview(content,actions,d){
     ${section('overviewActivityTitle','Recent activity','Latest team updates','auditlog',IS_OWNER?view('auditlog','History'):'',d.recentEvents.length?'<div class="overview-activity">'+d.recentEvents.map(a=>{const action=workspaceActivityLink(a),tag=action?'button':'div',summary=a.summary||labelize(a.action);return `<${tag} class="overview-activity-row" ${action?`type="button" onclick="${action}"`:''}><span class="overview-activity-dot" aria-hidden="true"></span><span class="overview-activity-copy"><b title="${esc(summary)}">${esc(summary)}</b><small>${esc(workspaceActivityDate(a.createdAt))}</small></span>${action?'<span class="overview-row-arrow" aria-hidden="true">›</span>':''}</${tag}>`;}).join('')+'</div>':empty('A fresh start','Your team’s updates will appear as work gets done.','auditlog','',''))}
    </div>
   </section>
-  <div class="overview-tools"><h3>Workspace tools</h3>${renderModuleLauncherHtml()}</div>
+  ${renderWorkspaceTools()}
  </div>`;
 }
 function workspaceAttention(){
@@ -105,4 +105,48 @@ function renderWorkspaceHub(content,actions,page){
  const detail={payments:'Review payments received',invoices:'Balances, billing and receipts',expenses:'Track business expenses',payroll:'Technician commissions and payouts',team:'People and account access',followups:'Tasks and customer follow-ups',products:'Your service and parts catalog',inventory:'Stock and inventory levels',suppliers:'Vendors and purchase orders',reports:'Team performance',viscatalog:'Manage door reference images',settings:'Company and integration settings'};
  const entries=keys.map(k=>NAV.find(n=>n.key===k)).filter(n=>n&&(!n.ownerOnly||IS_OWNER));
  content.innerHTML=`<section class="overview-panel"><header class="overview-panel-heading"><div><span class="overview-eyebrow">${banking?'MONEY & RECORDS':'TEAM & OPERATIONS'}</span><h2>${banking?'Banking':'Office'}</h2></div></header><div class="overview-hub-grid">${entries.map(n=>`<button onclick="go('${n.key}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="${n.icon}"/></svg><b>${n.label}</b><span>${detail[n.key]}</span><i>↗</i></button>`).join('')}</div></section>`;
+}
+
+/* Package labels are a presentation preview; existing role permissions still apply. */
+function workspaceToolCategories(){
+ const categories=[
+  {id:'customers',title:'Customers & Leads',icon:'customers',description:'Manage relationships, grow your pipeline and stay connected.',items:[
+   {key:'customers',plan:'starter'},{key:'leads',plan:'starter'},{key:'communications',plan:'pro'},{key:'receptionist',plan:'ai'}
+  ]},
+  {id:'jobs',title:'Jobs & Scheduling',icon:'calendar',description:'Plan visits, coordinate your team and keep work moving.',items:[
+   {key:'jobs',label:'Jobs',plan:'starter'},{key:'calendar',plan:'starter'},{key:'leads',label:'Technician Dispatch',plan:'pro',dispatch:true},{key:'followups',plan:'pro'}
+  ]},
+  {id:'sales',title:'Sales & Payments',icon:'payments',description:'Create estimates, collect payments and organize your finances.',items:[
+   {key:'estimates',plan:'starter'},{key:'invoices',plan:'starter'},{key:'payments',plan:'starter'},{key:'quickpay',plan:'starter'},{key:'banking',plan:'pro'}
+  ]},
+  {id:'catalog',title:'Catalog & Visuals',icon:'products',description:'Bring your products, project photos and door designs together.',items:[
+   {key:'products',plan:'starter'},{key:'gallery',plan:'starter'},{key:'inventory',plan:'pro'},{key:'suppliers',plan:'pro'},{key:'visualizer',plan:'addon'}
+  ]},
+  {id:'office',title:'Team & Office',icon:'team',description:'Keep your people, office tasks and team performance organized.',items:[
+   {key:'office',plan:'starter'},{key:'team',plan:'pro'},{key:'payroll',plan:'pro'},{key:'reports',plan:'pro'}
+  ]},
+  {id:'marketing',title:'Marketing & Insights',icon:'reports',description:'Manage your social presence and explore your AI workspaces.',items:[
+   {key:'socialposts',plan:'pro'},{key:'ai_manager',plan:'ai'},{key:'ai_system',plan:'ai'}
+  ]}
+ ];
+ return categories.map(category=>({...category,items:category.items.flatMap(item=>{
+  const nav=NAV.find(n=>n.key===item.key);
+  if(!nav||(nav.ownerOnly&&!IS_OWNER)||(nav.hideForTech&&isTechnicianView())||(isTechnicianView()&&!technicianAllowedPage(item.key))||(isMarketingManager()&&!marketingAllowedPage(item.key)))return [];
+  if(item.dispatch&&(isTechnicianView()||!['owner','admin','dispatcher','office'].includes(CURRENT_TEAM_MEMBER?.role)))return [];
+  return [{...nav,...item}];
+ })})).filter(category=>category.items.length);
+}
+function renderWorkspaceTools(){
+ const plans={starter:'Starter',pro:'Pro',ai:'AI Business',enterprise:'Enterprise',addon:'Add-on'};
+ const badge=plan=>`<span class="wt-plan wt-plan-${plan}">${plans[plan]}</span>`;
+ const check='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+ const categories=workspaceToolCategories();
+ if(!categories.length)return '';
+ return `<section class="workspace-tools" aria-labelledby="workspaceToolsTitle">
+  <header class="wt-heading"><div><span class="wt-eyebrow">YOUR WORKSPACE</span><h2 id="workspaceToolsTitle">Workspace tools</h2><p>Find the right tool, right where you need it.</p></div><span class="wt-preview-label">Package preview</span></header>
+  <div class="wt-package-bar"><span class="wt-legend-label">Proposed packages</span><div class="wt-legend">${Object.keys(plans).map(badge).join('')}</div><span class="wt-access-note"><span class="wt-check">${check}</span>Available in EZfix</span></div>
+  <div class="wt-grid">${categories.map(category=>`<section class="wt-category" aria-labelledby="wt-${category.id}-title"><header class="wt-category-heading"><span class="wt-category-icon">${workspaceIcon(category.icon)}</span><div><h3 id="wt-${category.id}-title">${category.title}</h3><p>${category.description}</p></div></header><div class="wt-tool-list">${category.items.map(item=>`<button type="button" class="wt-tool" data-tool="${item.dispatch?'dispatch':item.key}" onclick="${item.dispatch?"if(window.Dispatch){Dispatch.tab(false)}else{go('leads')}":workspaceAction(item.key)}" title="${esc(item.label)} · Available in EZfix · Proposed package: ${plans[item.plan]}"><span class="wt-tool-icon">${workspaceIcon(item.key==='ai_system'?'ai_manager':item.key)}</span><span class="wt-tool-label">${esc(item.label)}</span><span class="wt-check">${check}</span>${badge(item.plan)}<span class="wt-arrow" aria-hidden="true">›</span></button>`).join('')}</div></section>`).join('')}</div>
+  <div class="wt-addons"><div class="wt-addons-heading"><h3>Usage add-ons</h3><p>Options for future packages.</p></div><div class="wt-addon"><span class="wt-addon-icon">${workspaceIcon('communications')}</span><div><b>SMS usage</b><span>Additional messaging</span></div></div><div class="wt-addon"><span class="wt-addon-icon">${workspaceIcon('receptionist')}</span><div><b>AI voice minutes</b><span>More call capacity</span></div></div><div class="wt-addon"><span class="wt-addon-icon">${workspaceIcon('inventory')}</span><div><b>Extra storage</b><span>Files and project media</span></div></div></div>
+  <p class="wt-preview-note">Package labels preview the future plans. Your current EZfix access stays the same.</p>
+ </section>`;
 }
