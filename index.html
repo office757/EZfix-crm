@@ -964,6 +964,10 @@ function validateRestoredRoute(){
 function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 function money(n) { n = Number(n)||0; return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function recordTimestamp(value) {
+  const timestamp = typeof value==='number' ? value : typeof value==='string' ? Date.parse(value) : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
 function fmtDate(d) {
   if (!d) return '—';
   const dt = new Date(typeof d==='string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d+'T12:00:00' : d);
@@ -2135,7 +2139,7 @@ function computeNotifications() {
   }
   STORE.leads.filter(l=>l.nextFollowUp && l.nextFollowUp<=today && !['won','lost','converted','cancelled'].includes(l.status) && (!isTechnicianView() || l.assignedTechnician===VIEW_AS)).forEach(l=>
     items.push({ icon:'📅', text:`Follow up with ${l.name} today`, at: l.createdAt||0, go:['leads',null] }));
-  return items.sort((a,b)=>b.at-a.at).slice(0,30);
+  return items.sort((a,b)=>recordTimestamp(b.at)-recordTimestamp(a.at)).slice(0,30);
 }
 function refreshNotifBadge() {
   const badge = document.getElementById('notifBadge');
@@ -2180,7 +2184,7 @@ window.setNotifPopoverFilter = setNotifPopoverFilter;
 function renderNotifPopover() {
   const pop = document.getElementById('notifPopover');
   if (!pop) return;
-  let events = [...STORE.auditLog].sort((a,b)=>b.createdAt-a.createdAt);
+  let events = [...STORE.auditLog].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
   if (notifPopoverFilter === 'unread') events = events.filter(e=>!e.read);
   events = events.slice(0,20);
   const unreadCount = STORE.auditLog.filter(a=>!a.read).length;
@@ -2214,7 +2218,7 @@ function renderSmartInbox(content, actions) {
   const totalUnread = STORE.auditLog.filter(a=>!a.read).length;
   actions.innerHTML = `<button class="btn btn-sm" onclick="markAllEventsRead()" ${totalUnread?'':'disabled'}>Mark all as read</button>`;
   const liveItems = computeNotifications();
-  let events = [...STORE.auditLog].sort((a,b)=>b.createdAt-a.createdAt);
+  let events = [...STORE.auditLog].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
   if (filter === 'unread') events = events.filter(e=>!e.read);
   else if (filter !== 'all') events = events.filter(e=>inboxCategoryFor(e)===filter);
   events = events.slice(0,80);
@@ -2954,7 +2958,7 @@ function buildCommunicationTimeline(entityType, entityId) {
       smsId: m.id });
   });
 
-  return items.sort((a,b) => b.createdAt - a.createdAt);
+  return items.sort((a,b) => recordTimestamp(b.createdAt) - recordTimestamp(a.createdAt));
 }
 function buildGlobalCommunicationTimeline() {
   const items = STORE.auditLog
@@ -2977,7 +2981,7 @@ function buildGlobalCommunicationTimeline() {
       threadId: derivedThreadId('sms', m.customerId?'customers':m.leadId?'leads':'unknown', m.customerId||m.leadId||m.normalizedRemotePhone, m.providerConversationId),
       smsId: m.id, ambiguous: !!m.matchAmbiguous });
   });
-  return items.sort((a,b)=>b.createdAt-a.createdAt);
+  return items.sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
 }
 function commLabelFor(i) {
   const dir = communicationDirectionFor(i.action);
@@ -3095,7 +3099,7 @@ function renderCommunications(content, actions) {
   const detailHtml = selected ? (() => {
     if (selected.kind === 'sms') {
       // Real two-way thread — every message sharing this exact threadId, chronological.
-      const thread = buildGlobalCommunicationTimeline().filter(i => i.kind==='sms' && i.threadId===selected.threadId).sort((a,b)=>a.createdAt-b.createdAt);
+      const thread = buildGlobalCommunicationTimeline().filter(i => i.kind==='sms' && i.threadId===selected.threadId).sort((a,b)=>recordTimestamp(a.createdAt)-recordTimestamp(b.createdAt));
       const rep = thread[thread.length-1];
       const smsRec = getOne('smsMessages', rep.smsId);
       const isUnknown = !smsRec.customerId && !smsRec.leadId;
@@ -3203,7 +3207,7 @@ function renderCustomerDetail(content, id) {
   const commEvents = buildCommunicationTimeline('customers', id);
   const commIcon = { email:'✉️', sms:'💬', phone:'📞', internal_note:'📝' };
   commEvents.forEach(ev => timeline.push({ icon: commIcon[ev.channel]||'💬', text: `${ev.summary}${ev.status==='prepared'?' (prepared — delivery not confirmed)':''}`, at: ev.createdAt }));
-  timeline.sort((a,b)=>b.at-a.at);
+  timeline.sort((a,b)=>recordTimestamp(b.at)-recordTimestamp(a.at));
   const lifetimeValue = cInvoices.reduce((s,inv)=>s+paidTotal(inv),0);
   const outstandingForCust = cInvoices.reduce((s,inv)=>s+balanceDue(inv),0);
   content.innerHTML = `
@@ -4109,7 +4113,7 @@ function renderEstimates(content, actions) {
   if (route.id) return renderDocumentView('estimate', route.id);
   const filter = searchTerms.estimateFilter || 'all';
   const term = (searchTerms.estimates||'').toLowerCase();
-  let list = [...STORE.estimates].sort((a,b)=>b.createdAt-a.createdAt);
+  let list = [...STORE.estimates].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
   if (filter === 'open') list = list.filter(e=>['draft','sent','approved'].includes(e.status) && !e.convertedInvoiceId);
   if (filter === 'closed') list = list.filter(e=>['declined'].includes(e.status) || e.convertedInvoiceId);
   if (term) list = list.filter(e => [(e.number||''),(e.customerName||'')].some(v=>v.toLowerCase().includes(term)));
@@ -4673,7 +4677,7 @@ function openStockAdjustModal(productId) {
   });
 }
 function renderRecentAdjustments(productId) {
-  const recent = STORE.inventoryAdjustments.filter(a=>a.productId===productId).sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
+  const recent = STORE.inventoryAdjustments.filter(a=>a.productId===productId).sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt)).slice(0,5);
   if (!recent.length) return '';
   return `<div class="lbl" style="margin-top:14px;margin-bottom:4px">Recent adjustments</div>
     <div style="max-height:140px;overflow-y:auto;border:1px solid var(--line);border-radius:8px">
@@ -4692,7 +4696,7 @@ window.openStockAdjustModal = openStockAdjustModal;
 const EXPENSE_CATEGORIES = ['Parts & materials','Equipment','Fuel/vehicle','Supplies','Other'];
 function renderExpenses(content, actions) {
   actions.innerHTML = `<button class="btn btn-primary" onclick="openExpenseModal()">+ New receipt</button>`;
-  const list = [...STORE.expenses].sort((a,b)=>b.createdAt-a.createdAt);
+  const list = [...STORE.expenses].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
   const total = list.reduce((s,e)=>s+(Number(e.amount)||0),0);
   content.innerHTML = `
     <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">
@@ -4960,7 +4964,7 @@ function renderTeamDetail(content, actions, id) {
   const recentActivity = [...STORE.auditLog].filter(a =>
     (a.entityType==='team' && a.entityId===m.id) ||
     (a.entityType==='jobs' && jobIds.has(a.entityId))
-  ).sort((a,b)=>b.createdAt-a.createdAt).slice(0,10);
+  ).sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt)).slice(0,10);
 
   content.innerHTML = `
     <button class="btn btn-sm no-print" style="margin-bottom:14px" onclick="go('team')">← All team members</button>
@@ -5342,28 +5346,26 @@ function openInspectionModal(jobId) {
 window.openInspectionModal = openInspectionModal;
 
 /* ============================================================
-   TEAM PERFORMANCE (owner-only sales report per technician)
+   TEAM PERFORMANCE (Owner and Office sales report per technician)
    ============================================================ */
+function teamPerformanceRows() {
+  return reportTechnicians().map(technician => {
+    const member = STORE.team.find(m=>m.id===technician.memberId);
+    const jobs = STORE.jobs.filter(j=>!j.deletedAt && reportJobTechnician(j).key===technician.key);
+    const jobIds = new Set(jobs.map(j=>j.id));
+    const completed = jobs.filter(j=>j.status==='completed').length;
+    const linkedInvoices = STORE.invoices.filter(inv=>!inv.deletedAt && inv.jobId && jobIds.has(inv.jobId));
+    const revenue = linkedInvoices.reduce((s,inv)=>s+invoiceTotal(inv),0);
+    const collected = linkedInvoices.reduce((s,inv)=>s+paidTotal(inv),0);
+    return { ...technician, role: member?.role||'—', jobCount: jobs.length, completed, invoiceCount: linkedInvoices.length, revenue, collected };
+  }).sort((a,b)=>b.revenue-a.revenue);
+}
 function renderReports(content, actions) {
   if (!canOperateOffice()) {
     content.innerHTML = emptyState('🔒','Office access required','Available to the Owner and Office role.');
     return;
   }
-  // Build the set of technician names from Team roster + any name used on a Job
-  const names = new Set();
-  STORE.team.forEach(m => { if (m.name) names.add(m.name); });
-  STORE.jobs.forEach(j => { if (j.technician) names.add(j.technician); });
-
-  const rows = [...names].sort().map(name => {
-    const member = STORE.team.find(m=>m.name===name);
-    const jobs = STORE.jobs.filter(j => (member && j.technicianId ? j.technicianId===member.id : j.technician === name));
-    const jobIds = new Set(jobs.map(j=>j.id));
-    const completed = jobs.filter(j=>j.status==='completed').length;
-    const linkedInvoices = STORE.invoices.filter(inv => inv.jobId && jobIds.has(inv.jobId));
-    const revenue = linkedInvoices.reduce((s,inv)=>s+invoiceTotal(inv),0);
-    const collected = linkedInvoices.reduce((s,inv)=>s+paidTotal(inv),0);
-    return { name, role: member?.role||'—', jobCount: jobs.length, completed, invoiceCount: linkedInvoices.length, revenue, collected };
-  }).sort((a,b)=>b.revenue-a.revenue);
+  const rows = teamPerformanceRows();
 
   const totalRevenue = rows.reduce((s,r)=>s+r.revenue,0);
   const totalCollected = rows.reduce((s,r)=>s+r.collected,0);
@@ -5372,7 +5374,7 @@ function renderReports(content, actions) {
   content.innerHTML = `
     <div class="panel no-print" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="font-size:13px">
-        Visible to the Owner only. Revenue is attributed to a technician through the job linked to each invoice — invoices with no linked job aren't counted toward anyone.
+        Visible to the Owner and Office role. Revenue is attributed to a technician through the job linked to each invoice — invoices with no linked job aren't counted toward anyone.
       </div>
     </div>
     <div class="stat-grid">
@@ -5385,7 +5387,7 @@ function renderReports(content, actions) {
       <div class="panel-body">
         ${rows.length ? `<table class="list"><thead><tr><th>Name</th><th>Role</th><th>Jobs</th><th>Completed</th><th>Invoices</th><th>Revenue</th><th>Collected</th></tr></thead><tbody>
           ${rows.map(r=>`<tr>
-            <td class="name-cell">${esc(r.name)}</td>
+            <td class="name-cell">${esc(r.name)}${r.unlinked?'<div class="muted">Legacy assignment — review technician identity</div>':STORE.team.filter(m=>m.name===r.name).length>1?`<div class="muted">Team ID: ${esc(r.memberId)}</div>`:''}</td>
             <td class="muted">${esc(r.role)}</td>
             <td>${r.jobCount}</td>
             <td>${r.completed}</td>
@@ -5408,20 +5410,23 @@ let payrollCommissionOverride = {};
 function payrollDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
-function payrollJobTechnician(job) {
+function reportJobTechnician(job) {
   const matches = job.technicianId ? STORE.team.filter(m=>m.id===job.technicianId) : STORE.team.filter(m=>m.name===job.technician);
   const member = matches.length===1 ? matches[0] : null;
   const id = job.technicianId || member?.id;
   return { key: id ? `id:${id}` : `legacy:${job.technician||''}`, memberId: id || '', name: member?.name || job.technician || 'Unknown technician', commissionPercent: member?.commissionPercent ?? 0, unlinked: !id };
 }
-function payrollReportCards() {
+function reportTechnicians() {
   const technicians = new Map();
   STORE.team.forEach(m=>{ if(m.id && m.name) technicians.set(`id:${m.id}`,{key:`id:${m.id}`,memberId:m.id,name:m.name,commissionPercent:m.commissionPercent??0,unlinked:false}); });
   STORE.jobs.filter(j=>!j.deletedAt && (j.technicianId || j.technician)).forEach(j=>{
-    const technician = payrollJobTechnician(j);
+    const technician = reportJobTechnician(j);
     if(!technicians.has(technician.key)) technicians.set(technician.key,technician);
   });
-  return [...technicians.values()].sort((a,b)=>a.name.localeCompare(b.name)||a.key.localeCompare(b.key)).map(payrollTechCardData);
+  return [...technicians.values()].sort((a,b)=>a.name.localeCompare(b.name)||a.key.localeCompare(b.key));
+}
+function payrollReportCards() {
+  return reportTechnicians().map(payrollTechCardData);
 }
 function setPayrollCommission(key, value) {
   const rate = Number(value);
@@ -5484,7 +5489,7 @@ function renderPayroll(content, actions) {
 }
 function payrollTechCardData(technician) {
   const {key,name,memberId,unlinked} = technician;
-  const jobs = STORE.jobs.filter(j => !j.deletedAt && payrollJobTechnician(j).key===key && j.scheduledDate && j.scheduledDate>=payrollRange.from && j.scheduledDate<=payrollRange.to);
+  const jobs = STORE.jobs.filter(j => !j.deletedAt && reportJobTechnician(j).key===key && j.scheduledDate && j.scheduledDate>=payrollRange.from && j.scheduledDate<=payrollRange.to);
   const commissionPct = payrollCommissionOverride[key] ?? (Number(technician.commissionPercent) || 0);
   const rows = jobs.map(j => {
     const invoices = STORE.invoices.filter(i=>i.jobId===j.id && !i.deletedAt);
@@ -6085,7 +6090,7 @@ function renderPayments(content, actions) {
 function renderSuppliers(content, actions) {
   if (!canOperateOffice()) { content.innerHTML = emptyState('🔒','Office access required',''); return; }
   actions.innerHTML = `<button class="btn btn-sm" onclick="openSupplierModal()">+ New supplier</button><button class="btn btn-primary" onclick="openPOModal()">+ New purchase order</button>`;
-  const pos = [...STORE.purchaseOrders].sort((a,b)=>b.createdAt-a.createdAt);
+  const pos = [...STORE.purchaseOrders].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
   content.innerHTML = `
     <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>Suppliers</h3></div>
       <div class="panel-body">
@@ -6819,7 +6824,7 @@ function refreshGalleryPhotoThumbs() {
 function renderGallery(content, actions) {
   actions.innerHTML = canOperateOffice() ? `<button class="btn btn-sm" onclick="shareGallery()">🔗 Share Gallery</button><button class="btn btn-sm" onclick="startGalleryPresentation()">▶ Present to customer</button><button class="btn btn-primary" onclick="openGalleryProjectModal()">+ New project</button>` : '';
   if (galleryFilter.presenting) return renderGalleryPresentation(content);
-  let list = [...STORE.galleryProjects].sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0) || (b.createdAt-a.createdAt));
+  let list = [...STORE.galleryProjects].sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0) || (recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt)));
   if (galleryFilter.category) list = list.filter(p=>p.category===galleryFilter.category);
   const term = galleryFilter.search.toLowerCase();
   if (term) list = list.filter(p=>[(p.title||''),(p.doorColor||''),(p.doorManufacturer||''),...(p.tags||[])].some(v=>v.toLowerCase().includes(term)));
@@ -8355,7 +8360,7 @@ window.saveReceptionistSettings = saveReceptionistSettings;
 function renderWaLog(content, actions) {
   if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
   actions.innerHTML = '';
-  const list = [...STORE.waNotifications].sort((a,b)=>b.createdAt-a.createdAt).slice(0,200);
+  const list = [...STORE.waNotifications].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt)).slice(0,200);
   const statusBadge = { sent:'badge-won', delivered:'badge-won', failed:'badge-lost', retrying:'badge-quoted', not_connected:'badge-quoted', pending:'badge-quoted' };
   content.innerHTML = `
     <div class="panel" style="margin-bottom:16px;background:var(--paper-2);border-style:dashed">
@@ -8375,7 +8380,7 @@ function renderWaLog(content, actions) {
 
 function renderAuditLog(content, actions) {
   if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
-  const list = [...STORE.auditLog].sort((a,b)=>b.createdAt-a.createdAt).slice(0,200);
+  const list = [...STORE.auditLog].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt)).slice(0,200);
   content.innerHTML = `
     <div class="panel"><div class="panel-body">
       ${list.length ? list.map(a=>`<div class="kv" style="padding:10px 18px;grid-template-columns:150px 1fr">
@@ -8453,7 +8458,7 @@ window.previewEmailLogoUrl = previewEmailLogoUrl;
 function renderSettings(content, actions) {
   if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
   const templates = { ...DEFAULT_TEMPLATES, ...(SETTINGS.templates||{}) };
-  const lastInboundSms = [...STORE.smsMessages].filter(m=>m.direction==='inbound').sort((a,b)=>(b.receivedAt||0)-(a.receivedAt||0))[0];
+  const lastInboundSms = [...STORE.smsMessages].filter(m=>m.direction==='inbound').sort((a,b)=>recordTimestamp(b.receivedAt)-recordTimestamp(a.receivedAt))[0];
   const pendingCount = STORE.smsMessages.filter(m=>m.matchAmbiguous).length;
   content.innerHTML = `
     <details class="settings-tools">
@@ -8677,7 +8682,7 @@ function renderJobDetail(content, id) {
   const cust = getOne('customers', j.customerId);
   const linkedEstimate = (j.estimateId && getOne('estimates', j.estimateId)) || STORE.estimates.find(e=>e.convertedJobId===id);
   const linkedInvoice = STORE.invoices.find(i=>i.jobId===id);
-  const events = STORE.auditLog.filter(a=>a.entityType==='jobs' && a.entityId===id).sort((a,b)=>b.createdAt-a.createdAt);
+  const events = STORE.auditLog.filter(a=>a.entityType==='jobs' && a.entityId===id).sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
 
   // Smart next action — derived strictly from real linked record state, never invented.
   let smartAction = null;
@@ -9598,7 +9603,7 @@ function renderInvoices(content, actions) {
   if (route.id) return renderDocumentView('invoice', route.id);
   const filter = searchTerms.invoiceFilter || 'all';
   const term = (searchTerms.invoices||'').toLowerCase();
-  let list = [...STORE.invoices].sort((a,b)=>b.createdAt-a.createdAt);
+  let list = [...STORE.invoices].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
   if (filter === 'outstanding') list = list.filter(inv=>balanceDue(inv)>0);
   if (filter === 'paid') list = list.filter(inv=>balanceDue(inv)<=0 && invoiceTotal(inv)>0);
   if (term) list = list.filter(inv => [(inv.number||''),(inv.customerName||'')].some(v=>v.toLowerCase().includes(term)));
@@ -9866,7 +9871,7 @@ function renderDocumentView(type, id) {
     </div>
   `;
   if (docViewMode === 'history') {
-    const events = STORE.auditLog.filter(a=>a.entityType===col && a.entityId===id).sort((a,b)=>b.createdAt-a.createdAt);
+    const events = STORE.auditLog.filter(a=>a.entityType===col && a.entityId===id).sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
     const eventIcons = { estimate_created:'📋', estimate_edited:'✎', estimate_signed:'✍️', converted_to_job:'🔧', converted_to_invoice:'🧾', created_from_estimate:'📋', invoice_created:'🧾', invoice_edited:'✎', payment_recorded:'💳', sent_email:'✉️', prepared_text:'💬' };
     content.innerHTML = `
       <div class="doc-wrap">

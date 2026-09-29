@@ -92,3 +92,52 @@ Meta/WhatsApp connections, real secretary identity, routing inputs, and the
 previously documented password-protection/backup verification remain separate
 owner/provider completion items. Original recordings remain separate from the
 owner-accepted, labeled synthetic transcript replay.
+
+## Follow-up: Team Performance and history ordering
+
+Baseline: main `1e3633f8d3c85b0c9d342eac24be542dee77bc92`, deployed by
+READY production deployment `dpl_ACHqn6YoJouvr9unjUkSrAkud8AA` after PR #185.
+
+Two further defects were reproduced from the production source:
+
+- Team Performance still grouped by display name. A single renamed technician's
+  $1,000 invoice was counted twice in the report total. It now shares the payroll
+  identity resolver, separates same-name people by saved ID, labels ambiguous
+  legacy assignments and excludes deleted jobs/invoices. The existing invoice
+  tax-inclusive revenue and applied-payment calculations are preserved.
+- History comparators subtracted database ISO timestamp strings, producing NaN
+  and leaving mixed-source events in collection order. One shared timestamp
+  parser now handles server strings and legacy numeric timestamps. It is used
+  by audit/communications/customer history and the affected notification,
+  document, inventory, expense and supplier lists. Newest-first lists stay
+  newest-first; SMS conversations stay oldest-first. Stored dates are unchanged.
+
+The new executable report/history audit passes 14 cases. Together with the
+15 payroll cases, 29 targeted tests pass; strict safety checks remain 22/22.
+All 60 release steps passed with the new audit included.
+The tests execute the production renderers and calculations with synthetic
+records. They cover duplicate/renamed identities, deleted records, all linked
+invoices, tax and payment accounting, access guards, escaped names, mixed
+timestamps, merged communication sources, the newest-200 history cutoff and
+ascending SMS order. They do not substitute for browser/handset acceptance.
+
+## Current closeout checklist
+
+Read-only configuration and source inspection in this follow-up distinguish
+implemented infrastructure from the work still required. Broad issues #133–#139
+remain open; the table is not a claim that every item in those issues is broken.
+
+| Area | Current evidence | Remaining work |
+| --- | --- | --- |
+| Technician earnings | Owner/Office payroll works; technician route and renderer access still exclude payroll | Implement the requested personal earnings view with own-only data and verify using a real technician session |
+| Activity history | Date ordering fixed; current Audit Log displays date, action and summary | Complete the richer actor/change/reason history presentation and acceptance |
+| Payments and signing | All 13 Square-backed invoices have payment links; webhook URL and signature configuration exist; rollback workflow checks passed | Current end-to-end signing, payment/receipt and website intake acceptance; a link alone does not prove checkout settlement |
+| SMS/email | 44 SMS rows have provider delivery confirmation and none are failed in the inspected set; 20 email-delivered events exist | Complete the required current handset/recipient acceptance; these counts do not certify every future send |
+| Google Ads/social/WhatsApp | No Google Ads connection rows and no marketing OAuth connection rows; WhatsApp integration alert remains | Connect owner-selected provider accounts and verify real delivery/marketing flows |
+| Office account | Office role and authorization are implemented; no real Office login exists | Owner supplies the actual staff name and email; provision that person |
+| AI pricing and dispatch | Only 2 of 166 active catalog items have positive prices; routing is Recommendations; all 3 enabled technician profiles explicitly contain demo data | Replace demo hours, travel, skills and cost inputs with owner-approved business values; supply actual prices before enabling automated pricing/dispatch |
+| Mobile/desktop acceptance | Automated checks pass; this session's browser daemon failed at startup | Real desktop, iPhone and iPad checks of the final flows |
+| Operations | Backend recovered after the documented transient 5xx cluster; root cause unknown | Review the backend incident and verify password-protection and backup/recovery settings in their dashboards |
+
+No live customer message, live charge, invented staff account, routing-mode
+change or replacement of demo profiles was made by this report/history patch.
