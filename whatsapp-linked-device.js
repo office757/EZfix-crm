@@ -96,16 +96,27 @@ const base=renderCommunications;
 window.selectCommunicationChannel=function(channel){
  captureDraft();searchTerms.commFilter=channel;searchTerms.commSelected=null;render();
 };
+const emailDraft={to:'',subject:'',body:''};
+window.captureCommunicationEmail=function(form){for(const key of ['to','subject','body'])emailDraft[key]=form.elements[key].value;};
+window.sendCommunicationEmail=async function(form){
+ if(!allowed()||form.dataset.sending==='true')return;
+ const to=form.elements.to.value.trim(),subject=form.elements.subject.value.trim(),body=form.elements.body.value.trim();
+ if(!to||!subject||!body)return toast('Enter an email, subject and message.',true);
+ form.dataset.sending='true';const button=form.querySelector('button[type="submit"]');button.disabled=true;
+ try{if(await tryGmailSend(to,subject,body)){for(const key of ['to','subject','body'])emailDraft[key]='';form.reset();await refreshCollection('auditLog');}}
+ catch(e){toast(e.message||'Email could not be sent.',true);}
+ finally{form.dataset.sending='false';button.disabled=false;}
+};
 renderCommunications=function(content,actions){
  base(content,actions);
  if(!allowed())return;
  const filter=searchTerms.commFilter||'all';
- actions.innerHTML=`<button class="btn ${filter==='all'?'btn-primary':''}" onclick="selectCommunicationChannel('all')">💬 Communications</button><button class="btn ${filter==='email'?'btn-primary':''}" onclick="selectCommunicationChannel('email')">✉️ Email</button><button class="btn" onclick="openCallAudioHistory()">☎️ Call History &amp; Audio</button><button class="btn ${filter==='whatsapp'?'btn-primary':''}" onclick="WhatsAppLinked.open()"><span aria-hidden="true">🟢</span> WhatsApp</button>`;
+ actions.innerHTML='';
  const tabs=content.querySelector('.toolbar > div');
- if(tabs)tabs.insertAdjacentHTML('beforeend',`<button class="btn btn-sm ${filter==='whatsapp'?'btn-primary':''}" onclick="WhatsAppLinked.open()">WhatsApp</button>`);
+ if(tabs)tabs.innerHTML=[['all','▦','All'],['unread','🔔','Unread'],['email','✉️','Email'],['calls','☎️','Calls'],['sms','💬','SMS'],['whatsapp','🟢','WhatsApp']].map(([key,icon,label])=>`<button class="btn btn-sm ${filter===key?'btn-primary':''}" onclick="${key==='whatsapp'?'WhatsAppLinked.open()':`selectCommunicationChannel('${key}')`}"><span aria-hidden="true">${icon}</span> ${label}</button>`).join('')+'<button class="btn btn-sm" onclick="openCallAudioHistory()">🎧 Call History &amp; Audio</button>';
  if(filter==='email'){
-  const toolbar=content.querySelector('.toolbar');
-  if(toolbar)toolbar.insertAdjacentHTML('afterend','<div style="margin-bottom:12px"><button class="btn btn-primary" onclick="OfficeWorkspace.email()">✉️ New email</button></div>');
+  const split=content.querySelector('.comm-split');
+  if(split)split.insertAdjacentHTML('beforebegin',`<form id="comm_email_compose" oninput="captureCommunicationEmail(this)" onsubmit="event.preventDefault();sendCommunicationEmail(this)" style="margin:12px 0"><label class="field"><span class="lbl">To</span><input name="to" value="${esc(emailDraft.to)}" type="email" required autocomplete="email"></label><label class="field"><span class="lbl">Subject</span><input name="subject" value="${esc(emailDraft.subject)}" required maxlength="200"></label><label class="field"><span class="lbl">Message</span><textarea name="body" required rows="4">${esc(emailDraft.body)}</textarea></label><button class="btn btn-primary" type="submit">✉️ Send email</button></form>`);
  }
  if(filter==='whatsapp'){
   const split=content.querySelector('.comm-split');
