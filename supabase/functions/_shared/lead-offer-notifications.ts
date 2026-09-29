@@ -17,6 +17,14 @@ async function tokenPair(){
  const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw)))].map(x=>x.toString(16).padStart(2,'0')).join('');
  return {raw,hash};
 }
+// Store only bounded diagnostics: SDK errors may contain phone numbers or tokens.
+export function smsFailure(error:any,stage:string){
+ const http=Number(error?.statusCode);
+ const rejected=stage==='identity'||(stage==='send'&&[400,401,402,403,404,405,422,429].includes(http));
+ const kind=error?.name==='RecipientBlockedError'?'recipient_blocked':error?.name==='InkboxConnectionError'?'connection_error':error?.name==='AbortError'||error?.name==='TimeoutError'?'timeout':'provider_error';
+ const code=Number.isInteger(http)&&http>=400&&http<=599?` HTTP ${http}`:'';
+ return {status:rejected?'failed':'unconfirmed',reason:`SMS ${stage}: ${kind}${code}. ${rejected?'Not accepted by provider.':'Provider outcome unknown. Do not resend automatically.'}`};
+}
 export async function notifyLeadOffer(db:any,offer:any){
  const {data:claimed,error:claimError}=await db.rpc('service_claim_offer_notification',{p_offer_id:offer.id});
  if(claimError||!claimed)return {state:'unconfirmed',in_app:{status:'created'}};
@@ -42,10 +50,13 @@ export async function notifyLeadOffer(db:any,offer:any){
   // The offer notification claim above prevents repeat sends. Provider identity
   // fields are immutable in sms_messages, so persist them at initial creation.
   const row={id,provider:'inkbox',channel:'sms',direction:'outbound',local_phone_number:'+15083510523',remote_phone_number:to,normalized_remote_phone:to,message_type:'lead_offer',message_text:text,provider_event_ids:['lead_offer:'+offer.id],created_at:now};
+  let stage='identity';
   try{
    const identity=await new Inkbox({apiKey,timeoutMs:6000}).getIdentity('ashley-ezfixgaragedoorsinc');
    if(!current())throw new Error('expired');
+   stage='send';
    const sent:any=await identity.sendText({to,text});
+   stage='persist';
    const at=new Date().toISOString();
    const status=sent.id?(['queued','sent','delivered','failed'].includes(sent.deliveryStatus)?sent.deliveryStatus:'queued'):'delivery_unconfirmed';
    const saved=await db.from('sms_messages').insert({...row,provider_message_id:sent.id||null,provider_conversation_id:sent.conversationId||null,provider_status:status,provider_created_at:sent.createdAt||at,sent_at:sent.id?at:null,delivered_at:status==='delivered'?at:null,failed_at:status==='failed'?at:null,failure_reason:status==='failed'?'Provider reported delivery failure.':null,updated_at:at});
@@ -56,9 +67,11 @@ export async function notifyLeadOffer(db:any,offer:any){
     if(!existing.error&&existing.data?.id)return {status:existing.data.provider_status||'unconfirmed',message_id:existing.data.id};
    }
    return {status:saved.error?'unconfirmed':status,message_id:id};
-  }catch{
-   await db.from('sms_messages').insert({...row,provider_status:'delivery_unconfirmed',failure_reason:'Provider outcome unknown. Do not resend automatically.',updated_at:new Date().toISOString()});
-   return {status:'unconfirmed',message_id:id};
+  }catch(error){
+   const failure=smsFailure(error,stage),at=new Date().toISOString();
+   console.error('lead_offer_sms',JSON.stringify({offer_id:offer.id,reason:failure.reason}));
+   const saved=await db.from('sms_messages').insert({...row,provider_status:failure.status==='failed'?'failed':'delivery_unconfirmed',failure_reason:failure.reason,...(failure.status==='failed'?{failed_at:at}:{}),updated_at:at});
+   return {status:saved.error?'unconfirmed':failure.status,message_id:id};
   }
  }
  async function whatsapp(){

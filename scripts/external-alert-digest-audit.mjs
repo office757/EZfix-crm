@@ -15,7 +15,8 @@ ok(fn.includes('provider_outcome_unknown'),'unknown provider outcome is explicit
 ok(fn.includes('No customer names, phone numbers, email addresses, or message contents'),'email explicitly contains no customer PII');
 ok(!fn.includes('customer_name') && !fn.includes('remote_number') && !fn.includes('message_text'),'digest queries do not fetch customer names/phones/message bodies');
 ok(fn.includes("['failed', 'not_configured', 'blocked_no_opt_in']") || fn.includes('["failed", "not_configured", "blocked_no_opt_in"]'),'WhatsApp failure states are monitored');
-ok(fn.includes('provider_status", "failed') || fn.includes('provider_status", "failed"'),'SMS provider failures are monitored');
+ok(fn.includes('.in("provider_status", ["failed", "delivery_unconfirmed"])'),'SMS failures and unknown outcomes are monitored');
+ok(fn.includes('SMS failed / delivery unconfirmed'),'digest does not label unknown delivery as confirmed failure');
 ok(fn.includes('ambiguous_identity') && fn.includes('needs_review'),'call review states are monitored');
 ok(fn.includes('square_webhook_events') && fn.includes('error_text'),'Square webhook errors are monitored');
 ok(fn.includes('priority", "high') || fn.includes('eq("priority", "high")'),'high-priority tasks are monitored');

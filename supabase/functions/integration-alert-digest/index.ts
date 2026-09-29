@@ -57,7 +57,7 @@ function digestHtml(counts: Record<string, number>, total: number, periodStart: 
     <p style="margin:0 0 20px;color:#666">${total} new production issue${total===1?"":"s"} detected.</p>
     <table style="width:100%;border-collapse:collapse">
       ${row("WhatsApp failure / setup block", counts.whatsapp, "team")}
-      ${row("SMS provider failure", counts.sms, "communications")}
+      ${row("SMS failed / delivery unconfirmed", counts.sms, "communications")}
       ${row("Call needs review", counts.calls, "receptionist")}
       ${row("High-priority task", counts.tasks, "followups")}
       ${row("Square webhook error", counts.square, "invoices")}
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
       .in("status", ["failed", "not_configured", "blocked_no_opt_in"]),
     admin.from("sms_messages").select("id,provider_status,updated_at")
       .gt("updated_at", periodStart).lte("updated_at", periodEnd)
-      .eq("provider_status", "failed"),
+      .in("provider_status", ["failed", "delivery_unconfirmed"]),
     admin.from("calls").select("id,lead_extraction_status,created_at")
       .gt("created_at", periodStart).lte("created_at", periodEnd)
       .in("lead_extraction_status", ["ambiguous_identity", "needs_review"]),
@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
   const textBody = [
     `EZfix CRM detected ${total} new production issue(s).`,
     `WhatsApp: ${counts.whatsapp}`,
-    `SMS failures: ${counts.sms}`,
+    `SMS failed / delivery unconfirmed: ${counts.sms}`,
     `Calls needing review: ${counts.calls}`,
     `High-priority tasks: ${counts.tasks}`,
     `Square webhook errors: ${counts.square}`,
