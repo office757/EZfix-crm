@@ -131,7 +131,8 @@ remain open; the table is not a claim that every item in those issues is broken.
 | --- | --- | --- |
 | Technician earnings | Personal My Earnings page implemented; 18 UI/calculation/identity tests and 11 live-schema permission checks pass; signed-in owner preview verified two technician reports, date presets and job links | Final acceptance in a real technician login, including mobile |
 | Activity history | Searchable actor/time/record history and before/after values implemented; 17 business tables record changes atomically; 14 renderer tests and 16 live-schema checks pass; signed-in owner filters, details and record links verified | Older events cannot supply details that were never recorded |
-| Payments and signing | All 13 Square-backed invoices have payment links; webhook URL and signature configuration exist; rollback workflow checks passed | Current end-to-end signing, payment/receipt and website intake acceptance; a link alone does not prove checkout settlement |
+| Payments and signing | All 13 Square-backed invoices have payment links; rollback workflow checks passed; an existing settled invoice, delivered receipt, scoped customer page and signed estimate were verified live; invalid invoice token exposes no document | A new coordinated signing/payment/receipt acceptance remains; existing records do not prove a new checkout settlement |
+| Website intake | A current website submission returned HTTP 200 and created its linked appointment; the saved appointment date now appears correctly in the review form | Office must review required contact/address/ZIP details before dispatch; no coordinated test submission was sent in this pass |
 | SMS/email | 44 SMS rows have provider delivery confirmation and none are failed in the inspected set; 20 email-delivered events exist | Complete the required current handset/recipient acceptance; these counts do not certify every future send |
 | Google Ads/social/WhatsApp | No Google Ads connection rows and no marketing OAuth connection rows; WhatsApp integration alert remains | Connect owner-selected provider accounts and verify real delivery/marketing flows |
 | Office account | Office role and authorization are implemented; no real Office login exists | Owner supplies the actual staff name and email; provision that person |
@@ -195,7 +196,7 @@ Baseline: main `f63a3d7ba7ce2e6c92e29834a9a11b309e156fd0` after PR #186.
 - Security advisors report no new public audit function. Existing token-backed
   public document APIs, authenticated helpers and private tables remain noted
   by the advisor; leaked-password protection is still explicitly disabled.
-- Cloud browser access works; the current session is signed out. No real
+- Cloud browser access worked; the session was signed out at that stage. No real
   customer messages, charges or signatures were submitted during these tests.
 
 Migration filenames match the versions recorded by the production migration
@@ -266,3 +267,32 @@ Actual technician login remains pending; the attempted separate production
 alias redirected to Vercel authentication and automatic browser approval blocked
 that unrequested account destination. The already-authorized CRM owner session
 remains usable. No deployment protection or authentication control was bypassed.
+
+## Dispatch review follow-up
+
+PR #189 was merged as `7a52ad37736407722f69a64e6f2a18be56dc4902` and production
+deployment `dpl_5iN9TpQk8hKjhzE3kK8z71aq1ff6` reached READY. The signed-in owner
+review form now displays the website appointment date and time correctly.
+
+The 16:10–16:41 UTC backend window contained no HTTP 5xx. It included one
+successful website intake and nine rejected `approve_lead_for_dispatch` calls.
+PostgreSQL error context places all nine at the required customer-field guard
+(name, phone, address, ZIP). These were existing live attempts, not our browser
+submissions. The separate invalid-invoice-token 400 was the deliberate negative
+access test described above.
+
+The lead list previously called every pre-created website job "Approved for
+dispatch" and opened technician selection even when approval would reject
+incomplete details. It now distinguishes an appointment from a completed office
+conversion, lists missing required details, and opens a review prompt with a
+direct link to the lead editor. No approval or provider call occurs at that
+point. Submit rechecks the current lead and office role, and reports a server
+rejection without sending an offer. The database remains authoritative.
+
+Twelve executable cases exercise the production handlers and renderer, including
+the review link, ZIP+4, missing technician, changed/removed lead, changed role,
+backend rejection and the successful approval-before-provider order. Provider
+calls are stubbed; no live offer or message was sent. All **65 release steps** and
+all **22 strict safety checks** pass. The existing **215 live-schema rollback
+checks** remain the database evidence; this UI-only change introduces no schema
+or live-record mutations.
