@@ -6,7 +6,7 @@ const source=fs.readFileSync(new URL('../notification-alerts.js',import.meta.url
 function setup({owner=true, rows=[], saved='[]', deny=false, error=false}={}) {
  const elements=[]; const writes=[]; const notices=[]; const storage=new Map([['ezfix-lead-alerts:owner',saved]]);
  const body={appendChild:e=>elements.push(e)};
- const c={IS_OWNER:owner,CURRENT_TEAM_MEMBER:{id:'owner'},isTechnicianView:()=>false,STORE:{leads:[],auditLog:rows},window:{},console:{error(){}},sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},document:{activeElement:null,body,createElement:tag=>({tag,style:{},children:[],setAttribute(){},append(...x){this.children.push(...x)},addEventListener(type,fn){this[type]=fn},showModal(){this.open=true},close(){this.open=false},remove(){this.removed=true},focus(){}})},refreshCollection:async()=>{},requireSession:async()=>true,signOutCrm:async()=>{},markEventRead(){},markAllEventsRead(){},renderPreserveScroll(){},refreshNotifBadge(){},toast:m=>notices.push(m),SB:{from:()=>({update:patch=>({in:(_,ids)=>({select:async()=>{writes.push({patch,ids});if(error)return{error:Error('offline')};if(deny)return{data:[]};rows.forEach(r=>{if(ids.includes(r.id))r.read=patch.read});return{data:rows.filter(r=>ids.includes(r.id)).map(r=>({...r}))};}})})})}};
+ const c={IS_OWNER:owner,CURRENT_TEAM_MEMBER:{id:'owner'},isTechnicianView:()=>false,STORE:{leads:[],auditLog:rows},dbReady:true,setInterval(fn){c.poll=fn},window:{addEventListener(){}},console:{error(){},warn(){}},sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},document:{hidden:false,addEventListener(){},activeElement:null,body,createElement:tag=>({tag,style:{},children:[],setAttribute(){},append(...x){this.children.push(...x)},addEventListener(type,fn){this[type]=fn},showModal(){this.open=true},close(){this.open=false},remove(){this.removed=true},focus(){}})},refreshCollection:async()=>{},requireSession:async()=>true,signOutCrm:async()=>{},markEventRead(){},markAllEventsRead(){},renderPreserveScroll(){},refreshNotifBadge(){},toast:m=>notices.push(m),SB:{from:()=>({update:patch=>({in:(_,ids)=>({select:async()=>{writes.push({patch,ids});if(error)return{error:Error('offline')};if(deny)return{data:[]};rows.forEach(r=>{if(ids.includes(r.id))r.read=patch.read});return{data:rows.filter(r=>ids.includes(r.id)).map(r=>({...r}))};}})})})}};
  vm.createContext(c);vm.runInContext(source,c);
  return {c,elements,writes,notices,storage,load:async leads=>{c.STORE.leads=leads;await c.refreshCollection('leads')},dialogs:()=>elements.filter(e=>e.tag==='dialog'&&!e.removed)};
 }
@@ -36,4 +36,14 @@ test('individual unread and read operations are verified',async()=>{
 });
 test('lead text is inserted as text, not markup',async()=>{
  const x=setup();await x.load([]);await x.load([{id:'x',name:'<img onerror=alert(1)>'}]);assert.equal(x.dialogs()[0].children[1].textContent,'<img onerror=alert(1)>');assert.equal(x.dialogs()[0].children[1].innerHTML,undefined);
+});
+
+test('visible owner polling catches a lead without a WebSocket event',async()=>{
+ const x=setup();await x.load([]);x.c.STORE.leads=[{id:'missed',name:'Missed socket event'}];await x.c.poll();assert.equal(x.dialogs().length,1);
+});
+test('polling skips hidden, unready and non-owner sessions',async()=>{
+ for(const option of ['hidden','unready','technician']){const x=setup();await x.load([]);x.c.STORE.leads=[{id:'missed'}];if(option==='hidden')x.c.document.hidden=true;if(option==='unready')x.c.dbReady=false;if(option==='technician')x.c.IS_OWNER=false;await x.c.poll();assert.equal(x.dialogs().length,0);}
+});
+test('saved baseline catches a lead first loaded after page reload',async()=>{
+ const x=setup();x.storage.set('ezfix-lead-alerts:owner:seen','["old"]');await x.load([{id:'old'},{id:'arrived',name:'Arrived before reload'}]);assert.equal(x.dialogs().length,1);assert.equal(x.dialogs()[0].children[1].textContent,'Arrived before reload');
 });

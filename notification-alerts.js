@@ -6,10 +6,14 @@
   let seen = new Set();
   let pending = [];
   let activeDialog = null;
+  let polling = false;
   const ownerActive = () => IS_OWNER && !isTechnicianView() && CURRENT_TEAM_MEMBER?.id;
   const storageKey = () => `ezfix-lead-alerts:${identity}`;
   function persist() {
-    try { sessionStorage.setItem(storageKey(), JSON.stringify(pending)); } catch (_) {}
+    try {
+      sessionStorage.setItem(storageKey(), JSON.stringify(pending));
+      sessionStorage.setItem(storageKey() + ':seen', JSON.stringify([...seen]));
+    } catch (_) {}
   }
   function resetIdentity() {
     const next = CURRENT_TEAM_MEMBER?.id || null;
@@ -19,6 +23,8 @@
     try {
       const saved = JSON.parse(sessionStorage.getItem(storageKey()) || '[]');
       if (Array.isArray(saved)) pending = saved.filter(id => typeof id === 'string');
+      const baseline = JSON.parse(sessionStorage.getItem(storageKey() + ':seen') || 'null');
+      if (Array.isArray(baseline)) { seen = new Set(baseline.filter(id => typeof id === 'string')); initialized = true; }
     } catch (_) {}
   }
   function displayNext() {
@@ -70,6 +76,21 @@
     if (col === 'leads') syncLeads();
     return result;
   };
+  // WebSocket delivery can stop while the browser still displays a connected page.
+  // Poll only the signed-in owner's visible page; preserve active forms and dialogs.
+  async function refreshOwnerNotifications() {
+    if (polling || !dbReady || document.hidden || !ownerActive()) return;
+    polling = true;
+    try {
+      await Promise.all([refreshCollection('leads'), refreshCollection('auditLog')]);
+      refreshNotifBadge();
+    } catch (error) { console.warn('Owner notification refresh unavailable', error); }
+    finally { polling = false; }
+  }
+  setInterval(refreshOwnerNotifications, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshOwnerNotifications(); });
+  window.addEventListener('online', refreshOwnerNotifications);
+  window.addEventListener('focus', refreshOwnerNotifications);
   const signOutOriginal = signOutCrm;
   signOutCrm = async function(...args) {
     if (activeDialog) { activeDialog.close(); activeDialog.remove(); activeDialog = null; }
