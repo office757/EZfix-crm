@@ -3623,6 +3623,9 @@ window.convertLead = convertLead;
 
 function openLeadModal(id) {
   const l = id ? getOne('leads', id) : null;
+  // Website intake keeps its original date as preferred_date. An explicit CRM
+  // value, including a cleared date, takes precedence over that source value.
+  const preferredAppointment=l?.preferredAppointment===undefined?l?.preferredDate:l.preferredAppointment;
   docPhotosDraft = l?.photos ? JSON.parse(JSON.stringify(l.photos)) : [];
   docPhotosDirty = false;
   const relatedCall = l?.sourceCallId ? STORE.calls.find(c=>c.providerCallId===l.sourceCallId) : null;
@@ -3661,7 +3664,7 @@ function openLeadModal(id) {
         <label class="field"><span class="lbl">Estimated value ($)</span><input type="number" step="0.01" id="f_value" value="${l?.estimatedValue ?? ''}"></label>
       </div>
       <div class="field-row">
-        <label class="field"><span class="lbl">Preferred appointment</span><input type="date" id="f_preferred" value="${l?.preferredAppointment||''}"></label>
+        <label class="field"><span class="lbl">Preferred appointment</span><input type="date" id="f_preferred" value="${esc(preferredAppointment||'')}"></label>
         <label class="field"><span class="lbl">Time window</span><input id="f_preferred_time" value="${esc(l?.preferredTime||'')}" placeholder="8:00 AM – 10:00 AM"></label>
       </div>
       <div class="field-row">
