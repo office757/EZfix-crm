@@ -5405,19 +5405,44 @@ function renderReports(content, actions) {
    ============================================================ */
 let payrollRange = { from: '', to: '' };
 let payrollCommissionOverride = {};
+function payrollDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function payrollJobTechnician(job) {
+  const matches = job.technicianId ? STORE.team.filter(m=>m.id===job.technicianId) : STORE.team.filter(m=>m.name===job.technician);
+  const member = matches.length===1 ? matches[0] : null;
+  const id = job.technicianId || member?.id;
+  return { key: id ? `id:${id}` : `legacy:${job.technician||''}`, memberId: id || '', name: member?.name || job.technician || 'Unknown technician', commissionPercent: member?.commissionPercent ?? 0, unlinked: !id };
+}
+function payrollReportCards() {
+  const technicians = new Map();
+  STORE.team.forEach(m=>{ if(m.id && m.name) technicians.set(`id:${m.id}`,{key:`id:${m.id}`,memberId:m.id,name:m.name,commissionPercent:m.commissionPercent??0,unlinked:false}); });
+  STORE.jobs.filter(j=>!j.deletedAt && (j.technicianId || j.technician)).forEach(j=>{
+    const technician = payrollJobTechnician(j);
+    if(!technicians.has(technician.key)) technicians.set(technician.key,technician);
+  });
+  return [...technicians.values()].sort((a,b)=>a.name.localeCompare(b.name)||a.key.localeCompare(b.key)).map(payrollTechCardData);
+}
+function setPayrollCommission(key, value) {
+  const rate = Number(value);
+  if(!Number.isFinite(rate) || rate<0 || rate>100) return;
+  payrollCommissionOverride[key] = rate;
+  renderPreserveScroll();
+}
+window.setPayrollCommission = setPayrollCommission;
 function setPayrollPreset(preset) {
   const d = new Date();
   if (preset === 'week') {
     const day = d.getDay();
     const start = new Date(d); start.setDate(d.getDate()-day);
-    payrollRange = { from: start.toISOString().slice(0,10), to: todayISO() };
+    payrollRange = { from: payrollDateKey(start), to: payrollDateKey(d) };
   } else if (preset === 'month') {
     const start = new Date(d.getFullYear(), d.getMonth(), 1);
-    payrollRange = { from: start.toISOString().slice(0,10), to: todayISO() };
+    payrollRange = { from: payrollDateKey(start), to: payrollDateKey(d) };
   } else if (preset === 'lastmonth') {
     const start = new Date(d.getFullYear(), d.getMonth()-1, 1);
     const end = new Date(d.getFullYear(), d.getMonth(), 0);
-    payrollRange = { from: start.toISOString().slice(0,10), to: end.toISOString().slice(0,10) };
+    payrollRange = { from: payrollDateKey(start), to: payrollDateKey(end) };
   }
   render();
 }
@@ -5426,16 +5451,12 @@ function renderPayroll(content, actions) {
   if (!canOperateOffice()) { content.innerHTML = emptyState('🔒','Office access required',''); return; }
   if (!payrollRange.from) {
     const d = new Date(); d.setDate(1);
-    payrollRange.from = d.toISOString().slice(0,10);
-    payrollRange.to = todayISO();
+    payrollRange.from = payrollDateKey(d);
+    payrollRange.to = payrollDateKey();
   }
   actions.innerHTML = `<button class="btn btn-sm" onclick="exportPayrollCSV()">⬇ CSV</button>`;
 
-  const names = new Set();
-  STORE.team.forEach(m => { if (m.name) names.add(m.name); });
-  STORE.jobs.forEach(j => { if (j.technician) names.add(j.technician); });
-
-  const allCards = [...names].sort().map(name => payrollTechCardData(name));
+  const allCards = payrollReportCards();
   const grandRevenue = allCards.reduce((s,c)=>s+c.totalRevenue,0);
   const grandMaterial = allCards.reduce((s,c)=>s+c.totalMaterial,0);
   const grandPayout = allCards.reduce((s,c)=>s+c.payout,0);
@@ -5461,16 +5482,16 @@ function renderPayroll(content, actions) {
     ${allCards.length ? allCards.map(c => renderPayrollTechCardHtml(c)).join('') : emptyState('🧾','No technicians yet','Add a team member or assign a technician to a job.')}
   `;
 }
-function payrollTechCardData(name) {
-  const member = STORE.team.find(m=>m.name===name);
-  const jobs = STORE.jobs.filter(j => (member && j.technicianId ? j.technicianId===member.id : j.technician===name) && j.scheduledDate && j.scheduledDate>=payrollRange.from && j.scheduledDate<=payrollRange.to);
-  const commissionPct = payrollCommissionOverride[name] ?? (member?.commissionPercent || 0);
+function payrollTechCardData(technician) {
+  const {key,name,memberId,unlinked} = technician;
+  const jobs = STORE.jobs.filter(j => !j.deletedAt && payrollJobTechnician(j).key===key && j.scheduledDate && j.scheduledDate>=payrollRange.from && j.scheduledDate<=payrollRange.to);
+  const commissionPct = payrollCommissionOverride[key] ?? (Number(technician.commissionPercent) || 0);
   const rows = jobs.map(j => {
-    const inv = STORE.invoices.find(i=>i.jobId===j.id);
-    const t = inv ? computeTotals(inv) : null;
-    const revenue = t ? t.discountedSubtotal : 0; // pre-tax — commission never includes sales tax
-    const invoiceGrandTotal = t ? t.total : 0;
-    const paymentMethods = inv ? (inv.payments||[]).map(p=>`${p.method}: ${money(paymentAppliedAmount(p))}`).join(', ') : (j.paymentMethod ? `${j.paymentMethod}: ${money(revenue)}` : '');
+    const invoices = STORE.invoices.filter(i=>i.jobId===j.id && !i.deletedAt);
+    const totals = invoices.map(computeTotals);
+    const revenue = totals.reduce((s,t)=>s+t.discountedSubtotal,0); // pre-tax — commission never includes sales tax
+    const invoiceGrandTotal = totals.reduce((s,t)=>s+t.total,0);
+    const paymentMethods = invoices.length ? invoices.flatMap(i=>(i.payments||[]).map(p=>`${p.method}: ${money(paymentAppliedAmount(p))}`)).join(', ') : (j.paymentMethod ? `${j.paymentMethod}: ${money(revenue)}` : '');
     const materialCost = Number(j.materialCost)||0;
     const partsPaidBy = j.partsPaidBy === 'technician' ? 'technician' : 'company';
     const jobProfit = revenue - materialCost;
@@ -5478,7 +5499,7 @@ function payrollTechCardData(name) {
     const reimbursement = partsPaidBy === 'technician' ? materialCost : 0;
     const jobCut = commission + reimbursement;
     const itemLine = [j.title, j.description].filter(Boolean).join(' — ');
-    return { job: j, revenue, invoiceGrandTotal, materialCost, partsPaidBy, reimbursement, commission, paymentMethods, invNumber: inv?.number||'', jobProfit, jobCut, itemLine };
+    return { job: j, revenue, invoiceGrandTotal, materialCost, partsPaidBy, reimbursement, commission, paymentMethods, invNumber: invoices.map(i=>i.number).filter(Boolean).join(', '), jobProfit, jobCut, itemLine };
   });
   const totalRevenue = rows.reduce((s,r)=>s+r.revenue,0);
   const totalMaterial = rows.reduce((s,r)=>s+r.materialCost,0);
@@ -5486,13 +5507,13 @@ function payrollTechCardData(name) {
   const profit = totalRevenue - totalMaterial;
   const commission = rows.reduce((s,r)=>s+r.commission,0);
   const payout = commission + totalReimbursement;
-  return { name, jobs, rows, totalRevenue, totalMaterial, totalReimbursement, profit, commission, commissionPct, payout };
+  return { key, name, memberId, unlinked, jobs, rows, totalRevenue, totalMaterial, totalReimbursement, profit, commission, commissionPct, payout };
 }
 function renderPayrollTechCardHtml(c) {
-  const { name, jobs, rows, totalRevenue, totalMaterial, totalReimbursement, profit, commission, commissionPct, payout } = c;
+  const { key, name, memberId, unlinked, jobs, rows, totalRevenue, totalMaterial, totalReimbursement, profit, commission, commissionPct, payout } = c;
   return `
     <div class="panel" style="margin-bottom:18px">
-      <div class="panel-head"><h3>${esc(name)}</h3><span class="muted">${jobs.length} job(s)</span></div>
+      <div class="panel-head"><div><h3>${esc(name)}</h3>${unlinked?'<span class="muted">Legacy assignment — review technician identity</span>':STORE.team.filter(m=>m.name===name).length>1?`<span class="muted">Team ID: ${esc(memberId)}</span>`:''}</div><span class="muted">${jobs.length} job(s)</span></div>
       <div class="panel-body">
         ${rows.length ? rows.map(r=>`
           <div class="clickable" style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:flex-start" onclick="go('jobs','${r.job.id}')">
@@ -5522,7 +5543,7 @@ function renderPayrollTechCardHtml(c) {
         </div>
         <div class="field-row" style="margin-top:10px;align-items:end">
           <label class="field" style="max-width:160px"><span class="lbl">Commission %</span>
-            <input type="number" step="0.1" min="0" max="100" value="${commissionPct}" oninput="payrollCommissionOverride['${esc(name)}']=parseFloat(this.value)||0; renderPreserveScroll()">
+            <input type="number" step="0.1" min="0" max="100" value="${commissionPct}" data-payroll-key="${esc(key)}" oninput="setPayrollCommission(this.dataset.payrollKey,this.value)">
           </label>
           <div class="field">
             <div class="lbl">Payout</div>
@@ -5534,23 +5555,15 @@ function renderPayrollTechCardHtml(c) {
   `;
 }
 function exportPayrollCSV() {
-  const names = new Set();
-  STORE.team.forEach(m => { if (m.name) names.add(m.name); });
-  STORE.jobs.forEach(j => { if (j.technician) names.add(j.technician); });
-  const rows = [];
-  names.forEach(name => {
-    const jobs = STORE.jobs.filter(j => j.technician===name && j.scheduledDate && j.scheduledDate>=payrollRange.from && j.scheduledDate<=payrollRange.to);
-    jobs.forEach(j => {
-      const inv = STORE.invoices.find(i=>i.jobId===j.id);
-      rows.push({
-        technician: name, date: j.scheduledDate, job: j.title, customer: j.customerName,
-        description: j.description, materialCost: (Number(j.materialCost)||0).toFixed(2),
-        revenuePreTax: inv ? computeTotals(inv).discountedSubtotal.toFixed(2) : '0.00',
-        paymentMethod: inv ? [...new Set((inv.payments||[]).map(p=>p.method))].join('; ') : (j.paymentMethod||''),
-      });
-    });
-  });
-  exportCSV(`payroll_${payrollRange.from}_to_${payrollRange.to}.csv`, ['technician','date','job','customer','description','materialCost','revenuePreTax','paymentMethod'], rows);
+  if (!canOperateOffice()) return;
+  const rows = payrollReportCards().flatMap(c=>c.rows.map(r=>({
+    technician: c.name, technicianId: c.memberId, date: r.job.scheduledDate, job: r.job.title, customer: r.job.customerName,
+    description: r.job.description, invoiceNumbers: r.invNumber, materialCost: r.materialCost.toFixed(2),
+    partsPaidBy: r.partsPaidBy, revenuePreTax: r.revenue.toFixed(2), profit: r.jobProfit.toFixed(2),
+    commissionPercent: c.commissionPct, commission: r.commission.toFixed(2), reimbursement: r.reimbursement.toFixed(2),
+    payout: r.jobCut.toFixed(2), paymentMethod: r.paymentMethods,
+  })));
+  exportCSV(`payroll_${payrollRange.from}_to_${payrollRange.to}.csv`, ['technician','technicianId','date','job','customer','description','invoiceNumbers','materialCost','partsPaidBy','revenuePreTax','profit','commissionPercent','commission','reimbursement','payout','paymentMethod'], rows);
 }
 window.exportPayrollCSV = exportPayrollCSV;
 
