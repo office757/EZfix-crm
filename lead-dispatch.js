@@ -13,7 +13,19 @@ const channelName=c=>({in_app:'the app',sms:'SMS',whatsapp:'WhatsApp'}[c]||'the 
 const offerState=o=>o.status==='pending'&&!remaining(o)?'expired':o.status;
 const run=async(key,fn)=>{if(busy.has(key))return;busy.add(key);try{await fn();}catch(e){toast(e?.message||'Could not save. Try again.',true);}finally{busy.delete(key);}};
 const rpc=async(name,body)=>{const {data,error}=await SB.rpc(name,body);if(error)throw error;return data;};
-const api=async(body)=>{const {data,error}=await SB.functions.invoke('lead-dispatch',{body});if(error)throw new Error(data?.error||error.message);if(!data?.ok)throw new Error(data?.error||'Dispatch unavailable');return data;};
+const api=async(body)=>{
+ const {data,error}=await SB.functions.invoke('lead-dispatch',{body});
+ if(error){
+  let reason=data?.error;
+  if(!reason&&typeof error.context?.json==='function'){
+   try{const response=error.context.clone?error.context.clone():error.context;reason=(await response.json())?.error;}catch{}
+  }
+  throw new Error(reason||error.message||'Dispatch unavailable');
+ }
+ if(!data?.ok)throw new Error(data?.error||'Dispatch unavailable');return data;
+};
+// Infer only an explicit US state + ZIP suffix; never treat a street number as ZIP.
+const zipForReview=l=>String(l.zip||'').trim()||String(l.address||'').trim().match(/\b(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\s+(\d{5}(?:-\d{4})?)$/i)?.[1]||'';
 const reload=async()=>{await Promise.all(['leads','jobs','customers','leadOffers','jobEvidence','leadPartners'].map(refreshCollection));};
 function offerCard(o){const sec=remaining(o);return `<article class="dispatch-card dispatch-offer" data-offer="${safeId(o.id)}"><div class="dispatch-meta">${o.routingSource==='ashley'?'✨ ASHLEY SENT YOU A LEAD':'📬 NEW LEAD OFFER'}</div><div class="dispatch-zip">ZIP ${esc(o.zip)}</div><p>Accept to see the customer’s address and service details.</p><div class="dispatch-once">One approval in the app, SMS or WhatsApp.</div><div class="dispatch-actions"><span class="dispatch-timer" data-countdown="${safeId(o.id)}">${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}</span><button class="btn btn-primary" data-respond="${safeId(o.id)}" onclick="Dispatch.respond(${clickArg(o.id)},true)">Accept lead</button><button class="btn" data-respond="${safeId(o.id)}" onclick="Dispatch.respond(${clickArg(o.id)},false)">Decline</button></div></article>`;}
 function alertsHtml(){const offers=(STORE.leadOffers||[]).filter(o=>o.technicianId===techId()&&offerState(o)==='pending');return offers.length?`<div class="dispatch-grid" style="margin-bottom:16px">${offers.map(offerCard).join('')}</div>`:'';}
@@ -79,7 +91,31 @@ window.Dispatch={
  tab(v){sourceTab=!!v;go('leads');},
  newReferral(id){openLeadModal();document.getElementById('f_partner').value=id;},
  editSource(id){if(!office())return;const p=(STORE.leadPartners||[]).find(x=>x.id===id);showModal({title:p?'Edit lead source':'Add lead source',body:`${[['name','Contact name',p?.name],['company','Company',p?.company],['phone','SMS phone',p?.phone],['whatsapp','WhatsApp phone',p?.whatsapp],['email','Email address',p?.email]].map(([k,label,v])=>`<label class="field"><span class="lbl">${label}${k==='name'?' *':''}</span><input id="partner_${k}" type="${k==='email'?'email':['phone','whatsapp'].includes(k)?'tel':'text'}" value="${esc(v||'')}"></label>`).join('')}<label class="field"><span class="lbl">Notes</span><textarea id="partner_notes">${esc(p?.notes||'')}</textarea></label><label><input type="checkbox" id="partner_active" ${p?.active!==false?'checked':''}> Active source</label>`,onSave:async()=>{const data={};for(const k of ['name','company','phone','whatsapp','email','notes'])data[k]=document.getElementById('partner_'+k).value.trim();if(!data.name)return toast('Contact name is required',true);if(!data.phone&&!data.whatsapp&&!data.email)return toast('Add a phone number or email',true);for(const k of ['phone','whatsapp'])if(data[k]){const d=data[k].replace(/\D/g,'');data[k]='+'+(d.length===10?'1'+d:d);if(!/^\+[1-9]\d{7,14}$/.test(data[k]))return toast('Enter a valid '+k+' number',true);}if(data.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))return toast('Enter a valid email',true);data.active=document.getElementById('partner_active').checked;data.updatedAt=new Date().toISOString();if(p)await dbSet('leadPartners',p.id,data);else await dbAdd('leadPartners',data);await refreshCollection('leadPartners');closeModal();sourceTab=true;render();toast('Lead source saved');}});},
- offer(id){if(!office())return;const l=getOne('leads',id);if(!l)return;const techs=STORE.team.filter(t=>t.role==='Technician'&&t.status==='Active'&&t.authUserId);showModal({title:'Approve & offer lead',body:`<div class="dispatch-notice">Approve this service request and offer it to one technician. Only ZIP <b>${esc(l.zip||'—')}</b> is shown until acceptance. The offer expires after five minutes.</div><label class="field"><span class="lbl">Technician</span><select id="dispatch_tech" onchange="Dispatch.previewTech(this.value)"><option value="">Choose technician</option>${techs.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select></label><div id="dispatchChannelPreview"></div>${!techs.length?'<p>Add an active technician with a login in Team first.</p>':''}`,onSave:async()=>{const tid=document.getElementById('dispatch_tech').value;if(!tid)return toast('Choose a technician',true);await rpc('approve_lead_for_dispatch',{p_lead_id:id});const result=await api({action:'offer',lead_id:id,technician_id:tid});await reload();closeModal();render();toast('Offer created — five minutes to respond');if(['failed','unconfirmed','not_configured','invalid_phone','opted_out'].includes(result.notification?.sms?.status))toast('Offer is in the app. Check the SMS delivery status in Leads.',true);}});document.getElementById('modalSaveBtn').textContent='Approve & send offer';},
+ offer(id){
+  if(!office())return;
+  const l=getOne('leads',id);if(!l)return;
+  const techs=STORE.team.filter(t=>t.role==='Technician'&&t.status==='Active'&&t.authUserId);
+  showModal({title:'Approve & offer lead',body:`<div class="dispatch-notice">Approve this service request and offer it to one technician. Only the ZIP is shown until acceptance. The offer expires after five minutes.</div><label class="field"><span class="lbl">Service ZIP *</span><input id="dispatch_zip" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="10" value="${esc(zipForReview(l))}" placeholder="01770"><span class="dispatch-subtle">Confirm the service ZIP. If the lead has no separate ZIP, a ZIP already written in its address appears here for review.</span></label><label class="field"><span class="lbl">Technician</span><select id="dispatch_tech" onchange="Dispatch.previewTech(this.value)"><option value="">Choose technician</option>${techs.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select></label><div id="dispatchChannelPreview"></div>${!techs.length?'<p>Add an active technician with a login in Team first.</p>':''}`,onSave:()=>run('offer:'+id,async()=>{
+   const tid=document.getElementById('dispatch_tech').value;
+   if(!tid)throw new Error('Choose a technician');
+   const zip=document.getElementById('dispatch_zip').value.trim();
+   if(!/^\d{5}(-\d{4})?$/.test(zip))throw new Error('Enter the service ZIP: 5 digits, or ZIP+4, before sending the offer.');
+   const current=getOne('leads',id);
+   if(!current)throw new Error('Lead not available. Refresh Leads.');
+   const missing=[];
+   if(!String(current.name||'').trim()||String(current.name).startsWith('New referral from '))missing.push('customer name');
+   if(!String(current.phone||'').trim())missing.push('phone');
+   if(!String(current.address||'').trim())missing.push('service address');
+   if(missing.length)throw new Error('Open Review and complete the '+missing.join(', ')+' before sending the offer.');
+   if(zip!==String(current.zip||''))await dbSet('leads',id,{zip});
+   await rpc('approve_lead_for_dispatch',{p_lead_id:id});
+   const result=await api({action:'offer',lead_id:id,technician_id:tid});
+   closeModal();toast('Offer created — five minutes to respond');
+   if(['failed','unconfirmed','not_configured','invalid_phone','opted_out'].includes(result.notification?.sms?.status))toast('Offer is in the app. Check the SMS delivery status in Leads.',true);
+   try{await reload();render();}catch{toast('Offer created, but the list could not refresh. Refresh Leads to see its status.',true);}
+  })});
+  document.getElementById('modalSaveBtn').textContent='Approve & send offer';
+ },
  respond(id,accept){return run(id,async()=>{if(IS_OWNER&&VIEW_AS)throw new Error('Sign in as the technician to respond to an offer.');const result=await rpc('respond_lead_offer',{p_offer_id:id,p_accept:accept});await reload();if(result.status==='accepted'&&result.job_id){toast('Lead accepted');go('jobs',result.job_id);}else{toast(result.status==='expired'?'This offer has expired.':result.status==='declined'?'Offer declined.':'Offer is no longer available.');render();}});},
  photo(id,kind){const j=getOne('jobs',id);if(!j)return;const input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp,image/heic,image/heif';input.setAttribute('capture','environment');input.onchange=()=>run('photo:'+id,async()=>{const file=input.files?.[0];if(!file)return;if(!file.type.startsWith('image/')||file.size>15*1024*1024)throw new Error('Choose an image smaller than 15 MB.');toast('Uploading photo…');const asset=await uploadAsset(file,`job-evidence/${id}/${CURRENT_TEAM_MEMBER.id}`);await rpc('register_job_evidence',{p_job_id:id,p_kind:kind,p_storage_path:asset.path});await Promise.all(['jobs','jobEvidence'].map(refreshCollection));if(kind==='exterior'&&['new','scheduled','confirmed','technician_assigned','on_the_way'].includes(j.status))await updateJobStatusWithHistory(id,'arrived');render();toast('Photo saved');});input.click();},
  status(id,status){return run('status:'+id,async()=>{await setJobStatus(id,status);render();});},
