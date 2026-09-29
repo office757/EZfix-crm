@@ -46,7 +46,7 @@ export function rankTechnicians({lead,team,profiles,jobs=[],invoices=[],offers=[
   const shift=p.shifts?.[day];if(!shift)excluded.push('Outside working days');
   const prior=offers.filter(o=>o.technician_id===t.id&&o.lead_id===lead.id);if(prior.some(o=>['declined','expired','cancelled'].includes(o.status)||o.status==='pending'&&Date.parse(o.expires_at)<=now))excluded.push('Already declined or expired for this lead');
   if(offers.some(o=>o.technician_id===t.id&&o.status==='pending'&&Date.parse(o.expires_at)>now))excluded.push('Already has an unanswered offer');
-  const own=jobs.filter(j=>j.technician_id===t.id&&!j.deleted_at),dayJobs=own.filter(j=>j.scheduled_date===slot.date&&j.status!=='cancelled'),weekly=own.filter(j=>j.status==='completed'&&j.scheduled_date>=weekStart&&j.scheduled_date<weekEnd).length;
+  const own=jobs.filter(j=>j.technician_id===t.id&&!j.deleted_at),dayJobs=own.filter(j=>j.scheduled_date===slot.date&&j.status!=='cancelled'),weekly=own.filter(j=>j.status!=='cancelled'&&j.scheduled_date>=weekStart&&j.scheduled_date<weekEnd).length;
   if(dayJobs.length>=num(p.dailyLimit,1))excluded.push('Daily capacity reached');
   const duration=num(s?.durationMinutes,90),buffer=policy.bufferMinutes;let start=Math.max(slot.start,shift?.[0]||0)+(num(travel)+buffer);
   if(slot.date===today.date)start=Math.max(start,today.minute+num(travel)+buffer);
@@ -67,7 +67,7 @@ export function rankTechnicians({lead,team,profiles,jobs=[],invoices=[],offers=[
   if(expectedProfit<=0)excluded.push('Expected contribution is not positive');
   const features={profit:clamp(expectedProfit/policy.profitTarget)*100,skill:num(s?.skill)/5*100,conversion:closeRate*100,travel:clamp(1-num(travel)/policy.maxTravelMinutes)*100,availability:clamp(1-(start-slot.start)/Math.max(1,slot.end-slot.start))*100,fairness:100/(1+weekly)};
   const businessKeys=['profit','skill','conversion','travel','availability'],sum=businessKeys.reduce((a,k)=>a+policy.weights[k],0)||1,businessScore=businessKeys.reduce((a,k)=>a+features[k]*policy.weights[k],0)/sum;
-  reasons.push(`${round(expectedProfit)} estimated contribution`,`${round(closeRate*100)}% completion likelihood (${sample} recent outcomes + owner baseline)`,`${travel??'Unknown'} min travel estimate`,`${weekly} completed jobs this service week`);
+  reasons.push(`${round(expectedProfit)} estimated contribution`,`${round(closeRate*100)}% completion likelihood (${sample} recent outcomes + owner baseline)`,`${travel??'Unknown'} min travel estimate`,`${weekly} assigned or completed jobs this service week`);
   return {technician_id:t.id,name:t.name,eligible:!excluded.length,excluded,reasons,features,businessScore:round(businessScore),score:round(businessScore),weeklyJobs:weekly,expectedProfit:round(expectedProfit),travelMinutes:travel??null,durationMinutes:duration,historyCount:sample,profileVersion:record?.updated_at,slot:{date:slot.date,start:Math.round(start),end:Math.round(start+duration)},type,zip};
  });
  const eligible=candidates.filter(c=>c.eligible),best=Math.max(...eligible.map(c=>c.businessScore),0),total=Object.values(policy.weights).reduce((a,b)=>a+b,0)||1;
