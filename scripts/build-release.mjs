@@ -50,6 +50,7 @@ const scripts = [
   'build-transcript-replay-ui.mjs',
   'audit-calendar-overlap.mjs',
   'audit-calendar-date-display.mjs',
+  'audit-calendar-appointment-times.mjs',
   'build-calendar-overlap.mjs',
   'audit-calendar-premium.mjs',
   'build-calendar-premium.mjs',

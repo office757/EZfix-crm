@@ -1,7 +1,7 @@
 import vm from 'node:vm';
 // Synthetic data only. Execute the actual renderer without auth, network or DB access.
-export function renderCalendarFixture(html, { technician = false, filter = '' } = {}) {
-  const jobs = [
+export function renderCalendarFixture(html, { technician = false, filter = '', jobs:fixtureJobs } = {}) {
+  const jobs = (fixtureJobs || [
     {id:'demo-a',customerName:'Demo Wilson',appointmentWindow:'9:00 AM - 11:00 AM',technicianId:'tech-a'},
     {id:'demo-b',customerName:'Demo Taylor',appointmentWindow:'10:00 AM - 12:00 PM',technicianId:'tech-b'},
     {id:'demo-c',customerName:'Demo Morgan',appointmentWindow:'1:00 PM - 3:00 PM',technicianId:'tech-a'},
@@ -14,7 +14,7 @@ export function renderCalendarFixture(html, { technician = false, filter = '' } 
     {id:'demo-short1',customerName:'Short appointment',appointmentWindow:'8:00 AM - 8:15 AM',scheduledDate:'2026-09-29',technicianId:'tech-a'},
     {id:'demo-short2',customerName:'Following appointment',appointmentWindow:'8:30 AM - 9:00 AM',scheduledDate:'2026-09-29',technicianId:'tech-a'},
     {id:'demo-quote',customerName:'Demo "Long Name" <Family> & Sons',appointmentWindow:'10:00 AM - 12:00 PM',scheduledDate:'2026-09-30',technicianId:'tech-b'}
-  ].map((j,i)=>({scheduledDate:'2026-09-27',status:['scheduled','in_progress','waiting_for_parts','completed'][i%4],title:['Spring replacement','Opener repair','Door installation'][i%3],...j,customerId:j.id,technician:j.technicianId==='tech-a'?'Demo Tech A':'Demo Tech B'}));
+  ]).map((j,i)=>({scheduledDate:'2026-09-27',status:['scheduled','in_progress','waiting_for_parts','completed'][i%4],title:['Spring replacement','Opener repair','Door installation'][i%3],...j,customerId:j.id,technician:j.technicianId==='tech-a'?'Demo Tech A':'Demo Tech B'}));
   const escape = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const context = {
     Date, console, STORE:{jobs}, searchTerms:{calendarTech:filter}, calendarWeekStart:'2026-09-27', VIEW_AS:'',
@@ -34,7 +34,9 @@ export function renderCalendarFixture(html, { technician = false, filter = '' } 
   const storedBefore=JSON.stringify(context.STORE);
   const identityStart=html.indexOf('function technicianWorkspaceId()'),identityEnd=html.indexOf('function isMarketingManager()',identityStart);
   if(identityStart<0||identityEnd<=identityStart)throw Error('Fixture could not locate technician identity helpers');
-  vm.createContext(context);vm.runInContext(html.slice(identityStart,identityEnd)+html.slice(start,end),context);
+  const timeStart=html.indexOf('function calendarClockMinutes('),timeEnd=html.indexOf('function renderCalendarMonth(',timeStart);
+  if(timeStart<0||timeEnd<=timeStart)throw Error('Fixture could not locate appointment time helpers');
+  vm.createContext(context);vm.runInContext(html.slice(identityStart,identityEnd)+html.slice(timeStart,timeEnd)+html.slice(start,end),context);
   const content={innerHTML:''};context.renderCalendarWeek(content);
   if(JSON.stringify(context.STORE)!==storedBefore)throw Error('Renderer mutated synthetic jobs');
   return content.innerHTML;

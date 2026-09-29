@@ -9004,6 +9004,35 @@ function jobMatchesTechFilter(j, techFilter) {
   const tech = getTechnicianById(techFilter);
   return tech ? j.technician === tech.name : false;
 }
+function calendarClockMinutes(value) {
+  const match=String(value||'').trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if(!match)return null;
+  let hour=+match[1],minute=+(match[2]||0);
+  if(minute>59||hour>23||match[3]&&(hour<1||hour>12))return null;
+  if(match[3])hour=hour%12+(/pm/i.test(match[3])?12:0);
+  return hour*60+minute;
+}
+function calendarWindowMinutes(value) {
+  const text=String(value||'').toLowerCase().replace(/a\.m\./g,'am').replace(/p\.m\./g,'pm').trim();
+  if(text==='morning')return [480,720];
+  if(text==='afternoon')return [720,1020];
+  if(text==='evening')return [1020,1200];
+  const match=text.match(/^(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:-|–|—|to|and)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)$/);
+  if(!match){const start=calendarClockMinutes(text);return start===null?null:[start,Math.min(1440,start+60)];}
+  let from=match[1],to=match[2];
+  const suffix=to.match(/(am|pm)$/)?.[1];
+  if(suffix&&!/(am|pm)$/.test(from)){
+    from+=suffix;
+    const start=calendarClockMinutes(from),end=calendarClockMinutes(to);
+    if(start!==null&&end!==null&&start>=end&&suffix==='pm')from=match[1]+'am';
+  }
+  const start=calendarClockMinutes(from),end=calendarClockMinutes(to);
+  return start!==null&&end!==null&&end>start?[start,end]:null;
+}
+function calendarJobTimeOrder(a,b) {
+  const left=calendarWindowMinutes(a.appointmentWindow),right=calendarWindowMinutes(b.appointmentWindow);
+  return (left?.[0]??1440)-(right?.[0]??1440)||(left?.[1]??1440)-(right?.[1]??1440);
+}
 function renderCalendarMonth(content) {
   if (!calendarMonthCursor) calendarMonthCursor = todayISO().slice(0,7)+'-01';
   const cursor = new Date(calendarMonthCursor+'T00:00:00');
@@ -9015,10 +9044,10 @@ function renderCalendarMonth(content) {
   const techFilter = isTechnicianView() ? '' : (searchTerms.calendarTech || '');
   const techOptions = calendarTechFilterOptions();
   const jobsForDay = dStr => STORE.jobs.filter(j=>j.scheduledDate===dStr && jobMatchesTechFilter(j, techFilter))
-    .filter(j => !isTechnicianView() || technicianOwnsJob(j));
+    .filter(j => !isTechnicianView() || technicianOwnsJob(j)).sort(calendarJobTimeOrder);
   const monthLabel = cursor.toLocaleDateString('en-US', { month:'long', year:'numeric' });
   const selectedDate = searchTerms.calendarSelectedDate || today;
-  const selectedJobs = jobsForDay(selectedDate).sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
+  const selectedJobs = jobsForDay(selectedDate);
   const selectedObj = new Date(selectedDate+'T00:00:00');
   content.innerHTML = `
     <div class="toolbar cal-friendly-toolbar" style="justify-content:space-between">
@@ -9110,7 +9139,7 @@ function openCalendarDay(dateStr) {
   const techFilter = isTechnicianView() ? '' : (searchTerms.calendarTech || '');
   const dJobs = STORE.jobs.filter(j=>j.scheduledDate===dateStr && jobMatchesTechFilter(j,techFilter))
     .filter(j => !isTechnicianView() || technicianOwnsJob(j))
-    .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
+    .sort(calendarJobTimeOrder);
   const dObj = new Date(dateStr+'T00:00:00');
   showModal({
     title: dObj.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }),
@@ -9152,15 +9181,14 @@ function renderCalendarWeek(content) {
     .filter(j => !jobTypeFilter || String(j.title||'').toLowerCase().includes(jobTypeFilter))
     .filter(j => !statusFilter || j.status===statusFilter)
     .filter(j => !isTechnicianView() || technicianOwnsJob(j))
-    .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
+    .sort(calendarJobTimeOrder);
   const today=todayISO(), firstObj=new Date(days[0]+'T00:00:00'), lastObj=new Date(days[6]+'T00:00:00');
   const rangeLabel=firstObj.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+lastObj.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   const jobTypeOptions=[...new Set(STORE.jobs.map(j=>String(j.title||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).slice(0,30);
   const hours=Array.from({length:11},(_,i)=>i+8);
-  const parseClock=v=>{ const m=String(v||'').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i); if(!m)return null; let h=+m[1],min=+(m[2]||0); if(/PM/i.test(m[3])&&h<12)h+=12;if(/AM/i.test(m[3])&&h===12)h=0;return h+min/60; };
-  const windowTimes=j=>{ const ms=String(j.appointmentWindow||'').match(/\d{1,2}(?::\d{2})?\s*(?:AM|PM)/ig)||[]; const st=parseClock(ms[0]), en=parseClock(ms[1]); return {start:st??8,end:en&&en>(st??8)?en:(st??8)+1}; };
+  const windowTimes=j=>{const range=calendarWindowMinutes(j.appointmentWindow);return range?{start:range[0]/60,end:range[1]/60}:{start:8,end:9};};
   const weekJobs=days.flatMap(d=>jobsForDay(d));
-  const timed=d=>jobsForDay(d).filter(j=>parseClock(j.appointmentWindow)!=null);
+  const timed=d=>jobsForDay(d).filter(j=>calendarWindowMinutes(j.appointmentWindow)!==null);
   // EZFIX_CALENDAR_OVERLAPS_V1: independent groups, using actual painted card bounds.
   const layoutTimed=d=>{
     const layout=function layoutCalendarIntervals(intervals) {
@@ -9201,7 +9229,7 @@ function renderCalendarWeek(content) {
     });
     return layout(items);
   };
-  const allDay=d=>jobsForDay(d).filter(j=>parseClock(j.appointmentWindow)==null);
+  const allDay=d=>jobsForDay(d).filter(j=>calendarWindowMinutes(j.appointmentWindow)===null);
   const todayJobs=jobsForDay(today).slice(0,6);
   const monthCursor=new Date((searchTerms.calendarMiniMonth||searchTerms.calendarSelectedDate||today)+'T00:00:00');
   const miniYear=monthCursor.getFullYear(), miniMonth=monthCursor.getMonth(), miniFirst=new Date(miniYear,miniMonth,1), miniStart=new Date(miniFirst); miniStart.setDate(1-miniFirst.getDay());
@@ -9262,7 +9290,7 @@ function renderCalendarDay(content) {
   const techOptions=calendarTechFilterOptions();
   const jobs=STORE.jobs.filter(j=>j.scheduledDate===dateStr && jobMatchesTechFilter(j,techFilter))
     .filter(j=>!isTechnicianView()||technicianOwnsJob(j))
-    .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
+    .sort(calendarJobTimeOrder);
   const dObj=new Date(dateStr+'T00:00:00');
   const prev=addDays(dateStr,-1), next=addDays(dateStr,1);
   content.innerHTML=`
@@ -9343,9 +9371,7 @@ async function handleJobTimeDrop(e,newDate){
   if(!j)return;
   const rect=e.currentTarget.getBoundingClientRect(), y=Math.max(0,Math.min(rect.height,e.clientY-rect.top));
   const start=Math.max(8,Math.min(18.5,8+y/60));
-  const oldTimes=String(j.appointmentWindow||'').match(/\d{1,2}(?::\d{2})?\s*(?:AM|PM)/ig)||[];
-  const parse=v=>{const m=String(v||'').match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);if(!m)return null;let h=+m[1],min=+(m[2]||0);if(/PM/i.test(m[3])&&h<12)h+=12;if(/AM/i.test(m[3])&&h===12)h=0;return h+min/60;};
-  const oldStart=parse(oldTimes[0]), oldEnd=parse(oldTimes[1]), duration=oldStart!=null&&oldEnd!=null&&oldEnd>oldStart?oldEnd-oldStart:1;
+  const oldRange=calendarWindowMinutes(j.appointmentWindow),duration=oldRange?(oldRange[1]-oldRange[0])/60:1;
   const snapped=Math.round(start*2)/2, end=Math.min(19,snapped+duration);
   const appointmentWindow=`${formatCalendarClock(snapped)} - ${formatCalendarClock(end)}`;
   const oldDate=j.scheduledDate, oldWindow=j.appointmentWindow;

@@ -27,6 +27,12 @@ test('remote signatures identify the customer separately from the link creator',
 test('provider callbacks are not presented as a human action',()=>{
   const c=fixture();assert.equal(c.activityActor({source:'provider',createdByTeamId:'owner'}),'Provider update');
 });
+test('CRM invoice preview is attributed to its requester without claiming a customer visit',()=>{
+  const c=fixture(),event={id:'preview',action:'public_invoice_link_opened',summary:'Secure customer invoice page opened',source:'app_client',createdByTeamId:'owner'};
+  c.STORE.auditLog=[event];const content={};c.renderDetailedActivity(content,{});
+  assert.equal(c.activityActor(event),'David');assert.match(content.innerHTML,/Invoice Preview Requested/);assert.match(content.innerHTML,/customer viewing is not confirmed/);
+  assert.equal(event.summary,'Secure customer invoice page opened');
+});
 test('search finds actor, reason and exact record IDs',()=>{
   for(const query of ['time of edit','rescheduled','j']){const c=fixture();c.window.ActivityHistory.filter('query',query);assert.ok(c.filteredActivityEvents().some(e=>e.id==='new'));}
   const c=fixture();c.window.ActivityHistory.filter('query','no match');assert.equal(c.filteredActivityEvents().length,0);
