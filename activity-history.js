@@ -2,6 +2,14 @@
 const activityHistoryState={query:'',entity:'all',source:'all',from:'',to:'',limit:100};
 const ACTIVITY_ENTITIES={customer:'customers',job:'jobs',invoice:'invoices',estimate:'estimates',lead:'leads',task:'tasks',purchase_orders:'purchaseOrders',inventory_adjustments:'inventoryAdjustments',lead_offers:'leadOffers',job_evidence:'jobEvidence',lead_partners:'leadPartners',social_posts:'socialPosts'};
 function activityEntity(event){return ACTIVITY_ENTITIES[event.entityType]||event.entityType||'unknown';}
+function activityActionLabel(event){
+  if(event.action==='public_invoice_link_opened'&&event.source==='app_client')return 'Invoice Preview Requested';
+  return labelize(String(event.action||'Legacy event').replaceAll('_',' '));
+}
+function activitySummary(event){
+  if(event.action==='public_invoice_link_opened'&&event.source==='app_client')return 'Customer invoice page requested from the CRM; customer viewing is not confirmed.';
+  return event.summary||'No summary recorded';
+}
 function activityActor(event){
   if(event.details?.actor_name)return event.details.actor_name;
   if(['invoice_signed_remote','estimate_signed_remote'].includes(event.action))return 'Customer · remote signature';
@@ -62,7 +70,7 @@ function renderDetailedActivity(content,actions){
     ${shown.length?shown.map(event=>{
       const changes=activityChanges(event),reason=event.details?.reason,fields=event.details?.changed_fields||[];
       const initiatedBy=event.createdByTeamId&&(['provider'].includes(event.source)||['invoice_signed_remote','estimate_signed_remote'].includes(event.action))?(STORE.team.find(m=>m.id===event.createdByTeamId)?.name||event.createdByTeamId):null;
-      return `<details class="panel activity-event"><summary><div class="activity-event-heading"><time>${esc(activityTime(event.createdAt))}</time><b>${esc(labelize(event.action)||'Legacy event')}</b><span>${esc(event.summary||'No summary recorded')}</span><span class="muted">${esc(activityActor(event))} · ${esc(labelize(activityEntity(event)))}</span></div><span class="muted">Details</span></summary>
+      return `<details class="panel activity-event"><summary><div class="activity-event-heading"><time>${esc(activityTime(event.createdAt))}</time><b>${esc(activityActionLabel(event))}</b><span>${esc(activitySummary(event))}</span><span class="muted">${esc(activityActor(event))} · ${esc(labelize(activityEntity(event)))}</span></div><span class="muted">Details</span></summary>
         <div class="panel-body pad">
           <dl class="activity-meta"><div><dt>Recorded actor</dt><dd>${esc(activityActor(event))}</dd></div><div><dt>Source</dt><dd>${esc(event.source||'Not recorded')}</dd></div><div><dt>Record</dt><dd>${esc(event.entityType||'Not recorded')} · ${esc(event.entityId||'Not recorded')}</dd></div><div><dt>Reason</dt><dd>${esc(reason||'Reason not recorded')}</dd></div>${initiatedBy?`<div><dt>Request or link created by</dt><dd>${esc(initiatedBy)}</dd></div>`:''}</dl>
           ${changes.length?`<h4>Recorded changes</h4><div class="activity-changes">${changes.map(change=>`<div class="activity-change"><b>${esc(labelize(change.key.replaceAll('_',' ')))}</b><div><small>Before</small><pre>${esc(activityValue(change.key,change.before))}</pre></div><div><small>After</small><pre>${esc(activityValue(change.key,change.after))}</pre></div></div>`).join('')}</div>`:`<p class="muted">${fields.length?`Changed fields: ${esc(fields.join(', '))}. Detailed values were not retained for these fields.`:'Field-level changes were not recorded for this event.'}</p>`}

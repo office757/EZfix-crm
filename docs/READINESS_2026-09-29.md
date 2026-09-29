@@ -129,14 +129,14 @@ remain open; the table is not a claim that every item in those issues is broken.
 
 | Area | Current evidence | Remaining work |
 | --- | --- | --- |
-| Technician earnings | Personal My Earnings page implemented; 18 UI/calculation/identity tests and 11 live-schema permission checks pass | Final visual acceptance in a signed-in technician session |
-| Activity history | Searchable actor/time/record history and before/after values implemented; 17 business tables record changes atomically; 13 renderer tests and 16 live-schema checks pass | Final signed-in visual acceptance; older events cannot supply details that were never recorded |
+| Technician earnings | Personal My Earnings page implemented; 18 UI/calculation/identity tests and 11 live-schema permission checks pass; signed-in owner preview verified two technician reports, date presets and job links | Final acceptance in a real technician login, including mobile |
+| Activity history | Searchable actor/time/record history and before/after values implemented; 17 business tables record changes atomically; 14 renderer tests and 16 live-schema checks pass; signed-in owner filters, details and record links verified | Older events cannot supply details that were never recorded |
 | Payments and signing | All 13 Square-backed invoices have payment links; webhook URL and signature configuration exist; rollback workflow checks passed | Current end-to-end signing, payment/receipt and website intake acceptance; a link alone does not prove checkout settlement |
 | SMS/email | 44 SMS rows have provider delivery confirmation and none are failed in the inspected set; 20 email-delivered events exist | Complete the required current handset/recipient acceptance; these counts do not certify every future send |
 | Google Ads/social/WhatsApp | No Google Ads connection rows and no marketing OAuth connection rows; WhatsApp integration alert remains | Connect owner-selected provider accounts and verify real delivery/marketing flows |
 | Office account | Office role and authorization are implemented; no real Office login exists | Owner supplies the actual staff name and email; provision that person |
 | AI pricing and dispatch | Only 2 of 166 active catalog items have positive prices; routing is Recommendations; all 3 enabled technician profiles explicitly contain demo data | Replace demo hours, travel, skills and cost inputs with owner-approved business values; supply actual prices before enabling automated pricing/dispatch |
-| Mobile/desktop acceptance | Automated checks pass; the cloud browser loads CRM successfully and reaches Sign In | Secure sign-in is required for current live visual checks; iPhone and iPad acceptance remains |
+| Mobile/desktop acceptance | Owner desktop sign-in and the new history/earnings flows were verified in the live browser | Actual technician login, iPhone and iPad acceptance remains |
 | Operations | Backend recovered after the documented transient 5xx cluster; latest advisor confirms leaked-password protection is disabled | Enable/verify password protection, verify backup/recovery settings, and review the earlier backend incident |
 
 No live customer message, live charge, invented staff account, routing-mode
@@ -200,3 +200,34 @@ Baseline: main `f63a3d7ba7ce2e6c92e29834a9a11b309e156fd0` after PR #186.
 
 Migration filenames match the versions recorded by the production migration
 history. The two follow-up migrations are required alongside the base migration.
+
+## Signed-in acceptance and calendar follow-up
+
+PR #187 was merged and production deployment `dpl_AQCG8Lzh1DrFTLCYWohkRekuYZ7m`
+reached READY on main `001cf60031844069315cb85b9d1b44438c49be87`. Production
+HTML and all three new JS/CSS assets matched the tested files exactly; all
+seven public GET route checks passed.
+
+The owner signed in through the secure browser handoff. Live inspection verified
+history source/record filters, exact timestamps, a stored before/after status
+change, and its link to the correct job. Two different technician previews showed
+separate earnings, saved commission rates, populated calculations, an empty
+previous month and working job links. These are owner previews, not proof of
+authorization in a real technician browser session; the rollback permission
+tests remain separate evidence. No messages, charges, signatures or job edits
+were submitted from the browser.
+
+This pass exposed a calendar defect: text sorting placed an 8 AM appointment
+after afternoon appointments, while the week parser read `2–4 PM` as starting
+at 4 PM. One validated parser now interprets explicit, inherited AM/PM, cross-noon
+and 24-hour windows. Month cells, the selected-day agenda, day views and popups
+sort by time; week cards use the actual start and duration. Drag requests preserve
+the original duration. Existing saved appointments are unchanged. Nine executable
+regressions exercise actual renderers and a stubbed drag save, including unknown
+times and parity with the server's dispatch parser.
+
+History now labels the legacy app-client invoice-open event as an invoice preview
+request. Source inspection confirmed it is emitted by the signed-in CRM user
+calling `openPublicInvoicePage`; it is not proof of a customer visit. The recorded
+actor and original database event stay unchanged. This brings history coverage
+to 14 tests. All 63 release steps and all 22 strict safety checks pass.
