@@ -38,7 +38,8 @@ export function rankTechnicians({lead,team,profiles,jobs=[],invoices=[],offers=[
  if(hold.length)return {status:'held',reason:hold.join(' '),candidates:[],type,slot,zip};
  const weekDate=new Date(today.date+'T12:00Z');weekDate.setUTCDate(weekDate.getUTCDate()-(weekDate.getUTCDay()+6)%7);const weekStart=weekDate.toISOString().slice(0,10),weekEnd=new Date(weekDate.getTime()+7*86400000).toISOString().slice(0,10);
  const day=new Date(slot.date+'T12:00Z').getUTCDay();
- const candidates=team.filter(t=>t.role==='technician').map(t=>{
+ const demoBatch=lead.app_data?.demo_batch||null;
+ const candidates=team.filter(t=>t.role==='technician'&&(t.app_data?.demo_batch||null)===demoBatch).map(t=>{
   const record=profiles.find(x=>x.technician_id===t.id),p=record?.profile||{},s=p.specialties?.[type],reasons=[],excluded=[];
   if(t.status!=='active'||!t.auth_user_id)excluded.push('Active app access required');
   try{validateProfile(p);}catch{excluded.push('Complete a valid routing profile');}if(!p.enabled)excluded.push('Routing profile not enabled');if(!s)excluded.push('Job type not enabled');

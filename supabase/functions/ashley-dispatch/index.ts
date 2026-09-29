@@ -14,7 +14,7 @@ async function allRows(makeQuery:any){
 }
 async function dataset(db:any){
  const [team,profiles,jobs,invoices,offers]=await Promise.all([
-  allRows(()=>db.from('team').select('id,name,role,status,auth_user_id').eq('role','technician')),
+  allRows(()=>db.from('team').select('id,name,role,status,auth_user_id,app_data').eq('role','technician')),
   db.from('technician_dispatch_profiles').select('*').then(requireData),
   allRows(()=>db.from('jobs').select('id,technician_id,status,scheduled_date,appointment_window,app_data,title,created_at,updated_at,deleted_at').is('deleted_at',null)),
   allRows(()=>db.from('invoices').select('id,job_id,items,discount,deleted_at,app_data').is('deleted_at',null)),

@@ -55,3 +55,9 @@ for (const ignored of [{...extraJobs[0],status:'cancelled'},{...extraJobs[0],del
  const r=rankTechnicians({lead:extraLead,team,profiles:equalProfiles,jobs:[ignored],now:Date.parse('2026-09-29T20:33:00Z')});
  assert.equal(r.candidates.find(c=>c.technician_id===id(1)).weeklyJobs,0);
 }
+
+const taggedTeam=team.map(t=>({...t,app_data:{demo_batch:'fixture-batch'}}));
+const real=rankTechnicians({lead:extraLead,team:taggedTeam,profiles:equalProfiles,now:Date.parse('2026-09-29T20:33:00Z')});
+assert.equal(real.candidates.length,0,'Demo techs must not receive real leads');
+const demo=rankTechnicians({lead:{...extraLead,app_data:{...extraLead.app_data,demo_batch:'fixture-batch'}},team:[...taggedTeam,{...team[0],id:'real-tech'}],profiles:equalProfiles,now:Date.parse('2026-09-29T20:33:00Z')});
+assert.equal(demo.candidates.length,10,'Demo leads must only consider same-batch technicians');
