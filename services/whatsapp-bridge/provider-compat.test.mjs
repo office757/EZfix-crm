@@ -6,8 +6,14 @@ import { readFileSync } from 'node:fs';
 import { patchProviderSource } from './provider-compat.mjs';
 
 const require = createRequire(import.meta.url);
-const utilsPath = require.resolve('whatsapp-web.js/src/util/Injected/Utils.js');
-const source = readFileSync(utilsPath, 'utf8');
+// Web-only builds do not install the separate host package. Keep the exact
+// upstream lookup fixture there; host tests use the installed full SDK source.
+let source = "function result() { return window\n.require('WAWebCollections')\n.Msg.get(newMsgKey._serialized); }";
+try {
+  source = readFileSync(require.resolve('whatsapp-web.js/src/util/Injected/Utils.js'), 'utf8');
+} catch (error) {
+  if (error.code !== 'MODULE_NOT_FOUND') throw error;
+}
 const patched = patchProviderSource(source, '1.34.7');
 // Execute the result lookup extracted from the actual installed SDK. No browser
 // is launched, and no live message or account is used by these tests.
