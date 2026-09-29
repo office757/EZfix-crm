@@ -23,6 +23,8 @@ const scripts = [
   'audit-quickpay-recovery.mjs',
   'audit-dispatch-sms-receipts.mjs',
   'audit-ashley-dispatch.mjs',
+  'test-ashley-demo-matrix.mjs',
+  'test-dispatch-demo.mjs',
   'audit-ashley-complex-routing.mjs',
   'audit-ashley-setup.mjs',
   'audit-job-assignment.mjs',

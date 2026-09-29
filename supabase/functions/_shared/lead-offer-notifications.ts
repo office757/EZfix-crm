@@ -25,7 +25,7 @@ export function smsFailure(error:any,stage:string){
  const code=Number.isInteger(http)&&http>=400&&http<=599?` HTTP ${http}`:'';
  return {status:rejected?'failed':'unconfirmed',reason:`SMS ${stage}: ${kind}${code}. ${rejected?'Not accepted by provider.':'Provider outcome unknown. Do not resend automatically.'}`};
 }
-export async function notifyLeadOffer(db:any,offer:any){
+export async function notifyLeadOffer(db:any,offer:any,options:any={}){
  const {data:claimed,error:claimError}=await db.rpc('service_claim_offer_notification',{p_offer_id:offer.id});
  if(claimError||!claimed)return {state:'unconfirmed',in_app:{status:'created'}};
  const notification:any={state:'complete',in_app:{status:'created'}};
@@ -33,7 +33,9 @@ export async function notifyLeadOffer(db:any,offer:any){
  const issued=await db.rpc('service_issue_lead_offer_tokens',{p_offer_id:offer.id,p_sms_hash:smsToken.hash,p_whatsapp_hash:waToken.hash});
  const linksReady=!issued.error&&issued.data===true;
  const {data:tech}=await db.from('team').select('id,phone,status,app_data').eq('id',offer.technician_id).maybeSingle();
- const intro=offer.routing_source==='ashley'?'Ashley sent you a lead':'EZfix: New lead';
+ const demo=options.demoRun;
+ if(demo&&(!demo.enabled||Date.parse(demo.expires_at)<=Date.now()||!demo.technician_ids.includes(offer.technician_id)||!demo.lead_ids.includes(offer.lead_id)||tech?.app_data?.demo_batch!==demo.batch_id||tech?.app_data?.whatsapp_number!==demo.recipient_phone||tech?.app_data?.demo_contact_owner_confirmed!==true))return {state:'blocked_demo_scope'};
+ const intro=demo?`DEMO ${offer.technician_id.split('_').at(-1)} - Ashley test`:offer.routing_source==='ashley'?'Ashley sent you a lead':'EZfix: New lead';
  const message=(token:string)=>`${intro} - ZIP ${offer.zip}. Accept or decline within 5 minutes: ${SITE}/lead-offer#${token} . Approve once in the app, SMS or WhatsApp.`;
  const current=()=>Date.parse(offer.expires_at)>Date.now();
  async function sms(){
@@ -124,7 +126,7 @@ export async function notifyLeadOffer(db:any,offer:any){
   return {status:accepted?'accepted':'failed',accepted};
  }
  // Each channel runs independently; a failed provider cannot suppress the others.
- const results=await Promise.allSettled([sms(),whatsapp(),push()]);
+ const results=await Promise.allSettled([demo?Promise.resolve({status:'suppressed_demo'}):sms(),whatsapp(),demo?Promise.resolve({status:'suppressed_demo'}):push()]);
  ['sms','whatsapp','push'].forEach((channel,i)=>{const r=results[i];notification[channel]=r.status==='fulfilled'?r.value:{status:'unconfirmed'};});
  const saved=await db.from('lead_offers').update({notification_status:notification}).eq('id',offer.id);
  return {...notification,saved:!saved.error};
