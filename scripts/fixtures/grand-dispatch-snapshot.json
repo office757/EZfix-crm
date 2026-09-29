@@ -1,0 +1,504 @@
+{
+  "team": [
+    {
+      "id": "demo_dispatch_20260929_01",
+      "name": "DEMO 01 - Milford",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_02",
+      "name": "DEMO 02 - Hopkinton",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_10",
+      "name": "DEMO 10 - Natick",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_07",
+      "name": "DEMO 07 - Marlborough",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_08",
+      "name": "DEMO 08 - Framingham",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_09",
+      "name": "DEMO 09 - Worcester",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_03",
+      "name": "DEMO 03 - Holliston",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_04",
+      "name": "DEMO 04 - Franklin",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_05",
+      "name": "DEMO 05 - Foxborough",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    },
+    {
+      "id": "demo_dispatch_20260929_06",
+      "name": "DEMO 06 - Attleboro",
+      "role": "technician",
+      "status": "active",
+      "app_data": {
+        "demo_batch": "ashley_dispatch_20260929"
+      },
+      "auth_user_id": "demo-present"
+    }
+  ],
+  "policy": {
+    "weights": {
+      "skill": 25,
+      "profit": 30,
+      "travel": 15,
+      "fairness": 5,
+      "conversion": 15,
+      "availability": 10
+    },
+    "minScore": 55,
+    "timezone": "America/New_York",
+    "maxAttempts": 3,
+    "profitTarget": 250,
+    "bufferMinutes": 15,
+    "maxTravelMinutes": 60,
+    "fairnessTolerance": 12,
+    "travelCostPerMinute": 0.6
+  },
+  "profiles": [
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "opener": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "maintenance": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 10,
+          "01760": 10,
+          "02035": 90,
+          "02038": 90,
+          "02052": 10
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_01"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 20,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_02"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_10"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 5,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_07"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 1,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 5,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_08"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_09"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "spring": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 20,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_03"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 20,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_04"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "opener": {
+            "skill": 3,
+            "closeRate": 60,
+            "materialCost": 100,
+            "averageTicket": 600,
+            "durationMinutes": 60
+          },
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "maintenance": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 35,
+          "01760": 10,
+          "02035": 90,
+          "02038": 90,
+          "02052": 10
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_05"
+    },
+    {
+      "profile": {
+        "shifts": {
+          "3": [
+            960,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 5,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      },
+      "updated_at": "2026-09-29T21:03:55.15975+00:00",
+      "technician_id": "demo_dispatch_20260929_06"
+    }
+  ],
+  "meta": {
+    "capturedAt": "2026-09-29",
+    "batch": "ashley_dispatch_20260929",
+    "source": "Sanitized live demo profiles and routing policy. Auth IDs replaced with presence marker. No customer data."
+  }
+}

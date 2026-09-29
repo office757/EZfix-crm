@@ -1,0 +1,2760 @@
+{
+  "scope": "Autonomous local simulation using the production ranker and sanitized live demo profiles. Synthetic responses are not real technician acceptance or message delivery.",
+  "snapshot": {
+    "capturedAt": "2026-09-29",
+    "batch": "ashley_dispatch_20260929",
+    "source": "Sanitized live demo profiles and routing policy. Auth IDs replaced with presence marker. No customer data."
+  },
+  "rankedCases": 1324,
+  "passed": 34,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "All ten actual demo profiles validate",
+      "passed": true
+    },
+    {
+      "name": "1 Milford: travel with equal business inputs",
+      "passed": true
+    },
+    {
+      "name": "2 Hopkinton: nearest technician is off shift",
+      "passed": true
+    },
+    {
+      "name": "3 Holliston: spring specialty beats proximity",
+      "passed": true
+    },
+    {
+      "name": "4 Franklin: closest technician is at capacity",
+      "passed": true
+    },
+    {
+      "name": "5 Foxborough: out-of-area work is held",
+      "passed": true
+    },
+    {
+      "name": "6 Medfield: business value outweighs idle alternative",
+      "passed": true
+    },
+    {
+      "name": "7 Natick: equal business inputs favor lower workload",
+      "passed": true
+    },
+    {
+      "name": "declined: do not repeat offer to same technician",
+      "passed": true
+    },
+    {
+      "name": "expired: do not repeat offer to same technician",
+      "passed": true
+    },
+    {
+      "name": "cancelled: do not repeat offer to same technician",
+      "passed": true
+    },
+    {
+      "name": "Expired pending offer selects next eligible technician",
+      "passed": true
+    },
+    {
+      "name": "Unanswered other offer reserves technician",
+      "passed": true
+    },
+    {
+      "name": "All matching technicians unavailable holds safely",
+      "passed": true
+    },
+    {
+      "name": "No room for duration holds safely",
+      "passed": true
+    },
+    {
+      "name": "Unknown customer ZIP holds safely",
+      "passed": true
+    },
+    {
+      "name": "Unknown service holds safely",
+      "passed": true
+    },
+    {
+      "name": "Unapproved commercial capability holds safely",
+      "passed": true
+    },
+    {
+      "name": "Missing callback holds safely",
+      "passed": true
+    },
+    {
+      "name": "Past appointment holds safely",
+      "passed": true
+    },
+    {
+      "name": "Account access revoked excludes matching technician",
+      "passed": true
+    },
+    {
+      "name": "Invalid existing reservation excludes technician",
+      "passed": true
+    },
+    {
+      "name": "Nonpositive contribution blocks all technicians",
+      "passed": true
+    },
+    {
+      "name": "Demo and real teams stay isolated in both directions",
+      "passed": true
+    },
+    {
+      "name": "Every technician can be independently evaluated with explicitly synthetic coverage",
+      "passed": true
+    },
+    {
+      "name": "Next-week balance counts the service week, not today’s week",
+      "passed": true
+    },
+    {
+      "name": "This-week work does not distort next-week balance",
+      "passed": true
+    },
+    {
+      "name": "Cancelled and deleted work does not consume capacity or balance",
+      "passed": true
+    },
+    {
+      "name": "Historical successes and failures change a future recommendation",
+      "passed": true,
+      "details": {
+        "baselineWinner": "DEMO 01 - Milford",
+        "afterOutcomes": "DEMO 05 - Foxborough",
+        "completionLikelihood": 95.55555555555554
+      }
+    },
+    {
+      "name": "History older than 90 days is ignored",
+      "passed": true
+    },
+    {
+      "name": "Void/deleted invoices never improve learned revenue",
+      "passed": true
+    },
+    {
+      "name": "252 service/ZIP/window combinations satisfy feasibility and deterministic ordering",
+      "passed": true
+    },
+    {
+      "name": "1,000 seeded varied schedules respect availability, capacity and exclusions",
+      "passed": true
+    },
+    {
+      "name": "Forty sequential synthetic requests never overbook; surplus stays held",
+      "passed": true
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "1 Milford: travel with equal business inputs",
+      "status": "recommended",
+      "winner": "DEMO 01 - Milford",
+      "score": 95.58,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": true,
+          "excluded": [],
+          "score": 95.58,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "2 Hopkinton: nearest technician is off shift",
+      "status": "recommended",
+      "winner": "DEMO 02 - Hopkinton",
+      "score": 92.04,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": true,
+          "excluded": [],
+          "score": 92.04,
+          "weeklyJobs": 0,
+          "expectedProfit": 467
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "No room in the requested window"
+          ],
+          "score": 86.58,
+          "weeklyJobs": 0,
+          "expectedProfit": 476
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 78.03,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "3 Holliston: spring specialty beats proximity",
+      "status": "recommended",
+      "winner": "DEMO 03 - Holliston",
+      "score": 92.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": true,
+          "excluded": [],
+          "score": 92.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 467
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Expected contribution is not positive"
+          ],
+          "score": 32.54,
+          "weeklyJobs": 0,
+          "expectedProfit": -40.5
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "No room in the requested window",
+            "Expected contribution is not positive"
+          ],
+          "score": 8.16,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        }
+      ]
+    },
+    {
+      "name": "4 Franklin: closest technician is at capacity",
+      "status": "recommended",
+      "winner": "DEMO 04 - Franklin",
+      "score": 92.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": true,
+          "excluded": [],
+          "score": 92.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 467
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Daily capacity reached"
+          ],
+          "score": 96.75,
+          "weeklyJobs": 1,
+          "expectedProfit": 476
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "5 Foxborough: out-of-area work is held",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "No technician currently meets the required conditions.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "6 Medfield: business value outweighs idle alternative",
+      "status": "recommended",
+      "winner": "DEMO 01 - Milford",
+      "score": 93.08,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": true,
+          "excluded": [],
+          "score": 93.08,
+          "weeklyJobs": 1,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 67.56,
+          "weeklyJobs": 0,
+          "expectedProfit": 179
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "No room in the requested window",
+            "Expected contribution is not positive"
+          ],
+          "score": 8.16,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        }
+      ]
+    },
+    {
+      "name": "7 Natick: equal business inputs favor lower workload",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 95.58,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 95.58,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": true,
+          "excluded": [],
+          "score": 93.08,
+          "weeklyJobs": 1,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "No room in the requested window",
+            "Expected contribution is not positive"
+          ],
+          "score": 8.16,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        }
+      ]
+    },
+    {
+      "name": "declined: do not repeat offer to same technician",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 88.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Already declined or expired for this lead"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "expired: do not repeat offer to same technician",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 88.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Already declined or expired for this lead"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "cancelled: do not repeat offer to same technician",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 88.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Already declined or expired for this lead"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "Expired pending offer selects next eligible technician",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 88.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Already declined or expired for this lead"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "Unanswered other offer reserves technician",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 88.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Already has an unanswered offer"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "All matching technicians unavailable holds safely",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "No technician currently meets the required conditions.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Active app access required"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "Active app access required"
+          ],
+          "score": 88.33,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Active app access required",
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "No room for duration holds safely",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "No technician currently meets the required conditions.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "No room in the requested window"
+          ],
+          "score": 85.26,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "No room in the requested window"
+          ],
+          "score": 78.68,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.11,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "Unknown customer ZIP holds safely",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "No technician currently meets the required conditions.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 98.16,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "ZIP travel estimate missing"
+          ],
+          "score": 89.74,
+          "weeklyJobs": 0,
+          "expectedProfit": 479
+        }
+      ]
+    },
+    {
+      "name": "Unknown service holds safely",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "Confirm the job type.",
+      "candidates": []
+    },
+    {
+      "name": "Unapproved commercial capability holds safely",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "No technician currently meets the required conditions.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Expected contribution is not positive"
+          ],
+          "score": 31.14,
+          "weeklyJobs": 0,
+          "expectedProfit": -43.5
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Expected contribution is not positive"
+          ],
+          "score": 24.12,
+          "weeklyJobs": 0,
+          "expectedProfit": -58.5
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 16.58,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Job type not enabled",
+            "Outside the travel limit",
+            "No room in the requested window",
+            "Expected contribution is not positive"
+          ],
+          "score": 8.16,
+          "weeklyJobs": 0,
+          "expectedProfit": -91.5
+        }
+      ]
+    },
+    {
+      "name": "Missing callback holds safely",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "Complete the customer name, callback number and service address.",
+      "candidates": []
+    },
+    {
+      "name": "Past appointment holds safely",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "The requested window has passed.",
+      "candidates": []
+    },
+    {
+      "name": "Account access revoked excludes matching technician",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 88.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Active app access required"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 0,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "Invalid existing reservation excludes technician",
+      "status": "recommended",
+      "winner": "DEMO 05 - Foxborough",
+      "score": 88.91,
+      "reason": "Best eligible business score. Weekly balance considered within the business tolerance.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": true,
+          "excluded": [],
+          "score": 88.91,
+          "weeklyJobs": 0,
+          "expectedProfit": 458
+        },
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Existing job has no reliable time window"
+          ],
+          "score": 95.35,
+          "weeklyJobs": 1,
+          "expectedProfit": 473
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit"
+          ],
+          "score": 80.79,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window"
+          ],
+          "score": 72.37,
+          "weeklyJobs": 0,
+          "expectedProfit": 425
+        }
+      ]
+    },
+    {
+      "name": "Nonpositive contribution blocks all technicians",
+      "status": "held",
+      "winner": null,
+      "score": null,
+      "reason": "No technician currently meets the required conditions.",
+      "candidates": [
+        {
+          "id": "demo_dispatch_20260929_01",
+          "eligible": false,
+          "excluded": [
+            "Expected contribution is not positive"
+          ],
+          "score": 63.77,
+          "weeklyJobs": 0,
+          "expectedProfit": -502
+        },
+        {
+          "id": "demo_dispatch_20260929_05",
+          "eligible": false,
+          "excluded": [
+            "Expected contribution is not positive"
+          ],
+          "score": 56.75,
+          "weeklyJobs": 0,
+          "expectedProfit": -517
+        },
+        {
+          "id": "demo_dispatch_20260929_02",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 49.21,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        },
+        {
+          "id": "demo_dispatch_20260929_03",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 49.21,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        },
+        {
+          "id": "demo_dispatch_20260929_04",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 49.21,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        },
+        {
+          "id": "demo_dispatch_20260929_07",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 49.21,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        },
+        {
+          "id": "demo_dispatch_20260929_08",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 49.21,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        },
+        {
+          "id": "demo_dispatch_20260929_09",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 49.21,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        },
+        {
+          "id": "demo_dispatch_20260929_10",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "Expected contribution is not positive"
+          ],
+          "score": 49.21,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        },
+        {
+          "id": "demo_dispatch_20260929_06",
+          "eligible": false,
+          "excluded": [
+            "Outside the travel limit",
+            "No room in the requested window",
+            "Expected contribution is not positive"
+          ],
+          "score": 40.79,
+          "weeklyJobs": 0,
+          "expectedProfit": -550
+        }
+      ]
+    }
+  ],
+  "distributions": {
+    "matrix": {
+      "recommended": 65,
+      "held": 187
+    },
+    "varied": {
+      "recommended": 950,
+      "held": 50
+    },
+    "day": {
+      "recommended": 20,
+      "held": 20,
+      "byTechnician": {
+        "DEMO 01 - Milford": 3,
+        "DEMO 02 - Hopkinton": 3,
+        "DEMO 07 - Marlborough": 3,
+        "DEMO 08 - Framingham": 1,
+        "DEMO 05 - Foxborough": 3,
+        "DEMO 06 - Attleboro": 1,
+        "DEMO 04 - Franklin": 3,
+        "DEMO 03 - Holliston": 3
+      }
+    }
+  },
+  "technicians": [
+    {
+      "id": "demo_dispatch_20260929_01",
+      "name": "DEMO 01 - Milford",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "opener": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "maintenance": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 10,
+          "01760": 10,
+          "02035": 90,
+          "02038": 90,
+          "02052": 10
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_02",
+      "name": "DEMO 02 - Hopkinton",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 20,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_10",
+      "name": "DEMO 10 - Natick",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_07",
+      "name": "DEMO 07 - Marlborough",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 5,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_08",
+      "name": "DEMO 08 - Framingham",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 1,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 5,
+          "02052": 90
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_09",
+      "name": "DEMO 09 - Worcester",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_03",
+      "name": "DEMO 03 - Holliston",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "spring": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 20,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_04",
+      "name": "DEMO 04 - Franklin",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 20,
+          "02052": 90
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_05",
+      "name": "DEMO 05 - Foxborough",
+      "profile": {
+        "shifts": {
+          "3": [
+            420,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "opener": {
+            "skill": 3,
+            "closeRate": 60,
+            "materialCost": 100,
+            "averageTicket": 600,
+            "durationMinutes": 60
+          },
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          },
+          "maintenance": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 90,
+          "01757": 35,
+          "01760": 10,
+          "02035": 90,
+          "02038": 90,
+          "02052": 10
+        }
+      }
+    },
+    {
+      "id": "demo_dispatch_20260929_06",
+      "name": "DEMO 06 - Attleboro",
+      "profile": {
+        "shifts": {
+          "3": [
+            960,
+            1200
+          ]
+        },
+        "enabled": true,
+        "dailyLimit": 3,
+        "hourlyCost": 25,
+        "specialties": {
+          "repair": {
+            "skill": 5,
+            "closeRate": 90,
+            "materialCost": 100,
+            "averageTicket": 900,
+            "durationMinutes": 60
+          }
+        },
+        "commissionPercent": 30,
+        "travelMinutesByZip": {
+          "01746": 90,
+          "01748": 5,
+          "01757": 90,
+          "01760": 90,
+          "02035": 90,
+          "02038": 90,
+          "02052": 90
+        }
+      }
+    }
+  ],
+  "serverValidation": {
+    "routingRevalidation": {
+      "passed": 9,
+      "failed": 0
+    },
+    "dispatchLifecycle": {
+      "passed": 38,
+      "failed": 0
+    },
+    "crossChannelOffers": {
+      "passed": 18,
+      "failed": 0
+    },
+    "scope": "Live schema, synthetic fixtures, transaction rollback; no provider requests or real technician acceptance."
+  },
+  "productionFix": {
+    "function": "ashley-dispatch",
+    "version": 11,
+    "verifiedActive": true,
+    "description": "Count workload in the appointment service week, not the current week. Exact deployed ranker compared with tested source."
+  },
+  "beforeFixFailures": [
+    {
+      "name": "Next-week balance counts the service week, not today’s week",
+      "passed": false,
+      "error": "Expected values to be strictly equal:\n\n0 !== 1\n"
+    },
+    {
+      "name": "This-week work does not distort next-week balance",
+      "passed": false,
+      "error": "Expected values to be strictly equal:\n\n1 !== 0\n"
+    }
+  ]
+}

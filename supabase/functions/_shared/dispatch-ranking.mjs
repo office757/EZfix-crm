@@ -36,7 +36,9 @@ export function rankTechnicians({lead,team,profiles,jobs=[],invoices=[],offers=[
  if(!lead.name||/^new (phone|referral)/i.test(lead.name)||!lead.address||String(lead.phone||'').replace(/\D/g,'').length<10)hold.push('Complete the customer name, callback number and service address.');
  if(slot&&(slot.date<today.date||slot.date===today.date&&slot.end<=today.minute))hold.push('The requested window has passed.');
  if(hold.length)return {status:'held',reason:hold.join(' '),candidates:[],type,slot,zip};
- const weekDate=new Date(today.date+'T12:00Z');weekDate.setUTCDate(weekDate.getUTCDate()-(weekDate.getUTCDay()+6)%7);const weekStart=weekDate.toISOString().slice(0,10),weekEnd=new Date(weekDate.getTime()+7*86400000).toISOString().slice(0,10);
+ // Balance the week being booked. Today's week can be different for advance
+ // appointments and would otherwise ignore their already-reserved workload.
+ const weekDate=new Date(slot.date+'T12:00Z');weekDate.setUTCDate(weekDate.getUTCDate()-(weekDate.getUTCDay()+6)%7);const weekStart=weekDate.toISOString().slice(0,10),weekEnd=new Date(weekDate.getTime()+7*86400000).toISOString().slice(0,10);
  const day=new Date(slot.date+'T12:00Z').getUTCDay();
  const demoBatch=lead.app_data?.demo_batch||null;
  const candidates=team.filter(t=>t.role==='technician'&&(t.app_data?.demo_batch||null)===demoBatch).map(t=>{
