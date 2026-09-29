@@ -707,6 +707,7 @@
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_HEAD --><link rel="stylesheet" href="/marketing-connections-ui.css" data-ezfix-marketing-ui="v1"><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_HEAD -->
 <link rel="stylesheet" href="/workspace-overview.css"><link rel="stylesheet" href="/lead-dispatch.css"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#181818"><link rel="stylesheet" href="/workspace-theme.css">
 <link rel="stylesheet" href="/office-workspace.css">
+<link rel="stylesheet" href="/activity-history.css">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
@@ -955,7 +956,7 @@ function validateRestoredRoute(){
     if(route.page==='team'||!technicianAllowedPage(route.page)) route={page:'dashboard',id:null};
     if(route.page==='jobs'&&route.id){
       const job=getOne('jobs',route.id);
-      const techId=IS_OWNER?(STORE.team.find(t=>t.name===VIEW_AS)?.id||null):CURRENT_TEAM_MEMBER?.id;
+      const techId=technicianWorkspaceId();
       if(!canViewJob(techId,job)) route={page:'jobs',id:null};
     }
   }
@@ -1253,7 +1254,7 @@ async function deductInventoryForItems(items) {
 function isOfficeRole(){return CURRENT_TEAM_MEMBER?.role==='office';}
 function canOperateOffice(){return !isTechnicianView()&&(IS_OWNER||isOfficeRole());}
 function officeAllowedPage(page){return ['dashboard','more','office','attention','banking','communications','calls','jobs','leads','customers','calendar','estimates','invoices','quickpay','payments','products','inventory','suppliers','expenses','followups','warranties','team','payroll','reports','gallery','socialposts','visualizer'].includes(page);}
-function canAccessWorkspaceNav(n){return (!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
+function canAccessWorkspaceNav(n){return (!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
 const NAV = [
   {key:'calls',label:'Calls & recordings',icon:'M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4c0 2-3 2-5 1C9 17 5 13 3 6c-1-2 0-3 2-3z',sidebar:false,launcher:false,hideForTech:true},
   { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales & Billing' },
@@ -1281,8 +1282,9 @@ const NAV = [
   { key:'warranties', label:'Warranties', emoji:'🛡️', icon:'M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'team', label:'Team', emoji:'👥', icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', sidebar:false, category:'Team & Payroll' , hideForTech: true},
   { key:'payroll', label:'Tech Payroll', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', officeAccess:true, ownerOnly: true, sidebar:false, category:'Team & Payroll' },
+  { key:'earnings', label:'My Earnings', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', techOnly:true, sidebar:false, category:'Team & Payroll', fullWidth:true },
   { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', officeAccess:true, ownerOnly: true, sidebar:false, category:'Team & Payroll', fullWidth:true },
-  { key:'auditlog', label:'Audit Log', emoji:'🕒', icon:'M12 8v4l3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
+  { key:'auditlog', label:'Activity History', emoji:'🕒', icon:'M12 8v4l3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'checklist', label:'Dev Checklist', emoji:'📋', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
   { key:'visualizer', label:'Door Visualizer', emoji:'🏠', icon:'M3 11l9-8 9 8M5 10v10h14V10', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
@@ -1328,7 +1330,21 @@ function closeSidebar(){
   if(toggle){ toggle.setAttribute('aria-expanded','false'); toggle.setAttribute('aria-label','Open navigation'); }
 }
 function technicianAllowedPage(page) {
-  return ['dashboard','calendar','jobs','customers','leads','estimates','invoices','quickpay','more'].includes(page);
+  return ['dashboard','calendar','jobs','customers','leads','estimates','invoices','quickpay','earnings','more'].includes(page);
+}
+function technicianWorkspaceId() {
+  if (!isTechnicianView()) return null;
+  if (!IS_OWNER) return CURRENT_TEAM_MEMBER?.role==='technician' && CURRENT_TEAM_MEMBER?.status==='active' ? CURRENT_TEAM_MEMBER.id : null;
+  const matches=STORE.team.filter(m=>m.name===VIEW_AS && String(m.role).toLowerCase()==='technician' && String(m.status).toLowerCase()==='active');
+  return matches.length===1 ? matches[0].id : null;
+}
+function technicianOwnsJob(job) {
+  const id=technicianWorkspaceId();
+  return !!id && !job.deletedAt && job.technicianId===id;
+}
+function technicianOwnsLead(lead) {
+  const id=technicianWorkspaceId();
+  return !!id && !lead.deletedAt && lead.assignedTechnicianId===id;
 }
 function isMarketingManager(){ return CURRENT_TEAM_MEMBER?.role==='marketing_manager'; }
 function marketingAllowedPage(page){ return ['dashboard','leads','customers','more'].includes(page); }
@@ -1346,7 +1362,7 @@ function go(page, id) {
     }
     if (page === 'jobs' && id) {
       const job = getOne('jobs', id);
-      const techId = IS_OWNER ? (STORE.team.find(t=>t.name===VIEW_AS)?.id||null) : CURRENT_TEAM_MEMBER?.id;
+      const techId = technicianWorkspaceId();
       if (!canViewJob(techId, job)) { toast('You can only open jobs assigned to you.', true); page='jobs'; id=null; }
     }
   }
@@ -1375,7 +1391,7 @@ function render() {
     btn.classList.toggle('active', active);
     if (active) btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
-  const titleMap = { attention:'Needs Attention',banking:'Banking',office:'Office',dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', checklist:'Dev Checklist', auditlog:'Audit Log', inbox:'Smart Inbox', more:'More', socialposts:'Social Media Posts', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'AI Manager', ai_system:'AI Complete System', settings:'Settings' };
+  const titleMap = { attention:'Needs Attention',banking:'Banking',office:'Office',dashboard:'Dashboard', customers:'Customers', leads:'Leads', estimates:'Estimates', jobs:'Jobs & Schedule', calendar:'Calendar', invoices:'Invoices', quickpay:'Quick Payment', products:'Products & Services', inventory:'Inventory', expenses:'Receipts', team:'Team', followups:'Follow-Ups & Tasks', warranties:'Warranties', payments:'Payments', suppliers:'Suppliers & Orders', reports:'Team Performance', payroll:'Tech Payroll', earnings:'My Earnings', checklist:'Dev Checklist', auditlog:'Activity History', inbox:'Smart Inbox', more:'More', socialposts:'Social Media Posts', gallery:'Gallery', visualizer:'Door Visualizer', viscatalog:'Visualizer Catalog', walog:'WhatsApp Log', receptionist:'AI Receptionist', ai_manager:'AI Manager', ai_system:'AI Complete System', settings:'Settings' };
   const PAGE_META = {
     dashboard: { emoji:'🏠', sub:'Your business at a glance' },
     leads: { emoji:'🎯', sub:'New inquiries & follow-ups' },
@@ -1395,6 +1411,7 @@ function render() {
     suppliers: { emoji:'🚚', sub:'Vendors & purchase orders' },
     reports: { emoji:'📊', sub:'Technician performance' },
     payroll: { emoji:'💵', sub:'Commission & payout report' },
+    earnings: { emoji:'💵', sub:'Your jobs, commission & parts reimbursements' },
     checklist: { emoji:'📋', sub:'' },
     auditlog: { emoji:'🕒', sub:'Everything that happened, and when' },
     gallery: { emoji:'🖼️', sub:'Door models, styles & project photos' },
@@ -1445,6 +1462,7 @@ function render() {
   if (route.page === 'suppliers') return renderSuppliers(content, actions);
   if (route.page === 'reports') return renderReports(content, actions);
   if (route.page === 'payroll') return renderPayroll(content, actions);
+  if (route.page === 'earnings') return renderTechnicianEarnings(content, actions);
   if (route.page === 'checklist') return renderChecklist(content, actions);
   if (route.page === 'communications') return renderCommunications(content, actions);
   if (route.page === 'auditlog') return renderAuditLog(content, actions);
@@ -1894,10 +1912,11 @@ function dateNDaysAgo(n) { const d = new Date(); d.setDate(d.getDate()-n); retur
 function isThisMonth(dateStr) { if (!dateStr) return false; return dateStr.slice(0,7) === todayISO().slice(0,7); }
 function renderTechnicianDashboard(content, actions) {
   const today = todayISO();
-  const myJobsToday = STORE.jobs.filter(j=>j.technician===VIEW_AS && j.scheduledDate===today);
-  const myUpcoming = STORE.jobs.filter(j=>j.technician===VIEW_AS && j.status!=='completed' && j.status!=='cancelled')
+  const technicianId = technicianWorkspaceId();
+  const myJobsToday = STORE.jobs.filter(j=>technicianId && j.technicianId===technicianId && !j.deletedAt && j.scheduledDate===today);
+  const myUpcoming = STORE.jobs.filter(j=>technicianId && j.technicianId===technicianId && !j.deletedAt && j.status!=='completed' && j.status!=='cancelled')
     .sort((a,b)=>(a.scheduledDate||'').localeCompare(b.scheduledDate||'')).slice(0,8);
-  const myPendingLeads = STORE.leads.filter(l=>l.assignedTechnician===VIEW_AS && l.assignmentStatus==='pending');
+  const myPendingLeads = STORE.leads.filter(l=>technicianId && l.assignedTechnicianId===technicianId && l.assignmentStatus==='pending');
   content.innerHTML = `
     <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">
       <div class="stat-card accent"><div class="label">Your jobs today</div><div class="value">${myJobsToday.length}</div></div>
@@ -2126,7 +2145,7 @@ function runGlobalSearch(q) {
 function computeNotifications() {
   const today = todayISO();
   const items = [];
-  const relevantLeads = isTechnicianView() ? STORE.leads.filter(l=>l.assignedTechnician===VIEW_AS) : STORE.leads;
+  const relevantLeads = isTechnicianView() ? STORE.leads.filter(l=>technicianOwnsLead(l)) : STORE.leads;
   relevantLeads.filter(l=>l.assignmentStatus==='pending' && l.assignedTechnician).forEach(l=>
     items.push({ icon:'👤', text:`Lead "${l.name}" awaiting ${esc(l.assignedTechnician)}'s response`, at: l.createdAt||0, go:['leads',null] }));
   if (!isTechnicianView()) {
@@ -2137,7 +2156,7 @@ function computeNotifications() {
     STORE.tasks.filter(t=>t.status!=='done' && t.dueDate && t.dueDate<=today).forEach(t=>
       items.push({ icon:'✅', text:`Task due: ${t.title}`, at: t.createdAt||0, go:['followups',null] }));
   }
-  STORE.leads.filter(l=>l.nextFollowUp && l.nextFollowUp<=today && !['won','lost','converted','cancelled'].includes(l.status) && (!isTechnicianView() || l.assignedTechnician===VIEW_AS)).forEach(l=>
+  STORE.leads.filter(l=>l.nextFollowUp && l.nextFollowUp<=today && !['won','lost','converted','cancelled'].includes(l.status) && (!isTechnicianView() || technicianOwnsLead(l))).forEach(l=>
     items.push({ icon:'📅', text:`Follow up with ${l.name} today`, at: l.createdAt||0, go:['leads',null] }));
   return items.sort((a,b)=>recordTimestamp(b.at)-recordTimestamp(a.at)).slice(0,30);
 }
@@ -3508,8 +3527,8 @@ function renderLeads(content, actions) {
     : `<button class="btn btn-sm" onclick="exportLeadsCSV()">⬇ CSV</button><button class="btn btn-primary" onclick="openLeadModal()">+ New lead</button>`;
   const term = (searchTerms.leads||'').toLowerCase();
   let list = STORE.leads.filter(l => !term || [(l.name||''),(l.phone||''),(l.email||'')].some(v=>v.toLowerCase().includes(term)));
-  const pendingForMe = isTechnicianView() ? STORE.leads.filter(l=>l.assignedTechnician===VIEW_AS && l.assignmentStatus==='pending') : [];
-  if (isTechnicianView()) list = list.filter(l=>l.assignedTechnician===VIEW_AS);
+  const pendingForMe = isTechnicianView() ? STORE.leads.filter(l=>technicianOwnsLead(l) && l.assignmentStatus==='pending') : [];
+  if (isTechnicianView()) list = list.filter(l=>technicianOwnsLead(l));
   const requestedLeadId = route.page==='leads' ? route.id : null;
   content.innerHTML = `
     ${renderWorkNavigation()}
@@ -5487,10 +5506,11 @@ function renderPayroll(content, actions) {
     ${allCards.length ? allCards.map(c => renderPayrollTechCardHtml(c)).join('') : emptyState('🧾','No technicians yet','Add a team member or assign a technician to a job.')}
   `;
 }
-function payrollTechCardData(technician) {
+function payrollTechCardData(technician, options = {}) {
   const {key,name,memberId,unlinked} = technician;
-  const jobs = STORE.jobs.filter(j => !j.deletedAt && reportJobTechnician(j).key===key && j.scheduledDate && j.scheduledDate>=payrollRange.from && j.scheduledDate<=payrollRange.to);
-  const commissionPct = payrollCommissionOverride[key] ?? (Number(technician.commissionPercent) || 0);
+  const range = options.range || payrollRange;
+  const jobs = STORE.jobs.filter(j => !j.deletedAt && (options.strictIdentity ? j.technicianId===memberId : reportJobTechnician(j).key===key) && j.scheduledDate && j.scheduledDate>=range.from && j.scheduledDate<=range.to);
+  const commissionPct = (options.allowOverride===false ? null : payrollCommissionOverride[key]) ?? (Number(technician.commissionPercent) || 0);
   const rows = jobs.map(j => {
     const invoices = STORE.invoices.filter(i=>i.jobId===j.id && !i.deletedAt);
     const totals = invoices.map(computeTotals);
@@ -8380,6 +8400,7 @@ function renderWaLog(content, actions) {
 
 function renderAuditLog(content, actions) {
   if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
+  if (window.ActivityHistory) return window.ActivityHistory.render(content, actions);
   const list = [...STORE.auditLog].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt)).slice(0,200);
   content.innerHTML = `
     <div class="panel"><div class="panel-body">
@@ -8464,7 +8485,7 @@ function renderSettings(content, actions) {
     <details class="settings-tools">
       <summary>System tools &amp; logs</summary>
       <div class="settings-tools-actions">
-        <button class="btn btn-sm" onclick="go('auditlog')">Audit Log</button>
+        <button class="btn btn-sm" onclick="go('auditlog')">Activity History</button>
         <button class="btn btn-sm" onclick="go('walog')">WhatsApp Log</button>
         <button class="btn btn-sm" onclick="go('checklist')">Dev Checklist</button>
       </div>
@@ -8991,10 +9012,10 @@ function renderCalendarMonth(content) {
   const startGrid = new Date(firstOfMonth); startGrid.setDate(startGrid.getDate() - firstOfMonth.getDay());
   const cells = Array.from({length:42}, (_,i) => { const d = new Date(startGrid); d.setDate(startGrid.getDate()+i); return d; });
   const today = todayISO();
-  const techFilter = searchTerms.calendarTech || '';
+  const techFilter = isTechnicianView() ? '' : (searchTerms.calendarTech || '');
   const techOptions = calendarTechFilterOptions();
   const jobsForDay = dStr => STORE.jobs.filter(j=>j.scheduledDate===dStr && jobMatchesTechFilter(j, techFilter))
-    .filter(j => !isTechnicianView() || j.technician===VIEW_AS);
+    .filter(j => !isTechnicianView() || technicianOwnsJob(j));
   const monthLabel = cursor.toLocaleDateString('en-US', { month:'long', year:'numeric' });
   const selectedDate = searchTerms.calendarSelectedDate || today;
   const selectedJobs = jobsForDay(selectedDate).sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
@@ -9086,9 +9107,9 @@ function shiftCalendarMonth(n) {
 }
 window.shiftCalendarMonth = shiftCalendarMonth;
 function openCalendarDay(dateStr) {
-  const techFilter = searchTerms.calendarTech || '';
-  const dJobs = STORE.jobs.filter(j=>j.scheduledDate===dateStr && (!techFilter || j.technician===techFilter))
-    .filter(j => !isTechnicianView() || j.technician===VIEW_AS)
+  const techFilter = isTechnicianView() ? '' : (searchTerms.calendarTech || '');
+  const dJobs = STORE.jobs.filter(j=>j.scheduledDate===dateStr && jobMatchesTechFilter(j,techFilter))
+    .filter(j => !isTechnicianView() || technicianOwnsJob(j))
     .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
   const dObj = new Date(dateStr+'T00:00:00');
   showModal({
@@ -9123,14 +9144,14 @@ window.openCalendarDay = openCalendarDay;
 function renderCalendarWeek(content) {
   if (!calendarWeekStart) calendarWeekStart = startOfWeek(todayISO());
   const days = Array.from({length:7}, (_,i)=>addDays(calendarWeekStart, i));
-  const techFilter = searchTerms.calendarTech || '';
+  const techFilter = isTechnicianView() ? '' : (searchTerms.calendarTech || '');
   const techOptions = calendarTechFilterOptions();
   const jobTypeFilter = searchTerms.calendarJobType || '';
   const statusFilter = searchTerms.calendarStatus || '';
   const jobsForDay = d => STORE.jobs.filter(j=>j.scheduledDate===d && jobMatchesTechFilter(j, techFilter))
     .filter(j => !jobTypeFilter || String(j.title||'').toLowerCase().includes(jobTypeFilter))
     .filter(j => !statusFilter || j.status===statusFilter)
-    .filter(j => !isTechnicianView() || j.technician===VIEW_AS)
+    .filter(j => !isTechnicianView() || technicianOwnsJob(j))
     .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
   const today=todayISO(), firstObj=new Date(days[0]+'T00:00:00'), lastObj=new Date(days[6]+'T00:00:00');
   const rangeLabel=firstObj.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+lastObj.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
@@ -9237,10 +9258,10 @@ window.shiftCalendarMiniMonth=shiftCalendarMiniMonth;
 function renderCalendarDay(content) {
   const dateStr=searchTerms.calendarSelectedDate||todayISO();
   searchTerms.calendarSelectedDate=dateStr;
-  const techFilter=searchTerms.calendarTech||'';
+  const techFilter=isTechnicianView()?'':(searchTerms.calendarTech||'');
   const techOptions=calendarTechFilterOptions();
   const jobs=STORE.jobs.filter(j=>j.scheduledDate===dateStr && jobMatchesTechFilter(j,techFilter))
-    .filter(j=>!isTechnicianView()||j.technician===VIEW_AS)
+    .filter(j=>!isTechnicianView()||technicianOwnsJob(j))
     .sort((a,b)=>(a.appointmentWindow||'').localeCompare(b.appointmentWindow||''));
   const dObj=new Date(dateStr+'T00:00:00');
   const prev=addDays(dateStr,-1), next=addDays(dateStr,1);
@@ -11015,7 +11036,7 @@ async function initUserRole() {
 <!-- EZFIX_DOOR_DESIGN_LIBRARY_V1 --><script src="/door-design-data.js"></script><script src="/door-config-options.js"></script><script src="/door-design-library.js"></script>
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
-<script src="/job-assignment.js"></script><script src="/workspace-overview.js"></script><script src="/office-workspace.js"></script><script src="/lead-dispatch.js"></script>
+<script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js"></script><script src="/workspace-overview.js"></script><script src="/office-workspace.js"></script><script src="/lead-dispatch.js"></script>
 <script src="/workspace-theme.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>

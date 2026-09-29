@@ -129,15 +129,74 @@ remain open; the table is not a claim that every item in those issues is broken.
 
 | Area | Current evidence | Remaining work |
 | --- | --- | --- |
-| Technician earnings | Owner/Office payroll works; technician route and renderer access still exclude payroll | Implement the requested personal earnings view with own-only data and verify using a real technician session |
-| Activity history | Date ordering fixed; current Audit Log displays date, action and summary | Complete the richer actor/change/reason history presentation and acceptance |
+| Technician earnings | Personal My Earnings page implemented; 18 UI/calculation/identity tests and 11 live-schema permission checks pass | Final visual acceptance in a signed-in technician session |
+| Activity history | Searchable actor/time/record history and before/after values implemented; 17 business tables record changes atomically; 13 renderer tests and 16 live-schema checks pass | Final signed-in visual acceptance; older events cannot supply details that were never recorded |
 | Payments and signing | All 13 Square-backed invoices have payment links; webhook URL and signature configuration exist; rollback workflow checks passed | Current end-to-end signing, payment/receipt and website intake acceptance; a link alone does not prove checkout settlement |
 | SMS/email | 44 SMS rows have provider delivery confirmation and none are failed in the inspected set; 20 email-delivered events exist | Complete the required current handset/recipient acceptance; these counts do not certify every future send |
 | Google Ads/social/WhatsApp | No Google Ads connection rows and no marketing OAuth connection rows; WhatsApp integration alert remains | Connect owner-selected provider accounts and verify real delivery/marketing flows |
 | Office account | Office role and authorization are implemented; no real Office login exists | Owner supplies the actual staff name and email; provision that person |
 | AI pricing and dispatch | Only 2 of 166 active catalog items have positive prices; routing is Recommendations; all 3 enabled technician profiles explicitly contain demo data | Replace demo hours, travel, skills and cost inputs with owner-approved business values; supply actual prices before enabling automated pricing/dispatch |
-| Mobile/desktop acceptance | Automated checks pass; this session's browser daemon failed at startup | Real desktop, iPhone and iPad checks of the final flows |
-| Operations | Backend recovered after the documented transient 5xx cluster; root cause unknown | Review the backend incident and verify password-protection and backup/recovery settings in their dashboards |
+| Mobile/desktop acceptance | Automated checks pass; the cloud browser loads CRM successfully and reaches Sign In | Secure sign-in is required for current live visual checks; iPhone and iPad acceptance remains |
+| Operations | Backend recovered after the documented transient 5xx cluster; latest advisor confirms leaked-password protection is disabled | Enable/verify password protection, verify backup/recovery settings, and review the earlier backend incident |
 
 No live customer message, live charge, invented staff account, routing-mode
 change or replacement of demo profiles was made by this report/history patch.
+
+## Personal earnings and detailed activity closeout
+
+Baseline: main `f63a3d7ba7ce2e6c92e29834a9a11b309e156fd0` after PR #186.
+
+### Personal earnings and technician workspace
+
+- My Earnings appears in the technician's More tools. It shows only jobs linked
+  to the signed-in team ID, with period presets, invoice revenue before tax,
+  parts cost/payer, saved commission, parts reimbursement, calculated payout,
+  customer payment/balance and direct job access. It has no commission editor.
+- The same payroll calculation serves the office and personal report. Personal
+  reports ignore temporary office overrides and ambiguous legacy name matching.
+  A missing commission rate is visibly unconfigured; a configured zero stays zero.
+- The page distinguishes calculated earnings from actual payroll payments and
+  flags unscheduled, incomplete and uninvoiced work.
+- Actual technician login clears the owner-only VIEW_AS label. The dashboard,
+  calendar and lead lists previously filtered using that empty label; they now
+  use the signed-in ID. A saved owner calendar technician filter cannot hide the
+  technician's own appointments. Duplicate-name owner previews fail closed.
+
+### Durable activity history
+
+- Owner history has search, record/source/date filters, pagination, exact local
+  timestamps, actor labels, recorded reasons, record links and before/after values.
+  Provider callbacks and remote customer signatures are distinct from the person
+  who originally requested a send or created the signing link.
+- A private database trigger records changes on 17 business tables in the same
+  transaction. An isolated role can insert history and read the caller's actor
+  label; it cannot edit jobs/invoices or delete history. Client updates remain
+  limited to read acknowledgement. Existing workflow/provider logs remain.
+- Snapshots use an explicit business-field allowlist. Provider tokens, arbitrary
+  app_data, raw signatures and photo URLs are excluded. No historical data was
+  backfilled or reconstructed; missing reasons and actors remain labeled unknown.
+
+### Verification and deployment notes
+
+- 18 personal earnings/workspace cases, 13 detailed-history cases, plus the
+  existing 15 payroll and 14 report/history cases pass: **60 targeted cases**.
+- All **62 release steps** pass after the technician calendar/lead fixes. The
+  calendar fixture now executes the production identity helpers with an actual
+  technician identity and an empty owner preview label.
+- All nine live-schema rollback suites pass: **215 checks**, including the
+  188 workflow checks above and 27 new earnings/history assertions. Follow-up
+  found no retained new QA customers, jobs, invoices, team rows or history.
+- Local PostgreSQL simulation tested trigger behavior and least privileges.
+  Live-schema testing then exposed two environment-specific mismatches: the
+  existing PUBLIC team policy needed its role-helper grants, and the existing
+  source constraint needed the new database source. Both corrective migrations
+  were applied, followed by the complete passing rollback run. The inspected
+  HTTP log window from 16:00 UTC through the follow-up contained no 4xx/5xx rows.
+- Security advisors report no new public audit function. Existing token-backed
+  public document APIs, authenticated helpers and private tables remain noted
+  by the advisor; leaked-password protection is still explicitly disabled.
+- Cloud browser access works; the current session is signed out. No real
+  customer messages, charges or signatures were submitted during these tests.
+
+Migration filenames match the versions recorded by the production migration
+history. The two follow-up migrations are required alongside the base migration.

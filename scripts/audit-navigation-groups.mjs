@@ -25,8 +25,8 @@ check('Owner launcher keeps gallery tools separate and removes warranties from t
  assert.deepEqual(groups.find(g=>g.name==='Gallery & Visualizer').items.map(n=>n.key),['gallery','visualizer']);
  assert.deepEqual(groups.find(g=>g.name==='Business Workspace').items.map(n=>n.key),['banking','socialposts','office']);
 });
-check('Technician launcher exposes only the existing allowed document workflows',()=>{
- const f=fixture('technician');assert.deepEqual(f.run('dashboardModuleCategories().flatMap(g=>g.items.map(n=>n.key))').sort(),['estimates','invoices','quickpay']);
+check('Technician launcher exposes own earnings and allowed document workflows',()=>{
+ const f=fixture('technician');assert.deepEqual(f.run('dashboardModuleCategories().flatMap(g=>g.items.map(n=>n.key))').sort(),['earnings','estimates','invoices','quickpay']);
  assert.ok(f.run('sidebarNavItems().map(n=>n.key)').every(k=>!['settings','communications','ai_manager','payments','team'].includes(k)));
 });
 check('Marketing manager retains Leads without gaining Jobs or billing navigation',()=>{
