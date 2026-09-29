@@ -231,3 +231,38 @@ request. Source inspection confirmed it is emitted by the signed-in CRM user
 calling `openPublicInvoicePage`; it is not proof of a customer visit. The recorded
 actor and original database event stay unchanged. This brings history coverage
 to 14 tests. All 63 release steps and all 22 strict safety checks pass.
+
+## Continued live workflow verification
+
+PR #188 was merged as `b93c139bd29b09be3cb3aff5dd918d255c307cac` and production
+deployment `dpl_DNUXzTvZ4FRGRPbqA8KAQntrpQAc` reached READY. Exact HTML/history
+asset comparison and all seven public route checks passed. The live month agenda
+now shows morning before afternoon, and week view visibly places shorthand
+appointments at their actual start hours.
+
+Additional owner-browser checks verified:
+
+- A previously settled invoice's principal, card fee and zero balance agree
+  between Payments and the invoice. Its existing receipt has provider delivery
+  events. No new payment or message was submitted.
+- The normal Open customer invoice page action produced a working scoped link.
+  The customer page showed Paid in full. Replacing its access token with a fixed
+  invalid test token showed only the invalid/expired-link error and no invoice
+  data. The valid token is not retained in this document or source.
+- A previously signed estimate renders its approved state, signer and signature;
+  the signature image and both logos loaded successfully. No signature was made.
+
+The website lead review form exposed a mapping defect: intake stores the original
+date as `preferred_date`, while the form read only `preferredAppointment`. The
+linked job and database date were correct, but the review field was blank. The
+form now falls back to the normalized website date only when there is no saved
+CRM date. An explicitly changed or cleared CRM value takes precedence. Rendering
+escapes the source value; ordinary edits retain the displayed date. Seven tests
+execute the actual mapper, form and stubbed save handler. No existing lead was
+edited to demonstrate the fix.
+
+All 64 release steps and all 22 strict safety checks passed for this follow-up.
+Actual technician login remains pending; the attempted separate production
+alias redirected to Vercel authentication and automatic browser approval blocked
+that unrequested account destination. The already-authorized CRM owner session
+remains usable. No deployment protection or authentication control was bypassed.

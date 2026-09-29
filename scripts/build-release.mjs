@@ -11,6 +11,7 @@ const scripts = [
   'audit-public-invoice-token.mjs',
   'audit-website-sms-consent.mjs',
   'audit-website-intake.mjs',
+  'audit-website-lead-review.mjs',
   'audit-invoice-email-link.mjs',
   'square-live-integration-audit.mjs',
   'audit-ui-state.mjs',
