@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+const source=readFileSync(new URL('../../whatsapp-linked-device.js',import.meta.url),'utf8');
+function fixture(role='owner'){
+ const fields={wa_linked_panel:{innerHTML:'',textContent:''},modalSaveBtn:{textContent:''},wa_linked_to:{value:'+12025550123'},wa_linked_body:{value:'Synthetic test'}},calls=[],modals=[],toasts=[];
+ const c={window:{},CURRENT_TEAM_MEMBER:{role},STORE:{leads:[],customers:[]},isTechnicianView:()=>c.CURRENT_TEAM_MEMBER.role==='technician',crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'},document:{getElementById:id=>fields[id]},esc:v=>String(v??'').replace(/[&<>"']/g,k=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[k])),showModal:m=>modals.push(m),closeModal(){},toast:(...a)=>toasts.push(a),renderCommunications(){},SB:{functions:{invoke:async(_,{body})=>{calls.push(body);if(body.action==='send'&&c.failSend)return {error:Error('offline')};return {data:body.action==='status'?{ok:true,state:'ready'}:body.action==='messages'?{ok:true,events:c.events||[],sends:[]}:{ok:true,state:'queued'}};}}}};vm.createContext(c);vm.runInContext(source,c);c.WhatsAppLinked=c.window.WhatsAppLinked;return {c,fields,calls,modals,toasts,ui:c.WhatsAppLinked};
+}
+test('technicians cannot open inbox, compose or pairing controls',async()=>{const f=fixture('technician');await f.ui.open();f.ui.compose();await f.ui.pair();assert.equal(f.calls.length,0);assert.equal(f.modals.length,0);});
+test('viewing inbox never sends a message and escapes inbound markup',async()=>{const f=fixture();f.c.events=[{payload:{type:'message',id:'one',chat_id:'12025550123@c.us',direction:'inbound',body:'<img src=x onerror=alert(1)>'}}];await f.ui.open();assert.ok(f.calls.every(c=>c.action!=='send'));assert.ok(!f.fields.wa_linked_panel.innerHTML.includes('<img src=x'));assert.match(f.fields.wa_linked_panel.innerHTML,/&lt;img/);});
+test('ambiguous contact numbers do not link a conversation to the wrong record',async()=>{const f=fixture();f.c.STORE.leads=[{id:'a',phone:'+12025550123',name:'A'},{id:'b',phone:'+12025550123',name:'B'}];f.c.events=[{payload:{type:'message',id:'one',chat_id:'12025550123@c.us',direction:'inbound',body:'test'}}];await f.ui.open();assert.ok(!f.fields.wa_linked_panel.innerHTML.includes('Open lead'));});
+test('retry uses the same request ID and freezes uncertain message content',async()=>{const f=fixture();f.c.failSend=true;f.ui.compose();const save=f.modals.at(-1).onSave;await save();await save();assert.equal(f.calls.length,2);assert.equal(f.calls[0].request_id,f.calls[1].request_id);f.fields.wa_linked_body.value='changed';await save();assert.equal(f.calls.length,2);});
+test('role change while composing blocks send',async()=>{const f=fixture();f.ui.compose();f.c.CURRENT_TEAM_MEMBER.role='technician';await f.modals.at(-1).onSave();assert.equal(f.calls.length,0);});
+test('office cannot request the pairing QR',async()=>{const f=fixture('office');await f.ui.pair();assert.equal(f.calls.length,0);});

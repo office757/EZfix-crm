@@ -5,8 +5,12 @@ import path from 'node:path';
 import whatsapp from 'whatsapp-web.js';
 import QRCode from 'qrcode';
 import { Bridge } from './bridge.mjs';
+import { Relay, relayTransport } from './relay.mjs';
 
 process.umask(0o077);
+const relayUrl=process.env.WA_RELAY_URL,relayToken=process.env.WA_RELAY_TOKEN;
+if(Boolean(relayUrl)!==Boolean(relayToken))throw new Error('Set both WA_RELAY_URL and WA_RELAY_TOKEN');
+const transport=relayUrl?relayTransport(relayUrl,relayToken):null;
 const data = path.resolve(process.env.WA_DATA_DIR || 'data');
 mkdirSync(data, { recursive: true, mode: 0o700 });
 chmodSync(data, 0o700);
@@ -61,11 +65,19 @@ const server = http.createServer(async (req, res) => {
 });
 server.listen(port, '127.0.0.1', () => console.log(`WhatsApp bridge: http://127.0.0.1:${port}; credentials stored locally in ${tokenPath}`));
 client.initialize().catch(() => { bridge.state = 'startup_failed'; console.error('WhatsApp browser failed to start. Check host browser dependencies and sandbox support.'); });
-let stopping = false;
+let stopping = false, relayTimer, relayFlight=Promise.resolve();
+if(relayUrl){
+ const relay=new Relay(bridge,transport,value=>QRCode.toDataURL(value));
+ const poll=()=>{relayFlight=relay.tick().catch(()=>console.error('CRM relay unavailable; messages retained locally.')).finally(()=>{if(!stopping)relayTimer=setTimeout(poll,5000);});};
+ poll();
+}
+
 async function stop() {
   if (stopping) return;
   stopping = true;
+  clearTimeout(relayTimer);
   server.close();
+  await relayFlight;
   await client.destroy().catch(() => {});
   bridge.close();
   process.exit(0);

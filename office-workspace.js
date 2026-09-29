@@ -56,3 +56,6 @@ window.OfficeWorkspace={
  async copyCaption(){try{await navigator.clipboard.writeText(document.getElementById('social_caption').value);toast('Caption copied');}catch{toast('Select and copy the caption from the text box.',true);}}
 };
 })();
+
+// Load the manual linked-device inbox separately from the existing Cloud API.
+(function(){const script=document.createElement('script');script.src='/whatsapp-linked-device.js';script.onload=()=>{if(route.page==='communications'&&!document.querySelector('.overlay'))render();};document.body.append(script);})();

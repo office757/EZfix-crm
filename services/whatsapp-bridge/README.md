@@ -1,8 +1,9 @@
-# EZfix linked-device WhatsApp bridge — development stage
+# EZfix linked-device WhatsApp bridge — host activation pending
 
-Standalone QR-linked provider adapter. **Not deployed or connected to the CRM yet.**
+QR-linked provider adapter, authenticated cloud relay and manual CRM inbox.
+**No persistent host or live WhatsApp account is connected yet.**
 No live WhatsApp account has been paired, and no real message has been sent during tests.
-Existing Cloud API functions and CRM styling remain untouched.
+Existing Cloud API functions remain separate. Communications gains a WhatsApp inbox button; Ashley auto-replies remain off.
 
 ## Host requirements
 
@@ -15,13 +16,13 @@ transient development workspace. whatsapp-web.js is an unofficial client.
 ## Install / start on the selected host
 
 ```
-npm ci
+npm ci --ignore-scripts
 npm start
 ```
 
-`npm ci` downloads the browser through Puppeteer. Alternatively set
-`PUPPETEER_SKIP_DOWNLOAD=true` during installation and set `WA_CHROME_PATH` to
-an installed compatible Chrome executable. `WA_DATA_DIR` overrides `./data`.
+Use a separately installed Chrome and set `WA_CHROME_PATH` to its executable.
+Install with `--ignore-scripts` so dependency installation does not download or
+launch a browser. `WA_DATA_DIR` overrides `./data`.
 The directory holds credentials, browser session and the SQLite message database;
 restrict it to the operating-system user running the bridge. Never commit it.
 
@@ -45,18 +46,61 @@ handling, historical backfill, automatic Ashley replies or recipient discovery.
 Opaque WhatsApp `@lid` identities are preserved as chat IDs, never treated as
 telephone numbers. Events are deduplicated by provider message ID.
 
-## Remaining before a live CRM release
+## Cloud relay and CRM inbox
 
-1. Select and provision the durable host, install the service and pair the account.
-2. Connect an authenticated server-side relay to Supabase with office-only
-   pairing/send access; add durable cursor tracking and provider event deduplication.
-   Do not feed this token to browsers or reuse Meta's signed webhook endpoint.
-3. Wire the existing Communications surface to the relay without a visual redesign.
-4. Verify incoming message → correct lead, manual reply → handset, delivery status,
-   reconnect, restart, cancellation, authorization and duplicate request behavior.
-5. Enable Ashley only after manual round-trip passes, with existing CRM action permissions.
+Apply `20260929181433_whatsapp_linked_device_relay.sql` and deploy the
+`whatsapp-linked-device` Edge Function with gateway JWT verification disabled.
+The handler independently validates Supabase user tokens and current active team
+roles. Its worker protocol authenticates a separate high-entropy private key.
+Browser Data API roles have no privileges on the three relay tables; RLS is enabled.
+QR access is owner-only. Office roles can view messages and enqueue manual sends.
+Technicians and marketing-only users cannot access this inbox.
 
-`npm test` exercises a fake provider and temporary databases. It does not prove
-live WhatsApp compatibility or delivery. A service restart restores a saved session;
-a revoked session still requires pairing again. Use host service supervision and
-protected backups before production use. Retention policy is required for live messages.
+Configure the same random secret (at least 32 characters) as `WA_LINKED_BRIDGE_KEY`
+in Edge Function secrets and `WA_RELAY_TOKEN` in the persistent host environment.
+Set `WA_RELAY_URL` to the deployed function's HTTPS URL. Never place either secret
+in frontend settings, source control, chat or URLs. Do not open port 8787 to the
+internet: the host polls outward to Supabase every five seconds.
+
+Each worker retains its UUID, event cursor and send journal in SQLite. Cloud jobs
+are claimed atomically. After a lost response, only the same durable worker can
+recover its processing job; the local journal prevents another provider send.
+A replacement host must restore the complete private data directory. Do not start
+multiple copies from a cloned session. An in-flight job on a lost host requires
+manual reconciliation; there is no unsafe automatic failover.
+
+The CRM shows connection state and recent direct text messages, with unique
+phone matches linking to an existing lead or customer. Ambiguous matches remain
+unlinked. Opaque WhatsApp LIDs are linked only when the provider supplies the exact
+LID-to-phone mapping. The view includes up to 300 recent events and 100 recent
+outbound requests; it is not a complete historical chat archive. Media, groups,
+message edits/deletes and automated lead-dispatch WhatsApp routing are not wired
+to this adapter yet. Existing Meta Cloud API notification routes remain unchanged.
+
+Only an explicit office send action creates a command. Incoming message content
+never executes instructions. A send retry keeps its original request ID and
+payload. Submitted is not delivered; delivery/read acknowledgments are separate.
+A heartbeat older than 45 seconds disables new sends. Pairing QR codes are hidden
+when stale or already connected.
+
+## Verification and activation checklist
+
+- [x] Fake-provider send deduplication, restart and unknown outcomes.
+- [x] Durable relay cursor and recovery after lost cloud acknowledgments.
+- [x] Office/technician/owner role boundaries, QR isolation, escaping and stable UI retries.
+- [x] Local PostgreSQL checks for RLS, service-only claims and worker ownership.
+- [x] Dependency advisory resolved by pinning `@puppeteer/browsers` 3.2.3.
+  Provider/Puppeteer imports and executable-path API compatibility pass; npm audit
+  reports zero vulnerabilities for the locked dependency tree at verification time.
+- [ ] Select a persistent host and set its private environment values.
+- [ ] Pair the intended WhatsApp account using its Linked devices screen.
+- [ ] Verify real inbound → correct CRM conversation, reply → handset, delivery,
+  disconnect/reconnect and host restart. Tests do not prove live compatibility.
+- [ ] Agree message retention/backup operations before sustained production use.
+- [ ] Add media/history and automated notification routing if required after manual acceptance.
+
+No live account has been paired and no real message was sent during development.
+A revoked session still requires pairing again. Use OS service supervision with
+an ordinary user and Chromium sandbox enabled; never disable the sandbox to get
+a test to run. The host's persistent directory contains authentication and message
+data and must remain private to its operating-system account.

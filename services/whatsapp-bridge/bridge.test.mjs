@@ -60,3 +60,11 @@ test('invalid recipient and empty message rejected before provider calls', async
   assert.equal((await bridge.send({ ...request, body: ' ' })).status, 400);
   assert.equal(client.calls, 0);
 });
+test('opaque LID links only through an exact provider-confirmed phone mapping',async t=>{
+ const {client,bridge}=fixture(t);client.getContactLidAndPhone=async()=>[{lid:'12345678@lid',pn:'12025550123@c.us'}];
+ client.emit('message_create',{from:'12345678@lid',fromMe:false,id:{_serialized:'lid-message'},type:'chat',body:'Synthetic',timestamp:123});
+ await new Promise(r=>setImmediate(r));const events=bridge.events();assert.equal(events.length,2);assert.equal(events[1].phone_e164,'+12025550123');
+ client.emit('message_create',{from:'99999999@lid',fromMe:false,id:{_serialized:'different-lid'},type:'chat',body:'Synthetic',timestamp:124});
+ await new Promise(r=>setImmediate(r));assert.equal(bridge.events().filter(e=>e.type==='contact').length,1);
+});
+test('malformed provider messages cannot poison the synchronization cursor',t=>{const {client,bridge}=fixture(t);client.emit('message_create',{from:'not-a-number@c.us',type:'chat'});client.emit('message_ack',{},2);assert.deepEqual(bridge.events(),[]);});
