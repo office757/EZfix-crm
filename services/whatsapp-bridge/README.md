@@ -1,8 +1,9 @@
-# EZfix linked-device WhatsApp bridge — host activation pending
+# EZfix linked-device WhatsApp bridge
 
 QR-linked provider adapter, authenticated cloud relay and manual CRM inbox.
-**No persistent host or live WhatsApp account is connected yet.**
-No live WhatsApp account has been paired, and no real message has been sent during tests.
+The owner paired the Windows host on September 29, 2026 and confirmed inbound
+messages in the CRM and a manual CRM reply on the second handset. See the
+activation notes below for remaining operational acceptance.
 Existing Cloud API functions remain separate. Communications gains a WhatsApp inbox button; Ashley auto-replies remain off.
 
 ## Host requirements
@@ -92,15 +93,41 @@ when stale or already connected.
 - [x] Dependency advisory resolved by pinning `@puppeteer/browsers` 3.2.3.
   Provider/Puppeteer imports and executable-path API compatibility pass; npm audit
   reports zero vulnerabilities for the locked dependency tree at verification time.
-- [ ] Select a persistent host and set its private environment values.
-- [ ] Pair the intended WhatsApp account using its Linked devices screen.
+- [x] Select a persistent host and set its private environment values.
+- [x] Pair the intended WhatsApp account using its Linked devices screen.
 - [ ] Verify real inbound → correct CRM conversation, reply → handset, delivery,
   disconnect/reconnect and host restart. Tests do not prove live compatibility.
 - [ ] Agree message retention/backup operations before sustained production use.
 - [ ] Add media/history and automated notification routing if required after manual acceptance.
 
-No live account has been paired and no real message was sent during development.
+Automated tests use fake providers; the owner performed the separate live sends.
 A revoked session still requires pairing again. Use OS service supervision with
 an ordinary user and Chromium sandbox enabled; never disable the sandbox to get
 a test to run. The host's persistent directory contains authentication and message
 data and must remain private to its operating-system account.
+
+## September 29 live activation and compatibility follow-up
+
+- Owner-confirmed inbound CRM receipt, manual reply received on the other phone,
+  and another inbound message after the requested process-restart sequence.
+- Read-only cloud inspection found a fresh ready heartbeat, five message events,
+  and one outbound request marked unconfirmed despite owner-confirmed receipt.
+- PR #197 accepts exact provider keys under either `_serialized` or `$1`.
+  The SDK itself also needs the narrow result-lookup correction in
+  `provider-compat.mjs`: it sends successfully but otherwise queries its message
+  collection with a missing legacy key. Server startup prepares the pinned
+  1.34.7 dependency before dynamically importing it. Repeated preparation is a
+  no-op; an unexpected version/source or preloaded SDK stops startup for review.
+- Launch `node --env-file=host.env server.mjs`, not the temporary diagnostic
+  wrapper that imports the SDK first. The result-lookup correction needs a new
+  owner-performed send to verify its live provider ID and acknowledgment.
+  Existing unconfirmed requests are not rewritten or resent.
+- Owner reported READY after creating a minimized Windows Startup shortcut with
+  the resolved node.exe path, persistent working directory and the command above.
+  Actual Windows sign-out/sign-in startup is still unverified. This is a login
+  shortcut, not a boot service or crash supervisor. Sleep/offline/crash recovery
+  and private session/message backup still require operational acceptance.
+
+The host must stay awake and connected. To update it, stop the running bridge
+with Ctrl+C before replacing files, then launch exactly one instance. Do not
+remove the data directory or pair another session just to apply this patch.
