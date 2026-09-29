@@ -77,6 +77,7 @@ export async function notifyLeadOffer(db:any,offer:any){
  async function whatsapp(){
   if(!linksReady)return {status:'unavailable'};
   const id='offer_'+offer.id,td=tech?.app_data||{};
+  const linked=!!Deno.env.get('WA_LINKED_BRIDGE_KEY');
   let status='queued';
   const to=String(td.whatsapp_number||'').replace(/[^+\d]/g,'');
   const token=Deno.env.get('META_WHATSAPP_TOKEN'),phoneId=Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID'),version=Deno.env.get('META_WHATSAPP_GRAPH_VERSION'),template=Deno.env.get('META_WHATSAPP_ASSIGNMENT_TEMPLATE_NAME');
@@ -84,13 +85,19 @@ export async function notifyLeadOffer(db:any,offer:any){
   else if(td.notify_prefs?.newLead===false)status='suppressed';
   else if(td.whatsapp_opt_in!==true)status='blocked_no_opt_in';
   else if(!/^\+[1-9]\d{7,14}$/.test(to))status='failed';
-  else if(!token||!phoneId||!version||!template)status='not_configured';
+  else if(!linked&&(!token||!phoneId||!version||!template))status='not_configured';
   else if(!current())status='suppressed';
   const text=message(waToken.raw);
   const {error}=await db.from('wa_notifications').insert({id,recipient_team_id:offer.technician_id,kind:'newLead',entity_type:'lead_offers',entity_id:offer.id,message:text,status,attempt_count:status==='queued'?1:0,app_data:{status},...(to?{recipient_phone:to}:{})});
   if(error)return {status:'unconfirmed',message_id:id};
   if(status!=='queued')return {status,message_id:id};
   const patch=async(s:string,extra:any={})=>db.from('wa_notifications').update({status:s,app_data:{status:s,...extra},...extra}).eq('id',id);
+  if(linked){
+   const queued=await db.rpc('service_queue_wa_lead_offer',{p_offer_id:offer.id,p_body:text});
+   const state=queued.error?'unconfirmed':queued.data?.status||'unconfirmed';
+   await patch(['queued','suppressed','blocked_no_opt_in','not_connected','failed'].includes(state)?state:'failed',{provider:'linked_device',...(state==='unconfirmed'?{failure_reason:'Queue outcome unknown. Do not resend automatically.'}:{})});
+   return {status:state,message_id:id,provider:'linked_device'};
+  }
   try{
    const response=await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:to.slice(1),type:'template',template:{name:template,language:{code:Deno.env.get('META_WHATSAPP_TEMPLATE_LANGUAGE')||'en_US'},components:[{type:'body',parameters:[{type:'text',text}]}]}}),signal:AbortSignal.timeout(8000)});
    const result=await response.json().catch(()=>({}));
