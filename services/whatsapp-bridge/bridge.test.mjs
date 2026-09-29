@@ -46,7 +46,7 @@ test('restart preserves inbound events and prevents duplicate sends', async () =
   const dir = mkdtempSync(path.join(tmpdir(), 'wa-bridge-test-'));
   const database = path.join(dir, 'state.sqlite');
   const client = new EventEmitter();
-  client.getNumberId = async () => ({ _serialized: 'test@c.us' });
+  client.getNumberId = async () => ({ _serialized: '15555550123@c.us' });
   client.sendMessage = async () => ({ id: { _serialized: 'outgoing1' } });
   let bridge = new Bridge(client, database); client.emit('ready');
   await bridge.send(request); bridge.record('fixture', { type: 'test' }); bridge.close();
@@ -68,3 +68,32 @@ test('opaque LID links only through an exact provider-confirmed phone mapping',a
  await new Promise(r=>setImmediate(r));assert.equal(bridge.events().filter(e=>e.type==='contact').length,1);
 });
 test('malformed provider messages cannot poison the synchronization cursor',t=>{const {client,bridge}=fixture(t);client.emit('message_create',{from:'not-a-number@c.us',type:'chat'});client.emit('message_ack',{},2);assert.deepEqual(bridge.events(),[]);});
+
+test('renamed provider keys ingest once and correlate delivery acknowledgments', t => {
+ const {client,bridge}=fixture(t);
+ const key='false_15555550123@c.us_STABLE123';
+ const message={from:'15555550123@c.us',fromMe:false,id:{$1:key},type:'chat',body:'Synthetic',timestamp:123};
+ client.emit('message_create',message);
+ client.emit('message_create',{...message,id:{_serialized:key}});
+ client.emit('message_ack',message,2);
+ assert.equal(bridge.events().length,2);
+ assert.equal(bridge.events()[0].id,key);
+ assert.equal(bridge.events()[1].id,key);
+ client.emit('message_create',{...message,id:{$1:{bad:true}}});
+ assert.equal(bridge.events().length,2);
+});
+test('renamed recipient and outbound keys retain send deduplication', async t => {
+ const {client,bridge}=fixture(t);client.emit('ready');
+ client.getNumberId=async()=>({$1:'15555550123@c.us'});
+ client.sendMessage=async recipient=>{assert.equal(recipient,'15555550123@c.us');client.calls++;return {id:{$1:'stable-outbound'}};};
+ assert.equal((await bridge.send(request)).provider_id,'stable-outbound');
+ assert.equal((await bridge.send(request)).duplicate,true);
+ assert.equal(client.calls,1);
+});
+test('missing outbound provider ID stays unconfirmed and cannot resend', async t => {
+ const {client,bridge}=fixture(t);client.emit('ready');
+ client.sendMessage=async()=>{client.calls++;return {id:{}};};
+ assert.equal((await bridge.send(request)).state,'unconfirmed');
+ assert.equal((await bridge.send(request)).state,'unconfirmed');
+ assert.equal(client.calls,1);
+});

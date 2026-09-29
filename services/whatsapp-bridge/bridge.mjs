@@ -1,6 +1,15 @@
 import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
 
+// WhatsApp Web may serialize the same provider key as $1 instead of _serialized.
+// Preserve that exact key; never synthesize IDs from message text or timestamps.
+const providerId = value => {
+  for (const candidate of [value?._serialized, value?.$1]) {
+    if (typeof candidate === 'string' && candidate.length > 0 && candidate.length <= 500) return candidate;
+  }
+  return null;
+};
+
 export class Bridge {
   constructor(client, database) {
     this.client = client;
@@ -18,9 +27,10 @@ export class Bridge {
     client.on('disconnected', () => { this.qr = null; this.state = 'disconnected'; });
     client.on('message_create', message => {
       const peer = message.fromMe ? message.to : message.from;
-      if (typeof peer !== 'string' || !/^\d+@(c\.us|lid)$/.test(peer) || message.type !== 'chat' || typeof message.id?._serialized !== 'string' || !Number.isFinite(message.timestamp)) return;
-      this.record('message:' + message.id._serialized, {
-        type: 'message', provider: 'whatsapp_linked_device', id: message.id._serialized,
+      const id = providerId(message.id);
+      if (typeof peer !== 'string' || !/^\d+@(c\.us|lid)$/.test(peer) || message.type !== 'chat' || !id || !Number.isFinite(message.timestamp)) return;
+      this.record('message:' + id, {
+        type: 'message', provider: 'whatsapp_linked_device', id,
         chat_id: peer, direction: message.fromMe ? 'outbound' : 'inbound',
         body: String(message.body || '').slice(0, 20000), timestamp: message.timestamp,
       });
@@ -32,10 +42,11 @@ export class Bridge {
       }
     });
     client.on('message_ack', (message, ack) => {
-      if(typeof message?.id?._serialized!=='string'||!Number.isInteger(ack)||ack < -1||ack > 4)return;
+      const id = providerId(message?.id);
+      if(!id||!Number.isInteger(ack)||ack < -1||ack > 4)return;
       const peer=message.fromMe?message.to:message.from;if(peer&&!/^\d+@(c\.us|lid)$/.test(peer))return;
-      this.record(`ack:${message.id._serialized}:${ack}`, {
-        type: 'ack', id: message.id._serialized, ack,
+      this.record(`ack:${id}:${ack}`, {
+        type: 'ack', id, ack,
       });
     });
   }
@@ -66,8 +77,11 @@ export class Bridge {
         this.db.prepare("UPDATE sends SET state='not_registered' WHERE request_id=?").run(request_id);
         return { status: 422, state: 'not_registered' };
       }
-      const message = await this.client.sendMessage(recipient._serialized, body, { sendSeen: false });
-      const id = message.id._serialized;
+      const recipientId = providerId(recipient);
+      if (!recipientId || !/^\d+@(c\.us|lid)$/.test(recipientId)) throw new Error('Invalid provider recipient');
+      const message = await this.client.sendMessage(recipientId, body, { sendSeen: false });
+      const id = providerId(message?.id);
+      if (!id) throw new Error('Provider did not return a stable message ID');
       this.db.prepare("UPDATE sends SET state='submitted',provider_id=? WHERE request_id=?").run(id, request_id);
       return { status: 200, state: 'submitted', provider_id: id };
     } catch {
