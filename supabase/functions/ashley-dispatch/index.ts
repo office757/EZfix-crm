@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.99.2";
 import { DEFAULT_POLICY, normalizePolicy, validateProfile, rankTechnicians, localDate, parseWindow, classifyService, validDate } from "../_shared/dispatch-ranking.mjs";
 import { notifyLeadOffer } from "../_shared/lead-offer-notifications.ts";
+import { runDemoStep } from "../_shared/dispatch-demo.mjs";
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info,x-ezfix-cron-token','Access-Control-Allow-Methods':'POST,OPTIONS','Cache-Control':'no-store'};
 const out=(body:unknown,status=200)=>Response.json(body,{status,headers:cors});
 const requireData=(r:any)=>{if(r.error)throw new Error('Business data could not be loaded.');return r.data;};
@@ -65,8 +66,12 @@ Deno.serve(async(req:Request)=>{
   member=(await db.from('team').select('id,role').eq('auth_user_id',user.id).eq('status','active').maybeSingle()).data;
   if(!member||!['owner','admin','dispatcher'].includes(member.role))return out({ok:false,error:'Office access required'},403);
  }
- const raw=await req.text();if(raw.length>50000)return out({ok:false,error:'Request too large'},413);let body:any;try{body=JSON.parse(raw);}catch{return out({ok:false,error:'Invalid request'},400);}const action=cron?'run':body?.action;
+ const raw=await req.text();if(raw.length>50000)return out({ok:false,error:'Request too large'},413);let body:any;try{body=JSON.parse(raw);}catch{return out({ok:false,error:'Invalid request'},400);}const action=cron?(body?.action==='run_demo'?'run_demo':'run'):body?.action;
  try{
+  if(action==='run_demo'){
+   if(!cron&&member?.role!=='owner')return out({ok:false,error:'Owner access required'},403);
+   return out(await runDemoStep(db,String(body.batch_id||''),evaluate,notifyLeadOffer));
+  }
   const pol=requireData(await db.from('dispatch_policy').select('*').eq('id',true).single()),policy=normalizePolicy(pol.config);
   const manager=requireData(await db.from('ai_manager_settings').select('paused').eq('id','main').maybeSingle());
   if(action==='state'){
