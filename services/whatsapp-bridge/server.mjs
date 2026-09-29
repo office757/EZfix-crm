@@ -2,12 +2,14 @@ import http from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
 import path from 'node:path';
-import whatsapp from 'whatsapp-web.js';
+import { prepareProvider } from './provider-compat.mjs';
 import QRCode from 'qrcode';
 import { Bridge } from './bridge.mjs';
 import { Relay, relayTransport } from './relay.mjs';
 
 process.umask(0o077);
+prepareProvider();
+const { default: whatsapp } = await import('whatsapp-web.js');
 const relayUrl=process.env.WA_RELAY_URL,relayToken=process.env.WA_RELAY_TOKEN;
 if(Boolean(relayUrl)!==Boolean(relayToken))throw new Error('Set both WA_RELAY_URL and WA_RELAY_TOKEN');
 const transport=relayUrl?relayTransport(relayUrl,relayToken):null;

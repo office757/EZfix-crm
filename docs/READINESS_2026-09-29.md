@@ -325,3 +325,28 @@ missing fields, assigned/cancelled and pending offers, a removed lead and a role
 change. All **66 release steps** and **22 strict safety checks** pass on the
 merged source, including both dispatch suites. No live offer, customer
 message, charge, signature or business-record edit was submitted in this pass.
+
+
+## WhatsApp live acceptance and remaining closeout — 19:05 UTC follow-up
+
+Owner manually verified incoming WhatsApp messages in the CRM, a CRM reply on
+his second handset, and a later incoming message following the requested restart
+sequence. The persistent Windows host is paired. A login Startup shortcut was
+created and reported READY; actual Windows login activation is still unverified.
+
+A follow-up read-only query found ready with a three-second heartbeat, five
+message events and one unconfirmed send. Handset receipt does not provide the
+missing provider ID. The SDK 1.34.7 result lookup still uses `_serialized` after
+sending, while this account uses `$1`. The compatibility follow-up patches only
+that exact result lookup before SDK import and keeps missing/ambiguous results
+unconfirmed without automatic resend. All 35 WhatsApp tests pass; the SDK import
+check starts no browser. Live confirmation of a new send remains pending.
+
+The remaining acceptance backlog is #133–#139, with bank payouts explicitly
+deferred in #196. Manual linked-device inbox acceptance does not activate the
+separate Meta Cloud API route for technician offers or Ashley automatic replies.
+Other remaining items include actual technician/mobile acceptance, a post-V3
+Ashley call, real catalog/routing values, staff identity for the office account,
+provider OAuth connections, and backup/password-protection verification. Existing
+payment and signing evidence is not a new live checkout test. No new message,
+charge, user account or business dispatch was initiated by the agent in this pass.
