@@ -268,31 +268,60 @@ alias redirected to Vercel authentication and automatic browser approval blocked
 that unrequested account destination. The already-authorized CRM owner session
 remains usable. No deployment protection or authentication control was bypassed.
 
-## Dispatch review follow-up
+## Approve and send offer: website ZIP and error handling
 
-PR #189 was merged as `7a52ad37736407722f69a64e6f2a18be56dc4902` and production
-deployment `dpl_5iN9TpQk8hKjhzE3kK8z71aq1ff6` reached READY. The signed-in owner
-review form now displays the website appointment date and time correctly.
+The owner reported the generic "Something went wrong" message while sending a
+new website lead to a technician. PostgreSQL logs at 16:38:07 and 16:38:11 UTC
+confirmed that `approve_lead_for_dispatch` rejected missing customer details.
+Inspection narrowed the failure to the structured ZIP: the full service address
+contained a state and ZIP, but `app_data.zip` was absent. The dialog let the RPC
+rejection reach the generic global handler, hiding the actionable reason.
+
+The approval dialog now includes a service ZIP field. A separately saved ZIP
+takes precedence; otherwise an explicit US state plus ZIP at the end of the
+entered address is offered for confirmation. Leading zeros and ZIP+4 survive;
+street numbers and ambiguous address text are never guessed. The confirmed ZIP
+is saved through the normal lead adapter before approval. Missing customer
+details stop the action with instructions to complete Review. Server approval
+rules and technician acceptance requirements remain unchanged.
+
+The dialog handles approval errors and reads structured Edge Function error
+bodies, so scheduling conflicts and other validation reasons remain visible.
+Once an offer is created, the send dialog closes even if the subsequent list
+refresh fails; a refresh warning cannot leave the user unknowingly resubmitting.
+
+Validation: 15 executable approval/modal cases pass, along with the existing
+14 offer UI cases and 7 website review cases. All 65 release steps and all 22
+strict safety checks pass. A seven-check live-schema transaction reproduces the
+missing-ZIP rejection, saves the confirmed ZIP, reuses the existing website
+appointment, preserves its date/time and creates exactly one pending offer.
+The transaction ends with rollback; no real offer notification was sent.
+
+PR #189's date correction is separately merged as
+`7a52ad37736407722f69a64e6f2a18be56dc4902`, with production deployment
+`dpl_5iN9TpQk8hKjhzE3kK8z71aq1ff6` confirmed READY.
+
+
+## Dispatch state and merged verification
+
+PR #189's production date correction was verified in the signed-in owner review
+form: the website appointment date and time now display correctly.
 
 The 16:10–16:41 UTC backend window contained no HTTP 5xx. It included one
 successful website intake and nine rejected `approve_lead_for_dispatch` calls.
-PostgreSQL error context places all nine at the required customer-field guard
-(name, phone, address, ZIP). These were existing live attempts, not our browser
-submissions. The separate invalid-invoice-token 400 was the deliberate negative
-access test described above.
+PostgreSQL context places all nine at the required customer-field guard. These
+were existing live attempts, not our browser submissions. The separate invalid
+invoice-token 400 was our deliberate negative access test.
 
-The lead list previously called every pre-created website job "Approved for
-dispatch" and opened technician selection even when approval would reject
-incomplete details. It now distinguishes an appointment from a completed office
-conversion, lists missing required details, and opens a review prompt with a
-direct link to the lead editor. No approval or provider call occurs at that
-point. Submit rechecks the current lead and office role, and reports a server
-rejection without sending an offer. The database remains authoritative.
+PR #190 reached main while this follow-up was in progress. Its confirmed ZIP
+field, guarded save, actionable server errors and safe post-send refresh are
+preserved. The additional list changes distinguish a website-created appointment
+from a completed office conversion and name any required customer details before
+dispatch. The offer dialog continues to confirm ZIP and perform the authoritative
+approval. A stale dialog also rechecks office access before submitting.
 
-Twelve executable cases exercise the production handlers and renderer, including
-the review link, ZIP+4, missing technician, changed/removed lead, changed role,
-backend rejection and the successful approval-before-provider order. Provider
-calls are stubbed; no live offer or message was sent. All **65 release steps** and
-all **22 strict safety checks** pass. The existing **215 live-schema rollback
-checks** remain the database evidence; this UI-only change introduces no schema
-or live-record mutations.
+Eight focused production-renderer/handler checks cover those state distinctions,
+missing fields, assigned/cancelled and pending offers, a removed lead and a role
+change. All **66 release steps** and **22 strict safety checks** pass on the
+merged source, including both dispatch suites. No live offer, customer
+message, charge, signature or business-record edit was submitted in this pass.
