@@ -26,9 +26,14 @@ Deno.serve(async(req)=>{
   const items=Array.isArray(inv.items)?inv.items:[]; let subtotal=0,taxable=0; for(const x of items){const amount=(Number(x.qty)||1)*(Number(x.rate)||0);subtotal+=amount;if(x.taxable!==false)taxable+=amount;}
   const discount=Math.min(Math.max(0,Number(inv.discount)||0),Math.max(0,subtotal)); const discountRatio=subtotal>0?(subtotal-discount)/subtotal:1; const taxableAfterDiscount=taxable*discountRatio; const tax=round2(taxableAfterDiscount*(Number(inv.tax_rate)||0)/100); const invoiceTotal=round2(subtotal-discount+tax);
   const paid=round2((Array.isArray(inv.payments)?inv.payments:[]).reduce((s:number,p:any)=>s+appliedAmount(p),0)); const base=round2(Math.max(0,invoiceTotal-paid)); if(base<=0)throw new Error("Invoice balance must be greater than zero");
-  const fee=round2(base*0.035),total=round2(base+fee); const redirectUrl=`${CRM_PUBLIC_URL}?customer_invoice=${encodeURIComponent(inv.id)}&square_return=1`;
+  const fee=round2(base*0.035),total=round2(base+fee); const {data:access,error:accessError}=await sb.rpc("issue_public_invoice_access_token",{p_invoice_id:inv.id});
+  if(accessError||!/^[0-9a-fA-F]{64}$/.test(access?.token||""))throw new Error("Could not create secure invoice return link");
+  const redirectUrl=new URL("invoice-pay",CRM_PUBLIC_URL);
+  redirectUrl.searchParams.set("invoice",inv.id);
+  redirectUrl.searchParams.set("token",access.token);
+  redirectUrl.searchParams.set("square_return","1");
   const idempotencyKey=`inv-${inv.id}-${Number(inv.row_version)||1}-${Math.round(total*100)}`.slice(0,45);
-  const body:any={idempotency_key:idempotencyKey,quick_pay:{name:"EZfix Invoice "+inv.number,price_money:{amount:Math.round(total*100),currency:"USD"},location_id:locationId},checkout_options:{ask_for_shipping_address:false,redirect_url:redirectUrl},payment_note:"Invoice "+inv.number+" | balance "+base.toFixed(2)+" + card fee "+fee.toFixed(2)};
+  const body:any={idempotency_key:idempotencyKey,quick_pay:{name:"EZfix Invoice "+inv.number,price_money:{amount:Math.round(total*100),currency:"USD"},location_id:locationId},checkout_options:{ask_for_shipping_address:false,redirect_url:redirectUrl.toString()},payment_note:"Invoice "+inv.number+" | balance "+base.toFixed(2)+" + card fee "+fee.toFixed(2)};
   const pre:any={}; if(inv.customer_email)pre.buyer_email=String(inv.customer_email).trim(); const phone=normalizeUsPhone(inv.customer_phone); if(phone)pre.buyer_phone_number=phone; if(Object.keys(pre).length)body.pre_populated_data=pre;
   const sq=await fetch("https://connect.squareup.com/v2/online-checkout/payment-links",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Square-Version":SQUARE_VERSION},body:JSON.stringify(body)});
   const out=await sq.json().catch(()=>({}));
