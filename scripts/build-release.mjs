@@ -27,6 +27,8 @@ const scripts = [
   'audit-office-role.mjs',
   'audit-payroll-integrity.mjs',
   'audit-report-history.mjs',
+  'audit-technician-earnings.mjs',
+  'audit-activity-history.mjs',
   'audit-lead-offer-channels.mjs',
   'audit-lead-offer-ui.mjs',
   'audit-modal-actions.mjs',

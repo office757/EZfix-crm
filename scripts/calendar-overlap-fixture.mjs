@@ -17,7 +17,8 @@ export function renderCalendarFixture(html, { technician = false, filter = '' } 
   ].map((j,i)=>({scheduledDate:'2026-09-27',status:['scheduled','in_progress','waiting_for_parts','completed'][i%4],title:['Spring replacement','Opener repair','Door installation'][i%3],...j,customerId:j.id,technician:j.technicianId==='tech-a'?'Demo Tech A':'Demo Tech B'}));
   const escape = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const context = {
-    Date, console, STORE:{jobs}, searchTerms:{calendarTech:filter}, calendarWeekStart:'2026-09-27', VIEW_AS:technician?'Demo Tech A':'Owner',
+    Date, console, STORE:{jobs}, searchTerms:{calendarTech:filter}, calendarWeekStart:'2026-09-27', VIEW_AS:'',
+    IS_OWNER:!technician,CURRENT_TEAM_MEMBER:{id:technician?'tech-a':'owner',role:technician?'technician':'owner',status:'active'},
     JOB_STATUSES:['scheduled','in_progress','waiting_for_parts','completed','cancelled'],
     todayISO:()=> '2026-09-27', isTechnicianView:()=>technician, esc:escape,
     calendarTechFilterOptions:()=>[{value:'tech-a',label:'Demo Tech A'},{value:'tech-b',label:'Demo Tech B'}],
@@ -31,7 +32,9 @@ export function renderCalendarFixture(html, { technician = false, filter = '' } 
   const start=html.indexOf('function renderCalendarWeek(content) {'), end=html.indexOf('\nfunction shiftCalendarMiniMonth(n)',start);
   if(start<0||end<=start)throw Error('Fixture could not locate week renderer');
   const storedBefore=JSON.stringify(context.STORE);
-  vm.createContext(context);vm.runInContext(html.slice(start,end),context);
+  const identityStart=html.indexOf('function technicianWorkspaceId()'),identityEnd=html.indexOf('function isMarketingManager()',identityStart);
+  if(identityStart<0||identityEnd<=identityStart)throw Error('Fixture could not locate technician identity helpers');
+  vm.createContext(context);vm.runInContext(html.slice(identityStart,identityEnd)+html.slice(start,end),context);
   const content={innerHTML:''};context.renderCalendarWeek(content);
   if(JSON.stringify(context.STORE)!==storedBefore)throw Error('Renderer mutated synthetic jobs');
   return content.innerHTML;
