@@ -31,6 +31,7 @@ const scripts = [
   'job-completion-signature-audit.mjs',
   'audit-office-role.mjs',
   'audit-whatsapp-linked-device.mjs',
+  'audit-invoice-contact.mjs',
   'audit-payroll-integrity.mjs',
   'audit-report-history.mjs',
   'audit-technician-earnings.mjs',

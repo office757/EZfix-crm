@@ -10835,8 +10835,21 @@ function promptContactInfo(type, id, field) {
       const col = type === 'estimate' ? 'estimates' : 'invoices';
       const doc = getOne(col, id);
       const cust = getOne('customers', doc.customerId);
-      if (cust) await dbSet('customers', cust.id, field==='email' ? { email: val } : { phone: val });
-      await dbSet(col, id, field==='email' ? { customerEmail: val } : { customerPhone: val });
+      if (CURRENT_TEAM_MEMBER?.role === 'technician') {
+        if (type !== 'invoice' || !doc) return toast('Only your own invoice contact details can be saved here.', true);
+        const contactValue = field === 'phone' ? normalizeToE164(val) : val;
+        if (!contactValue) return toast('Please enter a valid phone number.', true);
+        const {data, error} = await SB.rpc('technician_set_invoice_contact', {
+          p_invoice_id: id, p_field: field, p_value: contactValue,
+          p_expected_row_version: doc.rowVersion
+        });
+        if (error) return toast(error.message || 'Could not save invoice contact details.', true);
+        if (!data?.id) return toast('Invoice contact details were not saved. Refresh and try again.', true);
+        replaceStoreRecord(col, data);
+      } else {
+        if (cust) await dbSet('customers', cust.id, field==='email' ? { email: val } : { phone: val });
+        await dbSet(col, id, field==='email' ? { customerEmail: val } : { customerPhone: val });
+      }
       closeModal();
       toast('Saved — tap the button again to send');
       renderDocumentView(type, id);
