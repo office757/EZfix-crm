@@ -13,19 +13,66 @@ function matched(number){
  return matches.length===1?matches[0]:null;
 }
 const arg=v=>esc(JSON.stringify(String(v||'')));
+let cache=null,connection='starting',loading=false,loadError='',selectedChat=null,sending=false;
+const drafts=new Map(),attempts=new Map();
+function captureDraft(){const input=document.getElementById('wa_reply_body');if(input&&selectedChat)drafts.set(selectedChat,input.value);}
+function threads(){
+ const events=cache?.events||[],contacts=new Map(),acks=new Map(),groups=new Map();
+ for(const {payload:p} of events){
+  if(p.type==='contact')contacts.set(p.chat_id,p.phone_e164);
+  if(p.type==='ack')acks.set(p.id,Math.max(acks.get(p.id)??-1,p.ack));
+ }
+ for(const {payload:p} of events){if(p.type!=='message')continue;
+  if(!groups.has(p.chat_id)){const number=phone(p.chat_id)||contacts.get(p.chat_id)||'',match=matched(number);groups.set(p.chat_id,{chat:p.chat_id,number,match,name:match?.row.name||number||'WhatsApp contact (phone not verified)',messages:[]});}
+  groups.get(p.chat_id).messages.push({...p,ack:acks.get(p.id)});
+ }
+ for(const thread of groups.values())thread.messages.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+ return [...groups.values()].sort((a,b)=>(b.messages.at(-1)?.timestamp||0)-(a.messages.at(-1)?.timestamp||0));
+}
+const when=p=>p.timestamp?new Date(p.timestamp*1000).toLocaleString():'';
+const delivery=p=>p.direction==='inbound'?'Received':p.ack>=3?'Read':p.ack>=2?'Delivered':p.ack===-1?'Delivery failed':'Sent · delivery not confirmed';
+function paintInbox(){
+ const el=document.getElementById('wa_linked_panel');
+ if(!el||!allowed()||searchTerms.commFilter!=='whatsapp')return;
+ if(document.activeElement?.id==='wa_reply_body'&&!sending)return;
+ captureDraft();
+ const q=String(searchTerms.commSearch||'').toLowerCase().trim(),all=threads();
+ const visible=all.filter(t=>!q||[t.name,...t.messages.map(m=>m.body)].join(' ').toLowerCase().includes(q));
+ const selected=all.find(t=>t.chat===selectedChat);
+ const list=visible.map(t=>{const last=t.messages.at(-1);return `<button type="button" class="kv clickable" style="width:100%;text-align:left;padding:12px 18px;grid-template-columns:100px 1fr;${t.chat===selectedChat?'background:var(--paper-2)':''}" onclick="WhatsAppLinked.select(${arg(t.chat)})"><span class="k">${esc(when(last))}</span><span><strong>${esc(t.name)}</strong><br><span class="muted">${esc(last.body.slice(0,100))}</span></span></button>`;}).join('')||'<div class="panel-body pad muted">No matching WhatsApp conversations.</div>';
+ const detail=selected?`<div class="panel-body pad"><button class="btn btn-sm" onclick="WhatsAppLinked.back()">← Back to list</button><h3>${esc(selected.name)}</h3>${selected.match?`<button class="btn btn-sm" onclick="go(${arg(selected.match.col)},${arg(selected.match.row.id)})">Open ${selected.match.col==='leads'?'lead':'customer'}</button>`:''}<div style="max-height:380px;overflow:auto;display:flex;flex-direction:column;gap:8px;margin:14px 0">${selected.messages.map(p=>`<div style="align-self:${p.direction==='outbound'?'flex-end':'flex-start'};max-width:85%;padding:10px 14px;border-radius:12px;background:${p.direction==='outbound'?'var(--orange)':'var(--paper-2)'};color:${p.direction==='outbound'?'#201400':'inherit'}"><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.body)}</div><div style="font-size:11px;margin-top:4px">${esc(when(p))} · ${esc(delivery(p))}</div></div>`).join('')}</div>${selected.number?`<label class="field"><span class="lbl">Reply to ${esc(selected.number)}</span><textarea id="wa_reply_body" rows="3" maxlength="4096" placeholder="Type a reply…" oninput="WhatsAppLinked.draft(this.value)" ${sending?'disabled':''}>${esc(drafts.get(selected.chat)||'')}</textarea></label><button class="btn btn-primary" onclick="WhatsAppLinked.reply()" ${sending||connection!=='ready'?'disabled':''}>${sending?'Sending…':'Send WhatsApp message'}</button>`:'<p class="muted">A verified phone number is required to reply.</p>'}</div>`:'<div class="panel-body pad muted" style="padding:40px 18px;text-align:center">Select a WhatsApp conversation to see messages</div>';
+ el.innerHTML=`<div class="toolbar" style="margin-bottom:12px;gap:8px;flex-wrap:wrap"><strong>${esc(labels[connection]||connection)}</strong><button class="btn btn-sm" onclick="WhatsAppLinked.refresh()" ${loading?'disabled':''}>${loading?'Refreshing…':'Refresh'}</button>${CURRENT_TEAM_MEMBER?.role==='owner'?'<button class="btn btn-sm" onclick="WhatsAppLinked.pair()">Connect account</button>':''}<button class="btn btn-primary" onclick="WhatsAppLinked.compose()" ${connection==='ready'?'':'disabled'}>New message</button></div>${loadError?`<p role="alert">${esc(loadError)}</p>`:''}${!cache?'<p>Loading WhatsApp conversations…</p>':`<div class="two-col comm-split${selected?' comm-mobile-detail':''}"><div class="panel"><div class="panel-body">${list}</div></div><div class="panel comm-detail-pane">${detail}</div></div><details style="margin-top:12px"><summary>Recent office sends</summary>${(cache.sends||[]).map(s=>`<div class="kv"><span>${esc(s.to_phone)}</span><span>${esc(labels[s.state]||s.state)}</span></div>`).join('')||'<p>No office sends yet.</p>'}</details>`}`;
+}
+async function loadInbox(){
+ if(!allowed()||loading)return;
+ loading=true;const current=++version,member=CURRENT_TEAM_MEMBER;loadError='';
+ try{const [status,data]=await Promise.all([call({action:'status'}),call({action:'messages'})]);if(current!==version||!allowed()||CURRENT_TEAM_MEMBER!==member)return;connection=status.state;cache=data;}
+ catch(e){loadError=e.message;}
+ finally{loading=false;paintInbox();}
+}
 window.WhatsAppLinked={
  async open(){
   if(!allowed())return;
-  const current=++version;
-  showModal({title:'WhatsApp',wide:true,body:'<div id="wa_linked_panel" aria-live="polite">Loading connection and recent messages…</div>'});
-  try{
-   const [status,data]=await Promise.all([call({action:'status'}),call({action:'messages'})]);
-   const el=document.getElementById('wa_linked_panel');if(!el||current!==version)return;
-   const ack=new Map();for(const e of data.events.filter(e=>e.payload.type==='ack')){const p=e.payload;ack.set(p.id,Math.max(ack.get(p.id)??-1,p.ack));}
-   const contacts=new Map();for(const e of data.events.filter(e=>e.payload.type==='contact'))if(!contacts.has(e.payload.chat_id))contacts.set(e.payload.chat_id,e.payload.phone_e164);
-   const messages=data.events.filter(e=>e.payload.type==='message').reverse();
-   el.innerHTML=`<div class="dispatch-actions"><strong>${esc(labels[status.state]||status.state)}</strong><button class="btn" onclick="WhatsAppLinked.open()">Refresh</button>${CURRENT_TEAM_MEMBER?.role==='owner'?'<button class="btn" onclick="WhatsAppLinked.pair()">Connect account</button>':''}<button class="btn btn-primary" ${status.state==='ready'?'':'disabled'} onclick="WhatsAppLinked.compose()">New message</button></div><p class="muted">Manual office messages. Ashley automatic replies are off. Recent messages appear here after the host connects.</p>${messages.length?messages.map(({payload:p})=>{const n=phone(p.chat_id)||contacts.get(p.chat_id)||'',match=matched(n),a=ack.get(p.id),delivery=p.direction==='outbound'?(a>=3?'Read':a>=2?'Delivered':a===-1?'Delivery failed':'Delivery not confirmed'):'';return `<article class="dispatch-card" style="margin-top:10px"><strong>${esc(match?.row.name||n||'WhatsApp contact (phone not verified)')}</strong><div class="muted">${p.direction==='inbound'?'Received':'Sent'} · ${esc(delivery)}</div><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.body)}</p><div class="dispatch-actions">${match?`<button class="btn btn-sm" onclick="closeModal();go(${arg(match.col)},${arg(match.row.id)})">Open ${match.col==='leads'?'lead':'customer'}</button>`:''}${n?`<button class="btn btn-sm" ${status.state==='ready'?'':'disabled'} onclick="WhatsAppLinked.compose(${arg(n)})">Reply</button>`:''}</div></article>`;}).join(''):'<p>No recent direct text messages.</p>'}<h4>Recent office sends</h4>${data.sends.map(s=>`<div class="kv"><span>${esc(s.to_phone)}</span><span>${esc(labels[s.state]||s.state)}</span></div>`).join('')||'<p>No office sends yet.</p>'}`;
-  }catch(e){const el=document.getElementById('wa_linked_panel');if(el&&current===version)el.textContent=e.message;}
+  searchTerms.commFilter='whatsapp';searchTerms.commSelected=null;
+  go('communications');
+  await loadInbox();
+ },
+ async refresh(){if(allowed())await loadInbox();},
+ select(chat){if(!allowed())return;captureDraft();selectedChat=chat;render();},
+ back(){captureDraft();selectedChat=null;render();},
+ draft(value){if(selectedChat)drafts.set(selectedChat,value);},
+ async reply(){
+  if(!allowed()||sending||!selectedChat)return;
+  const chat=selectedChat,thread=threads().find(t=>t.chat===chat),to=thread?.number;
+  const body=(document.getElementById('wa_reply_body')?.value||drafts.get(chat)||'').trim();
+  if(!to||!body)return toast('Enter a message for a verified phone number.',true);
+  const existing=attempts.get(chat);
+  if(existing&&(existing.to!==to||existing.body!==body))return toast('Check the previous send outcome before changing and resending this message.',true);
+  const payload=existing||{action:'send',request_id:crypto.randomUUID(),to,body};
+  attempts.set(chat,payload);sending=true;captureDraft();paintInbox();
+  try{const result=await call(payload);drafts.delete(chat);const input=document.getElementById('wa_reply_body');if(input&&selectedChat===chat)input.value='';attempts.delete(chat);toast(labels[result.state]||result.state);await loadInbox();}
+  catch(e){toast(e.message+' Retry keeps the same request ID.',true);}
+  finally{sending=false;paintInbox();}
  },
  async pair(){
   if(CURRENT_TEAM_MEMBER?.role!=='owner'||!allowed())return;
@@ -46,5 +93,26 @@ window.WhatsAppLinked={
  }
 };
 const base=renderCommunications;
-renderCommunications=function(content,actions){base(content,actions);if(allowed())actions.insertAdjacentHTML('beforeend','<button class="btn" onclick="WhatsAppLinked.open()">WhatsApp</button>');};
+window.selectCommunicationChannel=function(channel){
+ captureDraft();searchTerms.commFilter=channel;searchTerms.commSelected=null;render();
+};
+renderCommunications=function(content,actions){
+ base(content,actions);
+ if(!allowed())return;
+ const filter=searchTerms.commFilter||'all';
+ actions.innerHTML=`<button class="btn ${filter==='all'?'btn-primary':''}" onclick="selectCommunicationChannel('all')">💬 Communications</button><button class="btn ${filter==='email'?'btn-primary':''}" onclick="selectCommunicationChannel('email')">✉️ Email</button><button class="btn" onclick="openCallAudioHistory()">☎️ Call History &amp; Audio</button><button class="btn ${filter==='whatsapp'?'btn-primary':''}" onclick="WhatsAppLinked.open()"><span aria-hidden="true">🟢</span> WhatsApp</button>`;
+ const tabs=content.querySelector('.toolbar > div');
+ if(tabs)tabs.insertAdjacentHTML('beforeend',`<button class="btn btn-sm ${filter==='whatsapp'?'btn-primary':''}" onclick="WhatsAppLinked.open()">WhatsApp</button>`);
+ if(filter==='email'){
+  const toolbar=content.querySelector('.toolbar');
+  if(toolbar)toolbar.insertAdjacentHTML('afterend','<div style="margin-bottom:12px"><button class="btn btn-primary" onclick="OfficeWorkspace.email()">✉️ New email</button></div>');
+ }
+ if(filter==='whatsapp'){
+  const split=content.querySelector('.comm-split');
+  if(split)split.outerHTML='<div id="wa_linked_panel" aria-live="polite"></div>';
+  paintInbox();
+  if(!cache&&!loading)void loadInbox();
+ }
+};
+setInterval(()=>{if(allowed()&&route.page==='communications'&&searchTerms.commFilter==='whatsapp'&&!document.hidden)void loadInbox();},5000);
 })();
