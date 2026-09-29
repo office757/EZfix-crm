@@ -24,6 +24,7 @@ const scripts = [
   'audit-dispatch-sms-receipts.mjs',
   'audit-ashley-dispatch.mjs',
   'test-ashley-demo-matrix.mjs',
+  'run-grand-dispatch-demo.mjs',
   'test-dispatch-demo.mjs',
   'audit-ashley-complex-routing.mjs',
   'audit-ashley-setup.mjs',
