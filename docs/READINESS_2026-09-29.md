@@ -266,3 +266,36 @@ Actual technician login remains pending; the attempted separate production
 alias redirected to Vercel authentication and automatic browser approval blocked
 that unrequested account destination. The already-authorized CRM owner session
 remains usable. No deployment protection or authentication control was bypassed.
+
+## Approve and send offer: website ZIP and error handling
+
+The owner reported the generic "Something went wrong" message while sending a
+new website lead to a technician. PostgreSQL logs at 16:38:07 and 16:38:11 UTC
+confirmed that `approve_lead_for_dispatch` rejected missing customer details.
+Inspection narrowed the failure to the structured ZIP: the full service address
+contained a state and ZIP, but `app_data.zip` was absent. The dialog let the RPC
+rejection reach the generic global handler, hiding the actionable reason.
+
+The approval dialog now includes a service ZIP field. A separately saved ZIP
+takes precedence; otherwise an explicit US state plus ZIP at the end of the
+entered address is offered for confirmation. Leading zeros and ZIP+4 survive;
+street numbers and ambiguous address text are never guessed. The confirmed ZIP
+is saved through the normal lead adapter before approval. Missing customer
+details stop the action with instructions to complete Review. Server approval
+rules and technician acceptance requirements remain unchanged.
+
+The dialog handles approval errors and reads structured Edge Function error
+bodies, so scheduling conflicts and other validation reasons remain visible.
+Once an offer is created, the send dialog closes even if the subsequent list
+refresh fails; a refresh warning cannot leave the user unknowingly resubmitting.
+
+Validation: 15 executable approval/modal cases pass, along with the existing
+14 offer UI cases and 7 website review cases. All 65 release steps and all 22
+strict safety checks pass. A seven-check live-schema transaction reproduces the
+missing-ZIP rejection, saves the confirmed ZIP, reuses the existing website
+appointment, preserves its date/time and creates exactly one pending offer.
+The transaction ends with rollback; no real offer notification was sent.
+
+PR #189's date correction is separately merged as
+`7a52ad37736407722f69a64e6f2a18be56dc4902`, with production deployment
+`dpl_5iN9TpQk8hKjhzE3kK8z71aq1ff6` confirmed READY.

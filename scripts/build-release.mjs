@@ -32,6 +32,7 @@ const scripts = [
   'audit-activity-history.mjs',
   'audit-lead-offer-channels.mjs',
   'audit-lead-offer-ui.mjs',
+  'audit-lead-approval.mjs',
   'audit-modal-actions.mjs',
   'audit-navigation-groups.mjs',
   'build-product-catalog-ui.mjs',
