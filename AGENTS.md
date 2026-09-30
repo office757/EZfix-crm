@@ -8,3 +8,5 @@ Backup branch: `backup/approved-ui-20260930`.
 This is a source/UI backup, not a backup of database records, uploads or service credentials. Restore only intended presentation changes; do not roll back unrelated later functional fixes.
 
 Current explicit exception: add emoji-labelled WhatsApp, Email and SMS controls inside Ashley using existing messaging functionality. No Facebook or Instagram controls are requested. Preserve current styling and existing sending safeguards.
+
+David also explicitly requested consolidating Communications into Ashley and removing its duplicate owner navigation entry. Preserve staff access and existing message history and links.
