@@ -701,6 +701,45 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+/* Calendar quick previews reuse job photos and the shared accessible dialog. */
+.cal-photo-thumb{width:46px;height:46px;object-fit:cover;border-radius:7px;float:right;margin:0 0 6px 8px}
+.cal-hour-job .cal-photo-thumb{width:28px;height:28px;margin-left:4px}
+.cal-hour-job.is-compact .cal-photo-thumb{width:20px;height:20px}
+.cal-preview-photo{display:block;width:100%;max-height:210px;object-fit:cover;border-radius:12px;margin-bottom:14px}
+.cal-preview h3{margin:0 0 12px}.cal-preview p{margin:8px 0;overflow-wrap:anywhere}
+.cal-preview-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.cal-preview-actions .btn{min-height:44px}
+.cal-job-card:focus-visible{outline:2px solid var(--cal-accent,#439d8a);outline-offset:2px}
+
+
+@media screen{
+ body[data-workspace-page="calendar"] :is(.cal-agenda,.cal-side-card,.cal-month-shell){border-radius:18px}
+ body[data-workspace-page="calendar"] :is(.cal-job-card,.cal-agenda-job,.cal-day-job){border-radius:14px;box-shadow:0 2px 8px #202c2408}
+ body[data-workspace-page="calendar"] .cal-job-card{padding:9px;border:1px solid var(--ws-line);border-left:3px solid var(--cal-accent);background:var(--ws-surface)}
+ body[data-workspace-page="calendar"] .cal-job-card:hover{background:var(--ws-soft);border-color:var(--ws-accent)}
+ body[data-workspace-page="calendar"] .cal-hour-job{border-radius:10px}
+ body[data-workspace-page="calendar"] .cal-month-date{border-radius:50%}
+ body[data-workspace-page="calendar"] .cal-job-name{font-weight:750}
+ .modal:has(.cal-preview){width:min(480px,calc(100vw - 24px));border-radius:22px;overflow:hidden}
+ .cal-preview-actions>.btn{flex:1 1 125px;border-radius:12px}
+}
+
+
+@media screen{
+ .cal-date-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;max-width:920px;margin:16px auto}
+ .cal-date-chip{display:grid;gap:7px;border:1px solid var(--ws-line);background:var(--ws-surface);color:var(--ws-ink);border-radius:13px;padding:10px 3px;min-height:64px;cursor:pointer;font:inherit}
+ .cal-date-chip span{font-size:11px;color:var(--ws-muted)}.cal-date-chip b{font-size:17px}
+ .cal-date-chip.is-selected{background:var(--ws-tint);border-color:var(--ws-accent);color:var(--ws-accent-text)}
+ body[data-workspace-page="calendar"] .cal-day-job{grid-template-columns:92px minmax(0,1fr);gap:10px 14px;cursor:pointer;border-left:4px solid var(--cal-accent);background:color-mix(in srgb,var(--cal-accent) 7%,var(--ws-surface))}
+ body[data-workspace-page="calendar"] .cal-day-main{min-width:0}
+ body[data-workspace-page="calendar"] .cal-day-main .cal-photo-thumb{width:72px;height:64px}
+ body[data-workspace-page="calendar"] .cal-day-side{grid-column:2;justify-content:space-between}
+ body[data-workspace-page="calendar"] .cal-day-time{font-size:12px;line-height:1.5}
+ .cal-day-job:focus-visible,.cal-date-chip:focus-visible{outline:2px solid var(--ws-accent);outline-offset:2px}
+ @media(max-width:420px){body[data-workspace-page="calendar"] .cal-day-job{grid-template-columns:65px minmax(0,1fr);gap:8px;padding:12px 10px}.cal-date-strip{gap:4px}body[data-workspace-page="calendar"] .cal-day-main .cal-photo-thumb{width:52px;height:52px}}
+}
+
 </style>
 <!-- EZFIX_PRODUCT_CATALOG_UI_V1_HEAD --><link rel="stylesheet" href="/product-catalog-ui.css" data-ezfix-product-catalog="v1"><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_HEAD -->
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
@@ -9060,6 +9099,37 @@ function calendarJobTimeOrder(a,b) {
   const left=calendarWindowMinutes(a.appointmentWindow),right=calendarWindowMinutes(b.appointmentWindow);
   return (left?.[0]??1440)-(right?.[0]??1440)||(left?.[1]??1440)-(right?.[1]??1440);
 }
+
+function calendarPhotoUrl(job) {
+  const photo=(Array.isArray(job?.photos)?job.photos:[]).find(p=>!p.uploading && typeof p.url==='string' && (/^https:\/\//i.test(p.url)||/^data:image\/(png|jpeg|webp);base64,/i.test(p.url)));
+  return photo?.url||'';
+}
+function calendarPhotoThumbnail(job) {
+  const url=calendarPhotoUrl(job);
+  return url ? '<img class="cal-photo-thumb" src="'+esc(url)+'" alt="Job photo" loading="lazy" onerror="this.hidden=true">' : '';
+}
+function openCalendarJobPreview(id) {
+  const j=getOne('jobs',id);
+  if(!j || isMarketingManager() || (isTechnicianView()&&!technicianOwnsJob(j)))return;
+  const cust=getOne('customers',j.customerId),url=calendarPhotoUrl(j);
+  const arg=esc(JSON.stringify(j.id)),customerArg=esc(JSON.stringify(j.customerId));
+  showModal({
+    title:esc(j.customerName||cust?.name||'Job preview'),
+    body:`<div class="cal-preview">
+      ${url?'<img class="cal-preview-photo" src="'+esc(url)+'" alt="Job photo" onerror="this.hidden=true">':''}
+      <h3>${esc(j.title||'Garage door service')}</h3>
+      <p>🗓️ ${esc(j.scheduledDate?fmtDate(j.scheduledDate):'Not scheduled')} · ${esc(j.appointmentWindow||'Time TBD')}</p>
+      <p>👷 ${esc(j.technician||'Unassigned')}</p>
+      <p>${esc(labelize(j.status||'scheduled'))}</p>
+      ${cust?.address?'<p>📍 '+esc(cust.address)+'</p>':''}
+      <div class="cal-preview-actions">
+        ${cust?'<button class="btn btn-primary" onclick="closeModal();go(\'customers\','+customerArg+')">Open customer</button>':''}
+        <button class="btn" onclick="closeModal();go('jobs',${arg})">Open job</button>
+        <button class="btn" onclick="closeModal();openJobModal(${arg});requestAnimationFrame(()=>document.getElementById('f_jobphoto')?.scrollIntoView({block:'center'}))">📷 Add photos</button>
+      </div>
+    </div>`
+  });
+}
 function renderCalendarMonth(content) {
   if (!calendarMonthCursor) calendarMonthCursor = todayISO().slice(0,7)+'-01';
   const cursor = new Date(calendarMonthCursor+'T00:00:00');
@@ -9107,8 +9177,8 @@ function renderCalendarMonth(content) {
             ${!isTechnicianView() ? `<button class="cal-day-add" title="Add job" aria-label="Add job on ${dStr}" onclick="event.stopPropagation();openJobModalForDate('${dStr}')">+</button>` : ''}
           </div>
           <div class="cal-month-events">
-            ${shown.map((j,idx)=>`<div class="cal-job-card cal-job-tone-${idx%4}" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="event.stopPropagation();go('jobs','${j.id}')">
-              <div class="cal-job-time">${esc(j.appointmentWindow||'Time TBD')}</div>
+            ${shown.map((j,idx)=>`<div class="cal-job-card cal-job-tone-${idx%4}" style="--cal-accent:${jobStatusAccent(j.status)}" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();openCalendarJobPreview(\'${j.id}\')}" onclick="event.stopPropagation();openCalendarJobPreview('${j.id}')">
+              ${calendarPhotoThumbnail(j)}<div class="cal-job-time">${esc(j.appointmentWindow||'Time TBD')}</div>
               <div class="cal-job-name">${esc(j.customerName||'Customer')}</div>
               <div class="cal-job-title">${esc(j.title||'Garage door service')}</div>
               <div class="cal-job-tech">👷 ${esc(j.technician||'Unassigned')}</div>
@@ -9131,7 +9201,7 @@ function renderCalendarMonth(content) {
           ${selectedJobs.length ? selectedJobs.map(j=>{
             const cust=getOne('customers',j.customerId);
             return `<div class="cal-agenda-job">
-              <div class="cal-agenda-time">${esc(j.appointmentWindow||'Time TBD')}</div>
+              ${calendarPhotoThumbnail(j)}<div class="cal-agenda-time">${esc(j.appointmentWindow||'Time TBD')}</div>
               <div class="cal-agenda-customer">${esc(j.customerName||j.title||'Job')}</div>
               <div class="cal-agenda-meta">${esc(j.title||'Garage door service')}</div>
               ${cust?.address?`<div class="cal-agenda-meta">📍 ${esc(cust.address)}</div>`:''}
@@ -9139,7 +9209,7 @@ function renderCalendarMonth(content) {
               <div class="cal-agenda-actions">
                 ${cust?.phone?`<a class="btn btn-sm" href="tel:${esc(cust.phone)}">Call</a>`:''}
                 ${cust?.phone?`<a class="btn btn-sm" href="sms:${esc(cust.phone)}">Text</a>`:''}
-                <button class="btn btn-sm" onclick="go('jobs','${j.id}')">Open</button>
+                <button class="btn btn-sm" onclick="openCalendarJobPreview('${j.id}')">Preview</button>
               </div>
             </div>`;
           }).join('') : `<div class="muted" style="padding:24px 8px;text-align:center">No jobs for this day.</div>`}
@@ -9187,7 +9257,7 @@ function openCalendarDay(dateStr) {
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
           ${cust?.phone ? `<a class="btn btn-sm" href="tel:${cust.phone}">📞 Call</a>` : ''}
           ${cust?.phone ? `<a class="btn btn-sm" href="sms:${cust.phone}">💬 Text</a>` : ''}
-          <button class="btn btn-sm" onclick="closeModal(); go('jobs','${j.id}')">View Job</button>
+          <button class="btn btn-sm" onclick="closeModal(); openCalendarJobPreview('${j.id}')">Preview</button>
         </div>
       </div>`;
     }).join('') : `<p class="muted">No jobs scheduled this day.</p>`,
@@ -9283,9 +9353,9 @@ function renderCalendarWeek(content) {
       <div style="overflow-x:auto">
         <div class="cal-week-grid with-all-day"><div class="cal-hour-board">
           <div class="cal-hour-head"><div class="cal-hour-corner"></div>${days.map(d=>{const x=new Date(d+'T00:00:00'),it=d===today;return `<div class="cal-hour-dayhead ${it?'is-today':''} ${[0,6].includes(x.getDay())?'is-weekend':''}" onclick="searchTerms.calendarSelectedDate='${d}';calendarViewMode='day';saveUiState();render()"><div class="cal-hour-dow">${x.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="cal-hour-num">${x.getDate()}</div><div style="font-size:9px;color:var(--muted);font-weight:750">${jobsForDay(d).length} job${jobsForDay(d).length===1?'':'s'}</div></div>`}).join('')}</div>
-          <div class="cal-all-day"><div class="cal-all-day-label">ALL DAY</div>${days.map(d=>`<div class="cal-all-day-cell">${allDay(d).map(j=>`<button class="cal-all-day-pill" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')">${esc(j.customerName||j.title||'Job')}</button>`).join('')}</div>`).join('')}</div>
+          <div class="cal-all-day"><div class="cal-all-day-label">ALL DAY</div>${days.map(d=>`<div class="cal-all-day-cell">${allDay(d).map(j=>`<button class="cal-all-day-pill" style="--cal-accent:${jobStatusAccent(j.status)}" onclick="openCalendarJobPreview('${j.id}')">${esc(j.customerName||j.title||'Job')}</button>`).join('')}</div>`).join('')}</div>
           <div class="cal-hour-body"><div class="cal-hour-times">${hours.map(h=>`<div class="cal-hour-time">${h===12?'12 PM':h>12?(h-12)+' PM':h+' AM'}</div>`).join('')}</div>
-          ${days.map(d=>`<div class="cal-hour-column ${d===today?'is-today':''} ${[0,6].includes(new Date(d+'T00:00:00').getDay())?'is-weekend':''}" data-date="${d}" onclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondblclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondragover="event.preventDefault()" ondrop="handleJobTimeDrop(event,'${d}')">${d===nowISO&&nowHour>=8&&nowHour<=19?`<div class="cal-hour-now" style="top:${nowTop}px" title="Current time"><span class="cal-hour-now-label">${formatCalendarClock(nowHour)}</span></div>`:''}${layoutTimed(d).map((item,idx)=>{const j=item.job,wt=item.wt,st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end)),top=(st-8)*60,height=Math.max(48,(en-st)*60-6),cust=getOne('customers',j.customerId),address=cust?.address||'',laneWidth=100/item.lanes,laneLeft=item.lane*laneWidth;return `<button class="cal-hour-job tone-${toneForJob(j)} ${item.lanes>1?'is-overlapping':''} ${height<64?'is-compact':''}" title="${esc([j.customerName||'Customer',j.appointmentWindow||'Time TBD',labelize(j.status),j.title||'Service',address,j.technician||'Unassigned'].filter(Boolean).join(' · '))}" aria-label="${esc([j.customerName||'Customer',j.appointmentWindow||'Time TBD',labelize(j.status),j.title||'Service',address,j.technician||'Unassigned'].filter(Boolean).join(' · '))}" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;height:${height}px;left:calc(${laneLeft}% + 4px);right:auto;width:calc(${laneWidth}% - 8px);--cal-accent:${jobStatusAccent(j.status)}" onclick="go('jobs','${j.id}')"><div class="cal-hour-job-time"><span>${esc(j.appointmentWindow||'Time TBD')}</span><span class="cal-hour-job-status">${esc(labelize(j.status))}</span></div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')}</div>${address?`<div class="cal-hour-job-address">${esc(address)}</div>`:''}<div class="cal-hour-job-meta">👷 ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
+          ${days.map(d=>`<div class="cal-hour-column ${d===today?'is-today':''} ${[0,6].includes(new Date(d+'T00:00:00').getDay())?'is-weekend':''}" data-date="${d}" onclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondblclick="if(event.target===event.currentTarget)openJobModalAtCalendarPoint('${d}',event)" ondragover="event.preventDefault()" ondrop="handleJobTimeDrop(event,'${d}')">${d===nowISO&&nowHour>=8&&nowHour<=19?`<div class="cal-hour-now" style="top:${nowTop}px" title="Current time"><span class="cal-hour-now-label">${formatCalendarClock(nowHour)}</span></div>`:''}${layoutTimed(d).map((item,idx)=>{const j=item.job,wt=item.wt,st=Math.max(8,Math.min(18.25,wt.start)),en=Math.max(st+.75,Math.min(19,wt.end)),top=(st-8)*60,height=Math.max(48,(en-st)*60-6),cust=getOne('customers',j.customerId),address=cust?.address||'',laneWidth=100/item.lanes,laneLeft=item.lane*laneWidth;return `<button class="cal-hour-job tone-${toneForJob(j)} ${item.lanes>1?'is-overlapping':''} ${height<64?'is-compact':''}" title="${esc([j.customerName||'Customer',j.appointmentWindow||'Time TBD',labelize(j.status),j.title||'Service',address,j.technician||'Unassigned'].filter(Boolean).join(' · '))}" aria-label="${esc([j.customerName||'Customer',j.appointmentWindow||'Time TBD',labelize(j.status),j.title||'Service',address,j.technician||'Unassigned'].filter(Boolean).join(' · '))}" draggable="${!isTechnicianView()}" ondragstart="event.dataTransfer.setData('text/plain','${j.id}')" style="top:${top}px;height:${height}px;left:calc(${laneLeft}% + 4px);right:auto;width:calc(${laneWidth}% - 8px);--cal-accent:${jobStatusAccent(j.status)}" onclick="openCalendarJobPreview('${j.id}')">${calendarPhotoThumbnail(j)}<div class="cal-hour-job-time"><span>${esc(j.appointmentWindow||'Time TBD')}</span><span class="cal-hour-job-status">${esc(labelize(j.status))}</span></div><div class="cal-hour-job-customer">${esc(j.customerName||'Customer')}</div><div class="cal-hour-job-meta">${esc(j.title||'Service')}</div>${address?`<div class="cal-hour-job-address">${esc(address)}</div>`:''}<div class="cal-hour-job-meta">👷 ${esc(j.technician||'Unassigned')}</div></button>`}).join('')}${!isTechnicianView()?`<button class="cal-day-add" title="Add job" onclick="openJobModalForDate('${d}')" style="position:absolute;right:6px;bottom:6px">+</button>`:''}</div>`).join('')}
           </div>
         </div></div>
       </div>
@@ -9299,7 +9369,7 @@ function renderCalendarWeek(content) {
     </div>
     <aside class="cal-side-stack">
       <section class="cal-side-card"><div class="cal-side-head"><span>${monthCursor.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</span><div class="cal-mini-nav"><button title="Previous month" onclick="shiftCalendarMiniMonth(-1)">‹</button><button title="Next month" onclick="shiftCalendarMiniMonth(1)">›</button></div></div><div class="cal-side-body"><div class="cal-mini-grid">${['Su','Mo','Tu','We','Th','Fr','Sa'].map(x=>`<div class="cal-mini-dow">${x}</div>`).join('')}${miniDays.map(x=>{const ds=x.toISOString().slice(0,10),same=x.getMonth()===miniMonth;return `<button class="cal-mini-day ${ds===today?'is-today':''} ${days.includes(ds)?'is-week':''}" style="${same?'':'opacity:.35'}" onclick="searchTerms.calendarSelectedDate='${ds}';calendarViewMode='day';saveUiState();render()">${x.getDate()}</button>`}).join('')}</div></div></section>
-      <section class="cal-side-card"><div class="cal-side-head"><span>Today <span style="font-size:10px;color:var(--muted);font-weight:650;margin-left:4px">${new Date(today+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></span><button class="btn btn-sm btn-ghost" onclick="searchTerms.calendarSelectedDate=todayISO();calendarViewMode='day';saveUiState();render()">View all</button></div><div class="cal-side-body">${todayJobs.length?todayJobs.map(j=>`<div class="cal-today-row clickable" onclick="go('jobs','${j.id}')"><div class="cal-today-time">${esc((j.appointmentWindow||'TBD').split(/\s*[-–]\s*/)[0])}</div><div class="cal-today-bar" style="background:${jobStatusAccent(j.status)}"></div><div><div class="cal-today-name">${esc(j.customerName||'Customer')}</div><div class="cal-today-meta">${esc(j.title||'Service')}<br>${esc(j.technician||'Unassigned')}</div></div><span>›</span></div>`).join(''):'<div class="muted" style="font-size:11px;padding:8px 0">No jobs today</div>'}</div></section>
+      <section class="cal-side-card"><div class="cal-side-head"><span>Today <span style="font-size:10px;color:var(--muted);font-weight:650;margin-left:4px">${new Date(today+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></span><button class="btn btn-sm btn-ghost" onclick="searchTerms.calendarSelectedDate=todayISO();calendarViewMode='day';saveUiState();render()">View all</button></div><div class="cal-side-body">${todayJobs.length?todayJobs.map(j=>`<div class="cal-today-row clickable" onclick="openCalendarJobPreview('${j.id}')"><div class="cal-today-time">${esc((j.appointmentWindow||'TBD').split(/\s*[-–]\s*/)[0])}</div><div class="cal-today-bar" style="background:${jobStatusAccent(j.status)}"></div><div><div class="cal-today-name">${esc(j.customerName||'Customer')}</div><div class="cal-today-meta">${esc(j.title||'Service')}<br>${esc(j.technician||'Unassigned')}</div></div><span>›</span></div>`).join(''):'<div class="muted" style="font-size:11px;padding:8px 0">No jobs today</div>'}</div></section>
       <section class="cal-side-card"><div class="cal-side-head"><span>Technicians</span><span>${techFilter?`<button class="btn btn-sm btn-ghost" onclick="searchTerms.calendarTech='';saveUiState();render()">Clear</button>`:`<button class="btn btn-sm btn-ghost" onclick="go('team')">View all</button>`}</span></div><div class="cal-side-body">${techRows.map(t=>`<div class="cal-tech-row clickable" onclick="searchTerms.calendarTech='${esc(t.value)}';saveUiState();render()" style="${techFilter===t.value?'background:var(--paper-2);border-radius:8px;padding-left:5px;padding-right:5px':''}"><div class="cal-tech-avatar">${esc(t.initials||'T')}</div><div class="cal-tech-main"><div class="cal-tech-name">${esc(t.name)}</div><div class="cal-tech-load"><span style="width:${Math.round((t.count/maxTechJobs)*100)}%"></span></div></div><div class="cal-tech-count">${t.count} jobs</div></div>`).join('')||'<div class="muted" style="font-size:11px">No technicians</div>'}</div></section>
     </aside></div>`;
 }
@@ -9320,6 +9390,8 @@ function renderCalendarDay(content) {
     .sort(calendarJobTimeOrder);
   const dObj=new Date(dateStr+'T00:00:00');
   const prev=addDays(dateStr,-1), next=addDays(dateStr,1);
+  const stripStart=startOfWeek(dateStr);
+  const stripDays=Array.from({length:7},(_,i)=>addDays(stripStart,i));
   content.innerHTML=`
     <div class="cal-day-toolbar">
       <div class="cal-nav-group">
@@ -9335,19 +9407,20 @@ function renderCalendarDay(content) {
         ${!isTechnicianView() && techOptions.length ? `<select class="select-compact" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()"><option value="">All technicians</option>${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>` : ''}
       </div>
     </div>
+    <nav class="cal-date-strip" aria-label="Choose day">${stripDays.map(d=>{const x=new Date(d+'T00:00:00');return `<button class="cal-date-chip ${d===dateStr?'is-selected':''}" ${d===dateStr?'aria-current="date"':''} onclick="searchTerms.calendarSelectedDate='${d}';saveUiState();render()"><span>${x.toLocaleDateString('en-US',{weekday:'short'})}</span><b>${x.getDate()}</b></button>`}).join('')}</nav>
     <div class="cal-day-view">
       <div class="cal-day-list">
         ${jobs.length ? jobs.map(j=>{
           const cust=getOne('customers',j.customerId);
-          return `<article class="cal-day-job" style="--cal-accent:${jobStatusAccent(j.status)}">
+          return `<article class="cal-day-job" role="button" tabindex="0" aria-label="Preview ${esc(j.customerName||'job')}" onclick="if(!event.target.closest('button,a'))openCalendarJobPreview('${j.id}')" onkeydown="if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openCalendarJobPreview('${j.id}')}" style="--cal-accent:${jobStatusAccent(j.status)}">
             <div class="cal-day-time">${esc(j.appointmentWindow||'Time TBD')}</div>
-            <div class="cal-day-main">
+            <div class="cal-day-main">${calendarPhotoThumbnail(j)}
               <div class="cal-day-customer">${esc(j.customerName||'Customer')}</div>
               <div class="cal-day-service">${esc(j.title||'Garage door service')}</div>
               ${cust?.address?`<div class="cal-day-address">${esc(cust.address)}</div>`:''}
               <div class="cal-day-tech">👷 ${esc(j.technician||'Unassigned')}</div>
             </div>
-            <div class="cal-day-side"><span class="badge badge-${j.status}">${labelize(j.status)}</span><button class="btn btn-sm" onclick="go('jobs','${j.id}')">Open</button></div>
+            <div class="cal-day-side"><span class="badge badge-${j.status}">${labelize(j.status)}</span><button class="btn btn-sm" onclick="openCalendarJobPreview('${j.id}')">Preview</button></div>
           </article>`;
         }).join('') : '<div class="cal-day-empty">No jobs scheduled for this day.</div>'}
       </div>
