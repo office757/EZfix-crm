@@ -11,7 +11,7 @@ function harness(){
  vm.createContext(c);vm.runInContext(source,c);c.visState.doors=[c.freshDoorConfig()];
  return {c,nodes,events,canvases,messages};
 }
-test('inactive reference models remain searchable, selectable and configurable',async()=>{
+test('neutral photograph picker preserves existing saved catalog configurations',async()=>{
  const h=harness(),c=h.c;
  c.document.querySelectorAll=()=>[];
  c.visState.houseImage={url:'home.jpg'};
@@ -22,14 +22,16 @@ test('inactive reference models remain searchable, selectable and configurable',
  ];
  vm.runInContext(readFileSync(new URL('../door-design-data.js',import.meta.url),'utf8'),c);
  vm.runInContext(readFileSync(new URL('../door-design-library.js',import.meta.url),'utf8'),c);
+ vm.runInContext(readFileSync(new URL('../photo-door-library.js',import.meta.url),'utf8'),c);
  c.window.DoorDesign.prepare=async()=>{};
- c.window.__visCatalogState.search='Amarr';
+ c.window.__visCatalogState.search='Short';
  const body={innerHTML:''};c.window.renderVisStep3(body);
- assert.match(body.innerHTML,/1 matching models/);
- assert.match(body.innerHTML,/Amarr LI1000 - Lincoln/);
+ assert.match(body.innerHTML,/3 design families · 50 real door references/);
+ assert.match(body.innerHTML,/Square Short Panel/);
+ assert.doesNotMatch(body.innerHTML,/aria-label="Manufacturer"|Amarr LI1000/);
  assert.doesNotMatch(body.innerHTML,/data-product-id="unready"|data-product-id="spring"/);
  c.window.visCatalogReadyOnly(false);c.window.renderVisStep3(body);
- assert.match(body.innerHTML,/2 matching models/);
+ assert.match(body.innerHTML,/3 design families · 50 real door references/);
  await c.window.selectVisReferenceDoor(0,c.STORE.products[0].id);
  assert.equal(c.visState.doors[0].referenceProductId,c.STORE.products[0].id);
  assert.ok(c.window.DoorDesign.choice(c.visState.doors[0]));
@@ -66,6 +68,9 @@ test('real homes preserve one original photo and a separate fitted opening for e
 });
 test('wrong opening count never silently replaces the selected home',async()=>{
  const h=harness();h.c.visState.houseImage={url:'existing.jpg'};h.c.window.EZFIX_PHOTO_LIBRARY=[{id:'twin',name:'Twin',url:'twin.jpg',openings:2}];await h.c.window.selectVisReferenceImage('twin');assert.equal(h.c.visState.houseImage.url,'existing.jpg');assert.match(h.messages[0],/same number/);
+});
+test('prepared chamfered homes preserve the real frame when a photographed door is repainted',async()=>{
+ const h=harness(),c=h.c;vm.runInContext(readFileSync(new URL('../door-design-library.js',import.meta.url),'utf8'),c);vm.runInContext(readFileSync(new URL('../photo-door-library.js',import.meta.url),'utf8'),c);c.window.DoorDesign.loadImage=async()=>({naturalWidth:1600,naturalHeight:1200});c.window.EZFIX_PHOTO_LIBRARY=[{id:'installation-106',name:'Twin carriage doors',url:'/assets/installation-photos/installation-106.jpg',openings:2}];c.visState.doorCount=2;c.visState.doors=[c.freshDoorConfig(),c.freshDoorConfig()];await c.window.selectVisReferenceImage('installation-106');assert(c.visState.doors.every(d=>d.realism.cut===.12));assert(c.visState.doors.every(d=>c.window.DoorRealism.valid(d.pos.corners)));
 });
 test('undo and redo restore a full edit, coalesce sliders and discard stale redo',async()=>{
  const h=harness(),c=h.c;c.visState.houseImage={url:'home.jpg'};c.visState.doors[0].designPreview={key:'old',url:'large-cache'};
