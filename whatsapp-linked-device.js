@@ -54,7 +54,7 @@ window.WhatsAppLinked={
  async open(){
   if(!allowed())return;
   searchTerms.commFilter='whatsapp';searchTerms.commSelected=null;
-  go('communications');
+  if(route.page==='receptionist'){receptionistState.subview='whatsapp';render();}else go('communications');
   await loadInbox();
  },
  async refresh(){if(allowed())await loadInbox();},
@@ -125,5 +125,5 @@ renderCommunications=function(content,actions){
   if(!cache&&!loading)void loadInbox();
  }
 };
-setInterval(()=>{if(allowed()&&route.page==='communications'&&searchTerms.commFilter==='whatsapp'&&!document.hidden)void loadInbox();},5000);
+setInterval(()=>{if(allowed()&&(route.page==='communications'||(route.page==='receptionist'&&receptionistState.subview==='whatsapp'))&&searchTerms.commFilter==='whatsapp'&&!document.hidden)void loadInbox();},5000);
 })();
