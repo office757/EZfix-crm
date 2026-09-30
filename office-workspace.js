@@ -73,4 +73,4 @@ window.OfficeWorkspace={
 (function(){const script=document.createElement('script');script.src='/whatsapp-linked-device.js';script.onload=()=>{if((route.page==='communications'||route.page==='receptionist')&&!document.querySelector('.overlay'))render();};document.body.append(script);})();
 
 // Load the customer receipt archive with the Office workspace.
-(function(){const script=document.createElement('script');script.src='/customer-receipts.js';document.body.appendChild(script);})();
+(function(){if(typeof document.body?.appendChild!=='function')return;const script=document.createElement('script');script.src='/customer-receipts.js';document.body.appendChild(script);})();
