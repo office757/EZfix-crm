@@ -60,4 +60,4 @@ window.OfficeWorkspace={
 })();
 
 // Load the manual linked-device inbox separately from the existing Cloud API.
-(function(){const script=document.createElement('script');script.src='/whatsapp-linked-device.js';script.onload=()=>{if(route.page==='communications'&&!document.querySelector('.overlay'))render();};document.body.append(script);})();
+(function(){const script=document.createElement('script');script.src='/whatsapp-linked-device.js';script.onload=()=>{if((route.page==='communications'||route.page==='receptionist')&&!document.querySelector('.overlay'))render();};document.body.append(script);})();
