@@ -69,6 +69,9 @@ test('real homes preserve one original photo and a separate fitted opening for e
 test('wrong opening count never silently replaces the selected home',async()=>{
  const h=harness();h.c.visState.houseImage={url:'existing.jpg'};h.c.window.EZFIX_PHOTO_LIBRARY=[{id:'twin',name:'Twin',url:'twin.jpg',openings:2}];await h.c.window.selectVisReferenceImage('twin');assert.equal(h.c.visState.houseImage.url,'existing.jpg');assert.match(h.messages[0],/same number/);
 });
+test('prepared chamfered homes preserve the real frame when a photographed door is repainted',async()=>{
+ const h=harness(),c=h.c;vm.runInContext(readFileSync(new URL('../door-design-library.js',import.meta.url),'utf8'),c);vm.runInContext(readFileSync(new URL('../photo-door-library.js',import.meta.url),'utf8'),c);c.window.DoorDesign.loadImage=async()=>({naturalWidth:1600,naturalHeight:1200});c.window.EZFIX_PHOTO_LIBRARY=[{id:'installation-106',name:'Twin carriage doors',url:'/assets/installation-photos/installation-106.jpg',openings:2}];c.visState.doorCount=2;c.visState.doors=[c.freshDoorConfig(),c.freshDoorConfig()];await c.window.selectVisReferenceImage('installation-106');assert(c.visState.doors.every(d=>d.realism.cut===.12));assert(c.visState.doors.every(d=>c.window.DoorRealism.valid(d.pos.corners)));
+});
 test('undo and redo restore a full edit, coalesce sliders and discard stale redo',async()=>{
  const h=harness(),c=h.c;c.visState.houseImage={url:'home.jpg'};c.visState.doors[0].designPreview={key:'old',url:'large-cache'};
  c.window.setVisRealism(0,'light',.75);c.window.setVisRealism(0,'light',.8);await c.window.undoVisEdit();assert.equal(c.visState.doors[0].realism,undefined);assert.equal(c.visState.doors[0].designPreview,undefined);
