@@ -12,7 +12,7 @@ let checks=0;function check(label,fn){fn();console.log('PASS '+label);checks++;}
 check('Owner has related navigation across all sidebar workspaces',()=>{
  const f=fixture('owner');
  for(const key of f.run('sidebarNavItems().map(n=>n.key)').filter(k=>!['dashboard'].includes(k))){const s=f.section(key);assert.ok(s,key);assert.ok(s.items.some(n=>n.key===key),key);assert.equal(new Set(s.items.map(n=>n.key)).size,s.items.length);}
- for(const key of ['receptionist','ai_system'])assert.equal(f.section(key).active,'ai_manager');
+ assert.equal(f.section('receptionist').active,'receptionist');assert.equal(f.section('ai_system').active,'ai_manager');
  assert.equal(f.section('calls').active,'communications');
  assert.equal(f.section('dashboard'),null);assert.equal(f.section('more'),null);
 });
