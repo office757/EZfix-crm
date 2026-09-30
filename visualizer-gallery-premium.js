@@ -205,7 +205,7 @@ window.DoorRealism={valid,corners,project,inverse,warp,sceneLight,texture,reflec
 (() => {
 'use strict';
 
-function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZFIX_INSPIRATION_LIBRARY||[])].map(p=>{const sources=(window.PhotoDoor?.sources||[]).filter(s=>s.photoId===p.id&&!s.panelFill).sort((a,b)=>a.opening-b.opening);return sources.length===p.openings?{...p,corners:sources.map(s=>s.corners)}:p;});}
+function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZFIX_INSPIRATION_LIBRARY||[])].map(p=>{const sources=(window.PhotoDoor?.sources||[]).filter(s=>s.photoId===p.id&&!s.panelFill).sort((a,b)=>a.opening-b.opening);return sources.length===p.openings?{...p,corners:sources.map(s=>s.corners),cut:p.cut??(sources.some(s=>s.cut)?.12:0)}:p;});}
 function preparedHomePhotos(){return homePhotos().filter(p=>p.corners?.length===visState.doorCount);}
 function homeReferenceUrl(id){return homePhotos().find(p=>p.id===id)?.url||'/assets/door-styles/'+id+'.png';}
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
