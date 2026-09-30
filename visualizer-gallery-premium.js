@@ -21,14 +21,48 @@ function project(q,u,v){
  return {x:((b.x-a.x+g*b.x)*u+(d.x-a.x+h*d.x)*v+a.x)/den,y:((b.y-a.y+g*b.y)*u+(d.y-a.y+h*d.y)*v+a.y)/den};
 }
 const textureCache=new WeakMap();
-function texture(img,d){
- const key=JSON.stringify(d.realism||{}),cached=textureCache.get(img);if(cached?.key===key)return cached.canvas;
+const scenePixels=new WeakMap();
+const median=values=>{const sorted=values.slice().sort((a,b)=>a-b);return sorted.length?sorted[Math.floor(sorted.length/2)]:null;};
+function sceneLight(house,q){
+ const neutral={gain:1,red:1,blue:1,across:0,down:0};if(!house)return neutral;
+ try{
+  let photo=scenePixels.get(house);
+  if(!photo){const cv=document.createElement('canvas'),scale=256/Math.max(house.naturalWidth,house.naturalHeight);cv.width=Math.max(1,Math.round(house.naturalWidth*scale));cv.height=Math.max(1,Math.round(house.naturalHeight*scale));const ctx=cv.getContext('2d');ctx.drawImage(house,0,0,cv.width,cv.height);photo={width:cv.width,height:cv.height,data:ctx.getImageData(0,0,cv.width,cv.height).data};scenePixels.set(house,photo);}
+  const opening=q.map(p=>({x:p.x*photo.width,y:p.y*photo.height})),samples=[],left=[],right=[],top=[],bottom=[];
+  // Broad neutral material samples only. Never transfer the old door's
+  // panels, windows, color, or texture onto the selected replacement.
+  for(let y=0;y<11;y++)for(let x=0;x<11;x++){
+   const u=.08+x*.084,v=.22+y*.06,p=project(opening,u,v),px=Math.round(p.x),py=Math.round(p.y);
+   if(px<0||py<0||px>=photo.width||py>=photo.height)continue;
+   const i=(py*photo.width+px)*4,r=photo.data[i],g=photo.data[i+1],b=photo.data[i+2],lum=(r+g+b)/3;
+   if(photo.data[i+3]<250||lum<110||lum>246||Math.max(r,g,b)-Math.min(r,g,b)>24)continue;
+   samples.push({lum,r:r/lum,b:b/lum});if(u<.4)left.push(lum);if(u>.6)right.push(lum);if(v<.4)top.push(lum);if(v>.65)bottom.push(lum);
+  }
+  if(samples.length<24)return neutral;
+  const mid=median(samples.map(s=>s.lum)),slope=(a,b)=>a.length>=8&&b.length>=8?clamp((median(b)-median(a))/mid,-.12,.12,0):0;
+  return {gain:clamp(mid/220,.82,1.06,1),red:clamp(median(samples.map(s=>s.r)),.96,1.04,1),blue:clamp(median(samples.map(s=>s.b)),.96,1.04,1),across:slope(left,right),down:slope(top,bottom)};
+ }catch{return neutral;} // Cross-origin/custom photos still render normally.
+}
+function texture(img,d,scene={gain:1,red:1,blue:1,across:0,down:0}){
+ const key=JSON.stringify([d.realism||{},scene]),cached=textureCache.get(img);if(cached?.key===key)return cached.canvas;
  const cv=document.createElement('canvas');cv.width=Math.min(1600,Math.max(1000,img.naturalWidth));cv.height=Math.max(160,Math.round(cv.width*img.naturalHeight/img.naturalWidth));const ctx=cv.getContext('2d'),look=d.realism||{};
- ctx.filter='brightness('+clamp(look.light,.65,1.25,.96)+') contrast(1.025)';ctx.drawImage(img,0,0,cv.width,cv.height);ctx.filter='none';
+ ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.filter='brightness('+clamp(look.light,.65,1.25,.96)+') contrast(1.025)';ctx.drawImage(img,0,0,cv.width,cv.height);ctx.filter='none';
+ {
+  const frame=ctx.getImageData(0,0,cv.width,cv.height),pixels=frame.data;
+  for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){
+   const i=(y*cv.width+x)*4,gain=scene.gain*(1+scene.across*(x/(cv.width-1)-.5)+scene.down*(y/(cv.height-1)-.5));
+   // Subtle matte paint microtexture, anchored to the material coordinates.
+   // Keep dark glass and existing wood/color detail intact; never flicker.
+   const lum=(pixels[i]+pixels[i+1]+pixels[i+2])/3,spread=Math.max(pixels[i],pixels[i+1],pixels[i+2])-Math.min(pixels[i],pixels[i+1],pixels[i+2]);
+   let grain=0;if(lum>110&&spread<24){let hash=(Math.imul(x+17,374761393)^Math.imul(y+29,668265263))>>>0;hash=Math.imul(hash^(hash>>>13),1274126177)>>>0;grain=((hash&1023)/1023-.5)*1.5;}
+   pixels[i]=pixels[i]*gain*scene.red+grain;pixels[i+1]=pixels[i+1]*gain+grain;pixels[i+2]=pixels[i+2]*gain*scene.blue+grain;
+  }
+  ctx.putImageData(frame,0,0);
+ }
  const depth=clamp(look.depth,0,1,.45),w=cv.width,h=cv.height;
  // The door sits behind the jamb: shadows stay INSIDE the opening.
  const shade=(x0,y0,x1,y1,stops)=>{const g=ctx.createLinearGradient(x0,y0,x1,y1);stops.forEach(([at,color])=>g.addColorStop(at,color));ctx.fillStyle=g;ctx.fillRect(0,0,w,h);};
- shade(0,0,0,h,[[0,'rgba(0,0,0,'+(depth*.65)+')'],[.09,'rgba(0,0,0,'+(depth*.15)+')'],[.35,'rgba(0,0,0,0)'],[.93,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.25)+')']]);
+ shade(0,0,0,h,[[0,'rgba(0,0,0,'+(depth*.72)+')'],[.018,'rgba(0,0,0,'+(depth*.22)+')'],[.12,'rgba(0,0,0,0)'],[.97,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.42)+')']]);
  shade(0,0,w,0,[[0,'rgba(0,0,0,'+(depth*.38)+')'],[.035,'rgba(0,0,0,0)'],[.65,'rgba(255,255,255,.025)'],[.975,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.28)+')']]);
  textureCache.set(img,{key,canvas:cv});return cv;
 }
@@ -59,9 +93,10 @@ function warp(tex,q,w,h){
  }
  ctx.putImageData(frame,0,0);return {canvas:cv,left,top};
 }
-function draw(output,img,d,w,h){
+function draw(output,img,d,w,h,house){
  const layer=document.createElement('canvas');layer.width=w;layer.height=h;const ctx=layer.getContext('2d');
- const q=corners(d,w,h,img.naturalHeight/img.naturalWidth),tex=texture(img,d),cut=clamp(d.realism?.cut,0,.22,0),uv=[[cut,0],[1-cut,0],[1,cut],[1,1],[0,1],[0,cut]];
+ const q=corners(d,w,h,img.naturalHeight/img.naturalWidth),light=sceneLight(house,q.map(p=>({x:p.x/w,y:p.y/h}))),tex=texture(img,d,light),cut=clamp(d.realism?.cut,0,.22,0),uv=[[cut,0],[1-cut,0],[1,cut],[1,1],[0,1],[0,cut]];
+ ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  ctx.save();ctx.beginPath();uv.forEach(([u,v],i)=>{const p=project(q,u,v);ctx[i?'lineTo':'moveTo'](p.x,p.y);});ctx.closePath();ctx.clip();
  const [a,b,c,e]=q,affine=Math.hypot(a.x-b.x+c.x-e.x,a.y-b.y+c.y-e.y)<.05;
  if(affine){ctx.save();ctx.transform((b.x-a.x)/tex.width,(b.y-a.y)/tex.width,(e.x-a.x)/tex.height,(e.y-a.y)/tex.height,a.x,a.y);ctx.drawImage(tex,0,0);ctx.restore();}
@@ -69,7 +104,7 @@ function draw(output,img,d,w,h){
  ctx.restore();output.save();output.globalAlpha=clamp(d.pos?.opacity,.35,1,1);output.drawImage(layer,0,0);output.restore();
 }
 const images=new Map();function load(url){if(!images.has(url)){const task=window.DoorDesign.loadImage(url);images.set(url,task);task.catch(()=>images.delete(url));if(images.size>32)images.delete(images.keys().next().value);}return images.get(url);}
-window.DoorRealism={valid,corners,project,inverse,warp,texture,draw,clamp,load};
+window.DoorRealism={valid,corners,project,inverse,warp,sceneLight,texture,draw,clamp,load};
 })();
 (() => {
 'use strict';
@@ -137,8 +172,8 @@ async function paintVisDoors(){
   const d=state.doors[Number(node.dataset.dooridx)],src=overlayUrl(d);if(!src)return;
   try{const img=await window.DoorRealism.load(src);if(version!==previewVersion||state!==visState||!node.isConnected)return;
    const house=node.parentElement.querySelector('.vis-house-img');if(!house?.naturalWidth){house?.addEventListener('load',paintVisDoors,{once:true});return;}
-   node.width=Math.min(1000,house.naturalWidth);node.height=Math.round(node.width*house.naturalHeight/house.naturalWidth);
-   window.DoorRealism.draw(node.getContext('2d'),img,d,node.width,node.height);
+   const scale=Math.min(1,1600/Math.max(house.naturalWidth,house.naturalHeight));node.width=Math.max(1,Math.round(house.naturalWidth*scale));node.height=Math.max(1,Math.round(house.naturalHeight*scale));
+   window.DoorRealism.draw(node.getContext('2d'),img,d,node.width,node.height,house);
    // Canvas occupies the photo; only the actual door polygon accepts a drag.
    const q=window.DoorRealism.corners(d,100,100,img.naturalHeight/img.naturalWidth*house.naturalWidth/house.naturalHeight);
    node.style.clipPath='polygon('+q.map(p=>p.x+'% '+p.y+'%').join(',')+')';
@@ -456,10 +491,10 @@ captureVisPreview=async function(){
   const snapshot=JSON.parse(JSON.stringify({houseImage:visState.houseImage,doors:visState.doors.slice(0,visState.doorCount)}));
   await Promise.all(snapshot.doors.map(d=>window.DoorDesign?.prepare(d)));
   const house=await window.DoorDesign.loadImage(snapshot.houseImage.url);
-  const canvas=document.createElement('canvas');const resize=Math.min(1,1600/Math.max(house.naturalWidth,house.naturalHeight));canvas.width=Math.max(1,Math.round(house.naturalWidth*resize));canvas.height=Math.max(1,Math.round(house.naturalHeight*resize));const ctx=canvas.getContext('2d');ctx.drawImage(house,0,0,canvas.width,canvas.height);
+  const canvas=document.createElement('canvas');const resize=Math.min(1,2048/Math.max(house.naturalWidth,house.naturalHeight));canvas.width=Math.max(1,Math.round(house.naturalWidth*resize));canvas.height=Math.max(1,Math.round(house.naturalHeight*resize));const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';ctx.drawImage(house,0,0,canvas.width,canvas.height);
   for(const d of snapshot.doors){
     const src=overlayUrl(d);if(!src)continue;
-    try{const img=await window.DoorDesign.loadImage(src);window.DoorRealism.draw(ctx,img,d,canvas.width,canvas.height);}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
+    try{const img=await window.DoorDesign.loadImage(src);window.DoorRealism.draw(ctx,img,d,canvas.width,canvas.height,house);}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
   }
   return canvas.toDataURL('image/jpeg',.95);
 };
