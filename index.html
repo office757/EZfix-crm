@@ -1372,11 +1372,11 @@ const CATEGORY_META = {
 };
 
 function sidebarNavItems() {
-  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','receptionist','dashboard','communications','jobs','calendar',...(isTechnicianView()?['customers']:[]),'office','estimates','invoices','banking','gallery','visualizer','products','team','earnings',...(IS_OWNER?[]:['socialposts','settings'])];
+  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','dashboard','receptionist',...(IS_OWNER?[]:['communications']),...(isTechnicianView()?['jobs']:[]),'calendar',...(isTechnicianView()?['customers']:[]),'office','invoices','estimates','visualizer','gallery','products','banking','team','earnings',...(IS_OWNER?[]:['socialposts']),'settings'];
   return keys.map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)&&(!n.hideForTech||!isTechnicianView())&&(!isTechnicianView()||technicianAllowedPage(n.key)));
 }
 function isSidebarItemActive(n) {
-  return route.page===n.key || (n.key==='jobs' && route.page==='leads') || (n.key==='office' && !isTechnicianView() && ['customers','followups'].includes(route.page)) || (n.key==='team' && ['payroll','reports'].includes(route.page)) || (n.key==='banking' && route.page==='payments') || (n.key==='ai_manager' && route.page==='ai_system');
+  return route.page===n.key || (n.key==='jobs' && route.page==='leads') || (n.key==='calendar' && !isTechnicianView() && ['jobs','leads'].includes(route.page)) || (n.key==='office' && !isTechnicianView() && ['customers','followups'].includes(route.page)) || (n.key==='team' && ['payroll','reports'].includes(route.page)) || (n.key==='banking' && route.page==='payments') || (n.key==='ai_manager' && route.page==='ai_system');
 }
 function renderNav() {
   const el = document.getElementById('navList');
