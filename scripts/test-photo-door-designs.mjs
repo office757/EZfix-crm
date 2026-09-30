@@ -35,6 +35,9 @@ test('native product geometry uses four rows and real glass on the supplied long
  assert.equal(P.sources.find(s=>s.id==='photo-078-0').sections,6);
  assert.equal(P.sources.find(s=>s.id==='photo-106-0').layout,'eight-lite');
 });
+test('second-section glazing stays in its real section and retains its pixels when painted',()=>{
+ const {P}=harness(),d=door('square-short','photo-090-0','black'),c=P.choice(d),img=picture(100,100,(x,y)=>y>28&&y<43&&x>5&&x<24?[210,225,235,255]:[30,75,140,255]),panes=P.paneRegions(c.source,img.data,100,100),i=(35*100+15)*4,before=Array.from(img.data.slice(i,i+4));assert(panes.every(p=>p.y>=.25));P.paint(img.data,100,100,c,panes);assert.deepEqual(Array.from(img.data.slice(i,i+4)),before);
+});
 test('single and double doors reflow whole photographed panels rather than stretching their count',()=>{
  const {P,R}=harness(),single=P.sources.find(s=>s.id==='photo-101-0'),double=P.sources.find(s=>s.id==='photo-023-0');
  const wide=P.adaptSource(single,16);assert.equal(wide.columns,8);assert.equal(wide.repeat,2);assert.equal(wide.sections,4);
