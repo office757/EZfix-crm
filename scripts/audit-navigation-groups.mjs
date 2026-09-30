@@ -10,9 +10,16 @@ function fixture(role='owner'){
 }
 let n=0;function check(name,fn){fn();n++;console.log('PASS '+name);}
 check('Owner sidebar groups the existing routes without duplicate entries',()=>{
- const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','receptionist','dashboard','jobs','calendar','customers','office','followups','estimates','invoices','payments','banking','team','payroll','reports','gallery','visualizer','products','socialposts','settings']);
+ const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','receptionist','dashboard','jobs','calendar','customers','office','followups','estimates','invoices','payments','banking','team','payroll','reports','gallery','visualizer','products']);
  f.context.route.page='receptionist';assert.equal(f.run("isSidebarItemActive({key:'receptionist'})"),true);assert.equal(f.run("isSidebarItemActive({key:'ai_manager'})"),false);
  f.context.route.page='leads';assert.equal(f.run("isSidebarItemActive({key:'jobs'})"),true);
+});
+check('Ashley owns business tool entry points without changing staff access',()=>{
+ const ashley=section('function renderAiReceptionist(', 'function ashleyChannelIcon(');
+ for(const key of ['socialposts','settings'])assert.ok(ashley.includes(`onclick="go('${key}')"`));
+ assert.ok(ashley.includes('Ashley Settings'));
+ assert.ok(fixture('office').run('sidebarNavItems().map(n=>n.key)').includes('socialposts'));
+ for(const role of ['owner','technician','marketing'])for(const key of ['socialposts','settings'])assert.ok(!fixture(role).run('sidebarNavItems().map(n=>n.key)').includes(key));
 });
 check('Both work tabs keep their existing routes and selected state',()=>{
  const f=fixture();assert.match(f.run('renderWorkNavigation()'),/onclick="go\('jobs'\)"/);assert.match(f.run('renderWorkNavigation()'),/onclick="go\('leads'\)"/);
@@ -22,9 +29,9 @@ check('Owner launcher keeps gallery tools separate and removes warranties from t
  const f=fixture(),groups=f.run('dashboardModuleCategories()');assert.equal(groups.length,5);
  const keys=groups.flatMap(g=>g.items.map(n=>n.key));
  for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','receptionist','ai_system','team','reports','payroll'])assert.ok(keys.includes(key),key);
- for(const key of ['inventory','suppliers','ai_manager','communications','attention','expenses','followups','warranties','viscatalog','auditlog','checklist','walog','settings','leads'])assert.ok(!keys.includes(key),key);
+ for(const key of ['inventory','suppliers','ai_manager','communications','attention','expenses','followups','warranties','viscatalog','auditlog','checklist','walog','settings','socialposts','leads'])assert.ok(!keys.includes(key),key);
  assert.deepEqual(groups.find(g=>g.name==='Gallery & Visualizer').items.map(n=>n.key),['products','gallery','visualizer']);
- assert.deepEqual(groups.find(g=>g.name==='Business Workspace').items.map(n=>n.key),['banking','socialposts']);
+ assert.deepEqual(groups.find(g=>g.name==='Business Workspace').items.map(n=>n.key),['banking']);
  assert.ok(groups.find(g=>g.name==='Office & AI').items.some(n=>n.key==='office'));
  assert.ok(groups.find(g=>g.name==='Office & AI').items.some(n=>n.key==='receptionist'));
 });
