@@ -89,3 +89,29 @@ test('matte detail is stable and subtle while dark glass and colored material st
  }
  assert(colors.size>1);
 });
+vm.runInContext(readFileSync(new URL('../door-design-library.js',import.meta.url),'utf8'),context);
+test('dark finishes preserve pane reflections without white bleed or bright panel seams',()=>{
+ const w=400,h=200,pixels=new Uint8ClampedArray(w*h*4),at=(x,y)=>(y*w+x)*4;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++)pixels.set([235,235,235,255],at(x,y));
+ for(let y=15;y<=45;y++)for(let x=60;x<=150;x++)pixels.set([22,25,28,255],at(x,y));
+ pixels.set([246,246,246,255],at(90,30));for(let x=10;x<390;x++)pixels.set([50,50,50,255],at(x,75));pixels.set([190,90,25,255],at(300,100));pixels.set([230,230,230,0],at(200,150));
+ context.window.DoorDesign.recolor(pixels,w,h,[18,34,29],null,true);
+ assert.deepEqual(Array.from(pixels.slice(at(90,30),at(90,30)+4)),[246,246,246,255],'glass glare is preserved');assert.deepEqual(Array.from(pixels.slice(at(80,20),at(80,20)+4)),[22,25,28,255]);
+ assert(pixels[at(200,100)]<30&&pixels[at(200,100)+1]<45,'black cannot retain a white blend');assert(pixels[at(100,75)]<10,'dark panel grooves follow the selected finish');assert(pixels[at(200,100)]>pixels[at(100,75)],'photographic relief survives');
+ assert.deepEqual(Array.from(pixels.slice(at(300,100),at(300,100)+4)),[190,90,25,255]);assert.equal(pixels[at(200,150)+3],0);
+});
+test('foreground masks are bounded, resolution independent and use destination-out only',()=>{
+ const strokes=R.foregroundStrokes([{radius:100,points:[{x:30,y:40},{x:-1,y:10},{x:Infinity,y:0},{x:60,y:70}]},{radius:'bad',points:[]}]);assert.equal(strokes.length,1);assert.equal(strokes[0].radius,5);assert.equal(strokes[0].points.length,2);
+ const record=[];let mode='source-over';const ctx={save(){record.push('save');},restore(){record.push('restore');},set globalCompositeOperation(v){mode=v;},beginPath(){},moveTo(x,y){record.push([x,y]);},lineTo(x,y){record.push([x,y]);},stroke(){assert.equal(mode,'destination-out');},arc(){},fill(){}};
+ R.preserveForeground(ctx,{foreground:strokes},1000,500);assert.deepEqual(record,['save',[300,200],[600,350],'restore']);assert.equal(ctx.lineWidth,100);
+});
+test('glass reflection stays inside verified panes and preserves inserts, alpha and surrounding panels',()=>{
+ const w=100,h=50,pixels=new Uint8ClampedArray(w*h*4),photo={width:20,height:20,data:new Uint8ClampedArray(20*20*4)};
+ for(let i=0;i<pixels.length;i+=4)pixels.set([50,60,90,255],i);for(let i=0;i<photo.data.length;i+=4)photo.data.set([150,170,210,255],i);const bright=(10*w+30)*4;pixels.set([240,240,240,255],bright);
+ const before=pixels.slice();R.reflectGlass(pixels,w,h,[{x:.2,y:.1,width:.3,height:.25}],photo,[{x:.1,y:.4},{x:.9,y:.4},{x:.9,y:.8},{x:.1,y:.8}]);
+ assert(pixels[(10*w+25)*4]>before[(10*w+25)*4]);assert(pixels[(10*w+25)*4]-before[(10*w+25)*4]<10,'reflection remains subtle');assert.deepEqual(Array.from(pixels.slice(bright,bright+4)),[240,240,240,255]);assert.deepEqual(Array.from(pixels.slice((35*w+25)*4,(35*w+25)*4+4)),[50,60,90,255]);
+ for(let i=3;i<pixels.length;i+=4)assert.equal(pixels[i],255);const once=pixels.slice(),unrelated=pixels.slice();R.reflectGlass(unrelated,w,h,[],photo,q);assert.deepEqual(unrelated,once);
+});
+test('dark solid or wood panels cannot qualify as reflective glass',()=>{
+ const w=400,h=200,pixels=new Uint8ClampedArray(w*h*4);for(let i=0;i<pixels.length;i+=4)pixels.set([30,30,30,255],i);assert.equal(context.window.DoorDesign.glassGeometry(pixels,w,h).regions.length,0);
+});

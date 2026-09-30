@@ -71,3 +71,30 @@
 .vis-corner{position:absolute;z-index:8;width:34px;height:34px;transform:translate(-50%,-50%);border:2px solid white;border-radius:50%;background:#1d4ed8;color:white;font-weight:700;box-shadow:0 1px 6px #0006;touch-action:none;cursor:crosshair;}
 .vis-corner:focus-visible{outline:3px solid #fbbf24;outline-offset:3px;}
 @media print{.vis-corner{display:none;}}
+
+/* Photo editing stays inside the visualizer. Zoom enlarges photo and fitting
+   controls together, so normalized corners and foreground strokes stay exact. */
+.studio-edit-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card)}
+.studio-edit-toolbar>label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-soft)}
+.studio-edit-toolbar select{width:auto;min-height:34px;padding:6px 9px;font-size:11px}
+.studio-edit-toolbar input[type=range]{width:95px;accent-color:var(--orange)}
+.studio-edit-toolbar>p{width:100%;margin:1px 0 0;font-size:11px;line-height:1.6;color:var(--ink-soft)}
+.studio-edit-toolbar .btn:disabled{opacity:.4;cursor:default}
+.studio-viewport{overflow:auto;max-height:70vh;overscroll-behavior:contain;background:var(--paper-2)}
+.studio-viewport .vg-stage{margin:0;max-width:none;min-width:100%;touch-action:pan-x pan-y}
+.studio-viewport .studio-brush-mode{touch-action:none}
+.studio-brush-mode,.studio-brush-mode .vis-realistic{cursor:crosshair;touch-action:none}
+.studio-compare-controls{display:flex;gap:8px;margin-bottom:13px;flex-wrap:wrap}
+.studio-compare-slider{overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+.studio-compare-image{position:relative;overflow:hidden;touch-action:pan-y;cursor:ew-resize}
+.studio-compare-image>.vis-house-img,.studio-compare-after>.vis-house-img{display:block;width:100%;height:auto}
+.studio-compare-after{position:absolute;inset:0}
+.studio-compare-label{position:absolute;top:14px;padding:7px 11px;border-radius:8px;background:#17201fbb;color:white;font-size:11px;font-weight:700;pointer-events:none}
+.studio-compare-label.before{left:14px}.studio-compare-label.after{right:14px}
+.studio-compare-line{position:absolute;inset-block:0;width:2px;background:white;box-shadow:0 0 7px #0005;pointer-events:none;transform:translateX(-50%)}
+.studio-compare-line>span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);height:42px;width:42px;display:grid;place-items:center;background:white;border-radius:50%;color:#354032;font-size:21px;box-shadow:0 2px 14px #0003}
+.studio-compare-adjust{display:flex;align-items:center;gap:15px;padding:14px 18px;font-size:11px;color:var(--ink-soft)}
+.studio-compare-adjust input{flex:1;min-width:0;accent-color:var(--orange)}
+.studio-comparison.show-slider .studio-beforeafter,.studio-comparison.show-side .studio-compare-slider{display:none}
+@media(max-width:700px){.studio-edit-toolbar{padding:10px;gap:6px}.studio-edit-toolbar .btn{font-size:11px;min-height:36px}.studio-viewport{max-height:65vh}.studio-compare-adjust{padding:12px}.studio-compare-label{top:10px;font-size:10px}.studio-compare-label.before{left:10px}.studio-compare-label.after{right:10px}}
+@media print{.studio-edit-toolbar,.studio-compare-controls,.studio-compare-slider{display:none!important}.studio-comparison .studio-beforeafter{display:grid!important}}
