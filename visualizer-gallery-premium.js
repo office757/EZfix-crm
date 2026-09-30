@@ -23,7 +23,7 @@ function project(q,u,v){
 const textureCache=new WeakMap();
 function texture(img,d){
  const key=JSON.stringify(d.realism||{}),cached=textureCache.get(img);if(cached?.key===key)return cached.canvas;
- const cv=document.createElement('canvas');cv.width=1000;cv.height=Math.max(160,Math.round(1000*img.naturalHeight/img.naturalWidth));const ctx=cv.getContext('2d'),look=d.realism||{};
+ const cv=document.createElement('canvas');cv.width=Math.min(1600,Math.max(1000,img.naturalWidth));cv.height=Math.max(160,Math.round(cv.width*img.naturalHeight/img.naturalWidth));const ctx=cv.getContext('2d'),look=d.realism||{};
  ctx.filter='brightness('+clamp(look.light,.65,1.25,.96)+') contrast(1.025)';ctx.drawImage(img,0,0,cv.width,cv.height);ctx.filter='none';
  const depth=clamp(look.depth,0,1,.45),w=cv.width,h=cv.height;
  // The door sits behind the jamb: shadows stay INSIDE the opening.
@@ -53,8 +53,9 @@ window.DoorRealism={valid,corners,project,texture,draw,clamp,load};
 (() => {
 'use strict';
 
-function preparedHomePhotos(){return (window.EZFIX_PHOTO_LIBRARY||[]).filter(p=>p.corners?.length===visState.doorCount);}
-function homeReferenceUrl(id){return (window.EZFIX_PHOTO_LIBRARY||[]).find(p=>p.id===id)?.url||'/assets/door-styles/'+id+'.png';}
+function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZFIX_INSPIRATION_LIBRARY||[])];}
+function preparedHomePhotos(){return homePhotos().filter(p=>p.corners?.length===visState.doorCount);}
+function homeReferenceUrl(id){return homePhotos().find(p=>p.id===id)?.url||'/assets/door-styles/'+id+'.png';}
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
 window.__visCatalogState=visCatalogState;
 const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||(window.DoorDesign?.profile(p)?window.DoorDesign.defaultImage(p):(p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''))):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
@@ -326,7 +327,7 @@ window.continueVisualizerSetup=function(){
  visState.step=2;render();
 };
 renderVisStep2=function(body){
- body.innerHTML=`<section class="studio-setup studio-photo"><div class="studio-setup-heading"><span>02 / HOME IMAGE</span><h2>Your customer’s home</h2><p>Take a photo, upload one, or start with an EZfix reference below.</p></div><div class="studio-photo-actions"><label for="f_housecamera"><span>◎</span><b>Take a photo</b><small>Use your phone camera</small></label><label for="f_houseimg"><span>↥</span><b>Upload a photo</b><small>JPG, PNG or WebP · up to 15 MB</small></label></div><input hidden type="file" accept="image/*" capture="environment" id="f_housecamera"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="f_houseimg"><div class="studio-reference-heading"><h3>Or use an EZfix reference</h3><span>Real photos & prepared examples</span></div><div class="studio-reference-grid">${[...preparedHomePhotos().map(p=>[p.id,p.name,'Real photo · prepared opening fit']),...DOOR_STYLE_EXAMPLES].map(([id,name,detail])=>`<button class="studio-reference ${visState.houseImage?.referenceId===id?'selected':''}" data-reference="${id}" aria-pressed="${visState.houseImage?.referenceId===id}" onclick="selectVisReferenceImage(this.dataset.reference)"><img src="${homeReferenceUrl(id)}" alt="${esc(name)} reference" loading="lazy"><b>${esc(name)}</b><small>${esc(detail)}</small></button>`).join('')}</div>${visState.houseImage?`<div class="studio-photo-selection"><img src="${esc(visState.houseImage.url)}" alt="Selected home image"><div><span>Selected image</span><b>${esc(visState.houseImage.name||'Customer photo')}</b><small>${visState.houseImage.kind==='reference'?'EZfix illustration · choose an actual catalog model next':visState.houseImage.kind==='installation'?'Real EZfix installation':visState.houseImage.kind==='installation'?'Real door photo':'Customer photo'}</small></div></div>`:''}<footer><button class="btn" onclick="visState.step=1;render()">← Door size</button><button class="btn btn-primary" ${visState.houseImage?'':'disabled'} onclick="visState.step=3;render()">Choose door design →</button></footer></section>`;
+ body.innerHTML=`<section class="studio-setup studio-photo"><div class="studio-setup-heading"><span>02 / HOME IMAGE</span><h2>Your customer’s home</h2><p>Take a photo, upload one, or start with an EZfix reference below.</p></div><div class="studio-photo-actions"><label for="f_housecamera"><span>◎</span><b>Take a photo</b><small>Use your phone camera</small></label><label for="f_houseimg"><span>↥</span><b>Upload a photo</b><small>JPG, PNG or WebP · up to 15 MB</small></label></div><input hidden type="file" accept="image/*" capture="environment" id="f_housecamera"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="f_houseimg"><div class="studio-reference-heading"><h3>Or use an EZfix reference</h3><span>Real photos & prepared examples</span></div><div class="studio-reference-grid">${[...preparedHomePhotos().map(p=>[p.id,p.name,(p.aiGenerated?'AI inspiration':'Real photo')+' · prepared opening fit']),...DOOR_STYLE_EXAMPLES].map(([id,name,detail])=>`<button class="studio-reference ${visState.houseImage?.referenceId===id?'selected':''}" data-reference="${id}" aria-pressed="${visState.houseImage?.referenceId===id}" onclick="selectVisReferenceImage(this.dataset.reference)"><img src="${homeReferenceUrl(id)}" alt="${esc(name)} reference" loading="lazy"><b>${esc(name)}</b><small>${esc(detail)}</small></button>`).join('')}</div>${visState.houseImage?`<div class="studio-photo-selection"><img src="${esc(visState.houseImage.url)}" alt="Selected home image"><div><span>Selected image</span><b>${esc(visState.houseImage.name||'Customer photo')}</b><small>${visState.houseImage.kind==='reference'?'EZfix illustration · choose an actual catalog model next':visState.houseImage.kind==='inspiration'?'AI inspiration':visState.houseImage.kind==='installation'?'Real door photo':'Customer photo'}</small></div></div>`:''}<footer><button class="btn" onclick="visState.step=1;render()">← Door size</button><button class="btn btn-primary" ${visState.houseImage?'':'disabled'} onclick="visState.step=3;render()">Choose door design →</button></footer></section>`;
  const upload=async e=>{
   const file=e.target.files?.[0];if(!file)return;
   const selection=++photoSelectionVersion,target=visState;
@@ -337,13 +338,13 @@ renderVisStep2=function(body){
  document.getElementById('f_housecamera').addEventListener('change',upload);
 };
 window.selectVisReferenceImage=async function(id){
- const photo=(window.EZFIX_PHOTO_LIBRARY||[]).find(p=>p.id===id),ref=photo?[photo.id,photo.name]:DOOR_STYLE_EXAMPLES.find(x=>x[0]===id);if(!ref)return;
+ const photo=homePhotos().find(p=>p.id===id),ref=photo?[photo.id,photo.name]:DOOR_STYLE_EXAMPLES.find(x=>x[0]===id);if(!ref)return;
  const selection=++photoSelectionVersion,target=visState;
  try{
   if(photo){
    if(photo.openings!==visState.doorCount)return toast('Choose a photo with the same number of openings.',true);
    await window.DoorDesign.loadImage(photo.url);if(selection!==photoSelectionVersion||target!==visState)return;
-   visState.houseImage={url:photo.url,kind:'installation',referenceId:id,name:photo.name};
+   visState.houseImage={url:photo.url,kind:photo.aiGenerated?'inspiration':'installation',referenceId:id,name:photo.name};
    visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};if(window.DoorRealism.valid(photo.corners?.[i]))d.pos.corners=photo.corners[i].map(p=>({...p}));d.realism={light:.96,depth:.45,cut:photo.cut||0};});cornerFitDoor=-1;render();return;
   }
   const count=visState.doorCount,cols=count===1?1:2,rows=Math.ceil(count/cols),url='/assets/door-styles/'+id+'.png';
