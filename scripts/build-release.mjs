@@ -52,6 +52,7 @@ const scripts = [
   'build-product-catalog-ui.mjs',
   'test-visualizer-closeout.mjs',
   'test-visualizer-realism.mjs',
+  'test-photo-door-designs.mjs',
   'test-photo-library.mjs',
   'audit-visualizer-gallery-premium.mjs',
   'build-visualizer-gallery-premium.mjs',
