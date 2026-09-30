@@ -1,14 +1,14 @@
 /* Related workspaces reuse the existing routes and permission checks. */
 function workspacePageSection(page) {
   if(IS_OWNER&&['communications','calls','ai_manager','ai_system'].includes(page))page='receptionist';
-  if(IS_OWNER&&page==='followups')page='office';
+  
   const sections = [
-    {id:'work',title:'Daily Work',description:'Leads, scheduled work and customer history.',keys:['leads','jobs','calendar','customers']},
-    {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['office','receptionist','ai_manager','followups','attention'],aliases:{ai_system:'ai_manager'}},
-    {id:'finance',title:'Finance',description:'Estimates, invoices, payments and business expenses.',keys:['quickpay','estimates','invoices','payments','expenses','banking']},
+    {id:'work',title:'Daily Work',description:'Leads, scheduled work and customer history.',keys:['leads','jobs','calendar','customers','office','followups']},
+    {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['receptionist','ai_manager','attention'],aliases:{ai_system:'ai_manager'}},
+    {id:'finance',title:'Finance',description:'Estimates, invoices, payments and business expenses.',keys:['quickpay','estimates','invoices','payments','banking']},
     {id:'team',title:'Team & Payroll',description:'People, commissions and performance.',keys:['team','payroll','reports','earnings']},
     {id:'stock',title:'Products & Stock',description:'Products, inventory and supplier orders.',keys:['products','inventory','suppliers']},
-    {id:'gallery',title:'Gallery & Visualizer',description:'Project photos and door design tools.',keys:['gallery','visualizer'],aliases:{viscatalog:'visualizer'}},
+    {id:'gallery',title:'Gallery & Visualizer',description:'Project photos and door design tools.',keys:['gallery','visualizer','products'],aliases:{viscatalog:'visualizer'}},
     {id:'communications',title:'Communications',description:'Email, calls, SMS and WhatsApp in one place.',keys:['communications'],aliases:{calls:'communications',walog:'communications',inbox:'communications'}},
     {id:'marketing',title:'Marketing',description:'Social posts and the project photos behind them.',keys:['socialposts'],related:['gallery']},
     {id:'system',title:'Settings & History',description:'Business settings and recorded activity.',keys:['settings','auditlog'],aliases:{checklist:'settings'}}
@@ -17,6 +17,7 @@ function workspacePageSection(page) {
   const section=sections.find(s=>s.keys.includes(page)||Object.hasOwn(s.aliases||{},page));
   if(!section)return null;
   const allowed=n=>n&&canAccessWorkspaceNav(n)&&(!n.hideForTech||!isTechnicianView())&&(!isTechnicianView()||technicianAllowedPage(n.key))&&(!isMarketingManager()||marketingAllowedPage(n.key));
+  const requested=NAV.find(n=>n.key===page);if(requested&&!allowed(requested))return null;
   const items=section.keys.map(key=>NAV.find(n=>n.key===key)).filter(allowed);
   const related=(section.related||[]).map(key=>NAV.find(n=>n.key===key)).filter(allowed);
   if(!items.length)return null;

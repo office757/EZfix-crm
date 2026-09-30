@@ -19,3 +19,19 @@
  body[data-workspace-page="office"] .office-grid b{display:block;right:15px;top:50%;transform:translateY(-50%)}
  body[data-workspace-page="office"] .office-grid>button:focus-visible,body[data-workspace-page="office"] .office-shortcuts>button:focus-visible{outline:2px solid var(--ws-accent,#439d8a);outline-offset:2px}
 }
+
+/* Approved Office-only visual polish for human office work. */
+body[data-workspace-page="office"] .office-welcome{background:linear-gradient(125deg,#fff8eb,#fff);border-color:#e9d9ba;box-shadow:0 4px 18px #4b351307;padding:22px}
+body[data-workspace-page="office"] .office-section{--section-tint:#eef4fb;--section-border:#dce6f1;background:#f8fafc;border:1px solid var(--section-border);border-radius:20px;overflow:hidden;margin:20px 0}
+body[data-workspace-page="office"] .office-section:nth-of-type(3n){--section-tint:#f0eaf8;--section-border:#e4d9ef}
+body[data-workspace-page="office"] .office-section:nth-of-type(3n + 1){--section-tint:#edf5ee;--section-border:#d9e7db}
+body[data-workspace-page="office"] .office-section h3{margin:0;padding:16px 18px;background:var(--section-tint);color:#283344;font-size:15px;border-bottom:1px solid var(--section-border)}
+body[data-workspace-page="office"] .office-grid{padding:14px;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+body[data-workspace-page="office"] .office-grid>button{display:flex;align-items:center;gap:14px;min-height:94px;border-radius:15px;border-color:#e1e6eb;padding:16px 34px 16px 16px;box-shadow:0 2px 6px #22334404}
+body[data-workspace-page="office"] .office-grid .office-tool-icon{display:flex;align-items:center;justify-content:center;flex:0 0 44px;height:44px;border-radius:13px;background:var(--section-tint);font-size:25px;line-height:1}
+body[data-workspace-page="office"] .office-grid .office-tool-copy{min-width:0;flex:1}
+body[data-workspace-page="office"] .office-grid strong{margin:0 0 5px;color:#263345;line-height:1.35}
+body[data-workspace-page="office"] .office-grid .office-tool-copy>span{color:#607084;font-size:12px;line-height:1.5}
+body[data-workspace-page="office"] .office-grid b{top:50%;transform:translateY(-50%);color:#77869a}
+body[data-workspace-page="office"] .office-grid>button:focus-visible{outline:3px solid #b194d1;outline-offset:2px}
+@media(max-width:620px){body[data-workspace-page="office"] .office-grid{grid-template-columns:1fr;padding:12px}body[data-workspace-page="office"] .office-grid>button{min-height:86px;padding:14px}body[data-workspace-page="office"] .office-welcome h2{font-size:23px}}
