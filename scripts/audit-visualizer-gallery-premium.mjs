@@ -14,7 +14,7 @@ check('Exactly two asset markers are installed',()=>assert.equal((built.match(/d
 check('Runtime parses as classic JavaScript',()=>new vm.Script(js));
 check('Reference catalog is used instead of duplicating product data',()=>{assert.match(js,/catalogKind.*garage_door_model/);assert.match(js,/STORE\.products/);assert.doesNotMatch(js,/dbAdd\(['"]products/);});
 check('Overlay upload reuses owner-protected Products app_data path',()=>{assert.match(js,/uploadAsset\(file,'visualizer-overlays'\)/);assert.match(js,/dbSet\('products',productId,\{visualizerOverlayUrl/);});
-check('Non-ready reference models cannot fake an on-home overlay',()=>assert.match(js,/Choose a Visualizer Ready door/));
+check('Unconfigured photographic designs cannot fake an on-home overlay',()=>assert.match(js,/Choose a photographed door design/));
 check('Estimate generation preserves reference product identity and zero default price',()=>{assert.match(js,/productId:p\.id/);assert.match(js,/catalogItemId:p\.id/);assert.match(js,/rate:0/);});
 check('Saved preview capture uses only actual overlay URLs',()=>assert.match(js,/const src=overlayUrl\(d\)/));
 check('Gallery customer view has premium project cards and before-after presentation',()=>{assert.match(js,/pg-card/);assert.match(js,/pg-ba/);assert.match(js,/premiumViewGalleryProject/);});
