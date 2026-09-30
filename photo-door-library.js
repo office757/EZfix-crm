@@ -15,6 +15,7 @@
   ].map(([id, label, group]) => ({id, label, group}));
   // photo, opening, family, window layout, finish, panel columns, sections,
   // clockwise opening coordinates (% of the ORIGINAL photo), window band.
+  // Optional closed-top reuses this door's photographed solid second section.
   const records = [
     ['101',0,'square-short','closed','White',4,4,[10.5,22.6,90.8,22.2,86.8,66.4,14.2,66.5]],
     ['023',0,'square-short','closed','White',8,4,[19.9,36.8,81.9,37.3,81.1,73.1,20.6,71.4]],
@@ -23,8 +24,8 @@
     ['039',0,'square-short','clear','White',4,4,[15.7,42.3,46.1,42.9,45.5,74.4,15.2,73.8],[.06,.19]],
     ['039',1,'square-short','clear','White',4,4,[54.9,43.9,85.4,44.7,84.4,75.5,54.5,74.9],[.06,.19]],
     ['091',0,'square-short','grid','White',8,4,[7.8,37.1,86.6,37.8,85.8,83.6,8.1,83.1],[.065,.18]],
-    ['048',0,'square-short','clear','White',4,4,[13.3125,46.6667,35.625,45.0,37.0625,75.9167,14.375,73.9167],[.05,.19]],
-    ['048',1,'square-short','clear','White',4,4,[49.8125,43.0833,89.8125,39.9167,90.3125,81.1667,51.3125,77.8333],[.05,.19]],
+    ['042',0,'square-short','closed','White',4,4,[10.6,21.1,90.1,22.6,84.6,53.5,18.7,58.5]],
+    ['010',0,'square-short','closed','White',4,4,[11.4,40.1,47.7,41.2,47.3,68.1,5.4,68.7]],
     ['064',0,'square-short','clear','White',4,4,[8.125,42.1667,34.25,42.1667,34.3125,73.9167,8.0625,72.4167],[.06,.19]],
     ['064',1,'square-short','clear','White',4,4,[40.625,41.6667,74.625,41.0,74.8125,77.3333,40.3125,74.6667],[.06,.19]],
     ['090',0,'square-short','clear-second','Blue',4,4,[22.2836,41.5746,75.3223,43.9917,75.5064,75.1381,18.7845,75.8978],[.065,.2]],
@@ -33,7 +34,7 @@
     ['062',1,'grooved-long','grid','White',2,4,[49.8,41.6,66.75,41.1,66.9,61.45,50,61.6],[.045,.2]],
     ['040',0,'square-short','grid','White',4,4,[4.2,26.4,97.4,22.7,93.0,81.1,10.5,75.0],[.04,.205]],
     ['017',0,'square-long','clear','White',4,4,[21.3,35.8,83.1,35.5,82.2,70.6,22.3,71.8],[.055,.185]],
-    ['055',0,'square-long','closed','Black',4,4,[24.4,33,65.3,8.5,67.7,89.3,26,69.1]],
+    ['017',0,'square-long','closed','White',4,4,[21.3,35.8,83.1,35.5,82.2,70.6,22.3,71.8],null,'closed-top'],
     ['036',0,'square-long','clear','Brown',2,4,[28.7,39.75,77.2,39.8,76.5,66.5,29.2,66.2],[.045,.2]],
     ['078',0,'square-long','double-sunburst','White',2,6,[8,6.5,81,7.8,78.7,82,8,84],[.04,.43]],
     ['140',0,'square-long','arched-grid','White',2,4,[14.1,35.3,43.2,35.4,42.8,65.5,14.1,65.6],[.055,.175]],
@@ -41,7 +42,7 @@
     ['035',0,'square-long','diagonal','Black',2,5,[14.1667,13.4375,89.6667,10.3125,83.8333,65.6875,17.0833,62.8125],[0.04,0.16]],
     ['057',0,'carriage-short','six-lite','White',4,4,[23,8.2,79.6,15.5,75,68,26,73],[.045,.215]],
     ['097',0,'grooved-short','six-lite','Black',4,4,[14,20,86,21,82.5,67,17.5,67],[.055,.21]],
-    ['047',0,'carriage-short','closed','White',4,4,[15.7,34,41.2,33,41.7,65.7,16.5,64]],
+    ['050',0,'square-short','clear','White',7,4,[6.7,26.7,83.9,26.7,83.6,66.7,8.8,75.0],[.035,.215]],
     ['047',1,'carriage-short','closed','White',4,4,[50.4,31.4,88.8,29.2,87.4,69.6,50.7,66.9]],
     ['105',0,'grooved-short','eight-lite','White',4,5,[19.7,23.7,88.6,24.8,85.2,68.1,21.5,67],[.035,.185]],
     ['107',0,'grooved-short','eight-lite','White',4,5,[14.5,20.5625,84.0833,23.8125,79.4167,68.0625,14.0833,67.0],[.035,.185]],
@@ -63,7 +64,7 @@
     ['139',1,'square-short','grid-second','Gray',4,5,[42.9,39.4,66.8,39.6,66.9,67.7,42.8,67.7],[.245,.375]],
     ['139',2,'square-short','grid-second','Gray',4,5,[75.1,39.9,98.9,40,98.8,68,75,67.9],[.245,.375]],
     ['109',0,'square-short','clear','Black',4,4,[12.4309,46.4088,35.6354,44.5672,36.8094,75.9669,13.3978,74.1252],[.045,.19]],
-    ['109',1,'square-short','clear','Black',4,4,[50.0691,43.0018,90.1934,39.8711,90.884,81.3076,51.105,77.5322],[.045,.19]],
+    ['010',1,'square-short','closed','White',4,4,[55.3,41.9,87.4,42.9,91.5,67.4,57.5,68.0]],
     ['111',0,'square-short','grid','Green',4,4,[17.4033,43.9227,47.0304,43.9227,46.9613,76.7035,17.3343,76.7956],[.055,.19]],
     ['111',1,'square-short','grid','Green',4,4,[55.5939,44.4751,84.3232,44.4751,84.1851,76.7035,55.5939,76.7956],[.055,.19]]
   ];
@@ -81,12 +82,12 @@
     ['sandstone','Sandstone','#bcb09a'],['brown','Brown','#735345'],['bronze','Bronze','#625647'],
     ['navy','Navy','#354e64'],['forest','Forest green','#425541'],['red','Deep red','#803f35']
   ].map(([id,label,hex])=>({id,label,hex}));
-  const sources = records.map(([photo,opening,family,layout,finish,columns,sections,xy,band]) => ({
-    id:'photo-'+photo+'-'+opening, photoId:'installation-'+photo, opening, family, layout, finish, columns, sections,
+  const sources = records.map(([photo,opening,family,layout,finish,columns,sections,xy,band,panelFill]) => ({
+    id:'photo-'+photo+'-'+opening+(panelFill?'-closed':''), photoId:'installation-'+photo, opening, family, layout, finish, columns, sections,panelFill,
     url:'/assets/installation-photos/installation-'+photo+'.jpg',
     corners:Array.from({length:4},(_,i)=>({x:xy[i*2],y:xy[i*2+1]})), band,
     hardware: ['carriage-short','grooved-short','carriage-vertical'].includes(family)||['038','062','086','106','134'].includes(photo),
-    cut:photo==='106'?.12:0,
+    cut:photo==='106'?.16:0,
     colorable: family!=='wood-carriage'
   }));
   const byId=new Map(sources.map(s=>[s.id,s]));
@@ -135,7 +136,10 @@
     const repeats=s.repeat||1,cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(Math.min(maxWidth,ew*repeats*(s.bodyScale||1))));cv.height=Math.max(1,Math.round(cv.width*(ratio||eh/(ew*repeats))));
     const ctx=cv.getContext('2d'),frame=ctx.createImageData(cv.width,cv.height);
     for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){
-      const v=(y+.5)/cv.height,edge=Math.max(0,(s.cut||0)-v),unit=((x+.5)/cv.width*repeats)%1,bodyScale=s.bodyScale||1,split=1-.3/bodyScale,sourceU=bodyScale>1?(unit<split?unit*.7/split:.7+(unit-split)*bodyScale):unit,u=Math.max(edge+.005,Math.min(1-edge-.005,sourceU));const p=window.DoorRealism.project(q,u,v);sample(raw,original.width,original.height,p.x,p.y,frame.data,(y*cv.width+x)*4);
+      const v=(y+.5)/cv.height,edge=Math.max(0,(s.cut||0)-v),unit=((x+.5)/cv.width*repeats)%1,bodyScale=s.bodyScale||1,split=1-.3/bodyScale,sourceU=bodyScale>1?(unit<split?unit*.7/split:.7+(unit-split)*bodyScale):unit,frameCorner=edge&&(sourceU<edge||sourceU>1-edge),u=frameCorner?.5:Math.max(.005,Math.min(.995,sourceU)),sourceV=s.panelFill==='closed-top'&&v<.25?v+.25:s.cut?Math.max(frameCorner?.08:.025,v):v;const p=window.DoorRealism.project(q,u,sourceV),i=(y*cv.width+x)*4;sample(raw,original.width,original.height,p.x,p.y,frame.data,i);
+      // Remove the source photo's small foreground plant from plain steel.
+      // Use adjacent real material from the same row, never a drawn patch.
+      if(s.photoId==='installation-099'&&u<.11&&v>.74&&frame.data[i+1]>frame.data[i]+7&&frame.data[i+1]>frame.data[i+2]+10){const clean=window.DoorRealism.project(q,.22,v);sample(raw,original.width,original.height,clean.x,clean.y,frame.data,i);}
     }
     ctx.putImageData(frame,0,0);return cv;
   }
@@ -174,8 +178,8 @@
       const frame=ctx.getImageData(0,0,cv.width,cv.height),panes=paneRegions(c.source,frame.data,cv.width,cv.height);
       paint(frame.data,cv.width,cv.height,c,panes);ctx.putImageData(frame,0,0);
       return {key:c.key,url:cv.toDataURL('image/png'),label:[c.f.label,c.variant.label,c.color.label].join(' · '),photographic:true,
-        sourceId:c.source.id,sourcePhotoUrl:c.source.url,sourceCorners:c.source.corners,sourceFinish:c.source.finish,
-        originalFinish:c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase(),nativeGeometry:(c.source.repeat||1)===1&&(c.source.bodyScale||1)===1,glassRegions:panes,columns:c.source.columns,sections:c.source.sections};
+        sourceId:c.source.id,sourcePhotoUrl:c.source.url,sourceCorners:c.source.corners,sourceFinish:c.source.finish,sourceMaterial:c.source.colorable?'painted-steel':'wood',
+        originalFinish:c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase(),nativeGeometry:(c.source.repeat||1)===1&&(c.source.bodyScale||1)===1&&!c.source.panelFill,glassRegions:panes,columns:c.source.columns,sections:c.source.sections};
     })();previews.set(c.key,task);task.catch(()=>previews.delete(c.key));if(previews.size>12)previews.delete(previews.keys().next().value);}
     const preview=await task;if(choice(d)?.key===c.key)d.designPreview=preview;return preview;
   }
