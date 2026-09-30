@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 // Run sequentially: failed tests stop the build, and transforms keep their order.
 const scripts = [
   'test-notification-alerts.mjs',
+  'test-owner-phone-alerts.mjs',
   'build-notification-alerts.mjs',
   'test-public-routes.mjs',
   'audit-public-routes.mjs',
