@@ -2,7 +2,7 @@
 function workspacePageSection(page) {
   const sections = [
     {id:'work',title:'Daily Work',description:'Leads, scheduled work and customer history.',keys:['leads','jobs','calendar','customers']},
-    {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['office','ai_manager','followups','attention'],aliases:{receptionist:'ai_manager',ai_system:'ai_manager'}},
+    {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['office','receptionist','ai_manager','followups','attention'],aliases:{ai_system:'ai_manager'}},
     {id:'finance',title:'Finance',description:'Estimates, invoices, payments and business expenses.',keys:['quickpay','estimates','invoices','payments','expenses','banking']},
     {id:'team',title:'Team & Payroll',description:'People, commissions and performance.',keys:['team','payroll','reports','earnings']},
     {id:'stock',title:'Products & Stock',description:'Products, inventory and supplier orders.',keys:['products','inventory','suppliers']},
