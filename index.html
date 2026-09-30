@@ -9390,7 +9390,7 @@ function renderCalendarDay(content) {
     .sort(calendarJobTimeOrder);
   const dObj=new Date(dateStr+'T00:00:00');
   const prev=addDays(dateStr,-1), next=addDays(dateStr,1);
-  const stripStart=startOfWeek(dateStr);
+  const stripStart=addDays(dateStr,-dObj.getDay());
   const stripDays=Array.from({length:7},(_,i)=>addDays(stripStart,i));
   content.innerHTML=`
     <div class="cal-day-toolbar">
