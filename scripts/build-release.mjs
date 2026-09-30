@@ -44,6 +44,7 @@ const scripts = [
   'audit-dispatch-review.mjs',
   'audit-modal-actions.mjs',
   'audit-navigation-groups.mjs',
+  'audit-workspace-pages.mjs',
   'build-product-catalog-ui.mjs',
   'audit-visualizer-gallery-premium.mjs',
   'build-visualizer-gallery-premium.mjs',

@@ -6,9 +6,11 @@ const arg=v=>esc(JSON.stringify(String(v||'')));
 const platforms=[['instagram','Instagram'],['facebook','Facebook'],['google_business','Google Business Profile']];
 const groups=[
  ['Communication & schedule',[['communications','Messages & email','Customer conversations and delivery history'],['calls','Calls & recordings','Call history, audio and transcripts'],['calendar','Calendar','Appointments and technician schedules'],['followups','Tasks & follow-ups','Assign work and track callbacks']]],
- ['Jobs & billing',[['jobs','Jobs & leads','Assign technicians and follow progress'],['customers','Customers','Contact details and service history'],['estimates','Estimates','Prepare quotes after assigning a technician'],['invoices','Invoices','Billing, signatures and receipts'],['payments','Payments','Balances and payment records'],['quickpay','Quick Payment','Create an invoice and collect payment']]],
- ['Stock & suppliers',[['products','Products & services','Parts, labor and pricing'],['inventory','Inventory','Stock levels and adjustments'],['suppliers','Suppliers & orders','Purchase orders and deliveries'],['expenses','Expenses & receipts','Record costs and receipt photos']]],
- ['Team & marketing',[['team','Team','Technician contacts and availability'],['payroll','Payroll','Commissions and payout reports'],['reports','Team performance','Work and revenue reports'],['gallery','Photos','Project photos and attachments'],['socialposts','Social media','Draft posts using project photos']]]
+ ['Jobs & customers',[['jobs','Jobs & leads','Assign technicians and follow progress'],['customers','Customers','Contact details and service history']]],
+ ['Finance',[['estimates','Estimates','Prepare quotes after assigning a technician'],['invoices','Invoices','Billing, signatures and receipts'],['payments','Payments','Balances and payment records'],['quickpay','Quick Payment','Create an invoice and collect payment'],['expenses','Expenses & receipts','Record costs and receipt photos']]],
+ ['Products & stock',[['products','Products & services','Parts, labor and pricing'],['inventory','Inventory','Stock levels and adjustments'],['suppliers','Suppliers & orders','Purchase orders and deliveries']]],
+ ['Team & payroll',[['team','Team','Technician contacts and availability'],['payroll','Payroll','Commissions and payout reports'],['reports','Team performance','Work and revenue reports']]],
+ ['Gallery & marketing',[['gallery','Photos','Project photos and attachments'],['socialposts','Social media','Draft posts using project photos']]]
 ];
 window.OfficeWorkspace={
  renderOffice(content,actions){

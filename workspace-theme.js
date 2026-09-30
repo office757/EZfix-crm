@@ -1,3 +1,25 @@
+/* Related workspaces reuse the existing routes and permission checks. */
+function workspacePageSection(page) {
+  const sections = [
+    {id:'work',title:'Daily Work',description:'Leads, scheduled work and customer history.',keys:['leads','jobs','calendar','customers']},
+    {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['office','ai_manager','followups','attention'],aliases:{receptionist:'ai_manager',ai_system:'ai_manager'}},
+    {id:'finance',title:'Finance',description:'Estimates, invoices, payments and business expenses.',keys:['quickpay','estimates','invoices','payments','expenses','banking']},
+    {id:'team',title:'Team & Payroll',description:'People, commissions and performance.',keys:['team','payroll','reports','earnings']},
+    {id:'stock',title:'Products & Stock',description:'Products, inventory and supplier orders.',keys:['products','inventory','suppliers']},
+    {id:'gallery',title:'Gallery & Visualizer',description:'Project photos and door design tools.',keys:['gallery','visualizer'],aliases:{viscatalog:'visualizer'}},
+    {id:'communications',title:'Communications',description:'Email, calls, SMS and WhatsApp in one place.',keys:['communications'],aliases:{calls:'communications',walog:'communications',inbox:'communications'}},
+    {id:'marketing',title:'Marketing',description:'Social posts and the project photos behind them.',keys:['socialposts'],related:['gallery']},
+    {id:'system',title:'Settings & History',description:'Business settings and recorded activity.',keys:['settings','auditlog'],aliases:{checklist:'settings'}}
+  ];
+  if(page==='dashboard'||page==='more')return null;
+  const section=sections.find(s=>s.keys.includes(page)||Object.hasOwn(s.aliases||{},page));
+  if(!section)return null;
+  const allowed=n=>n&&canAccessWorkspaceNav(n)&&(!n.hideForTech||!isTechnicianView())&&(!isTechnicianView()||technicianAllowedPage(n.key))&&(!isMarketingManager()||marketingAllowedPage(n.key));
+  const items=section.keys.map(key=>NAV.find(n=>n.key===key)).filter(allowed);
+  const related=(section.related||[]).map(key=>NAV.find(n=>n.key===key)).filter(allowed);
+  if(!items.length)return null;
+  return {...section,items,related,active:section.aliases?.[page]||page};
+}
 /* Shared presentation only. Routes, permissions, data and actions stay with their modules. */
 (() => {
   'use strict';
@@ -77,6 +99,24 @@
       if (focused) focused.focus({preventScroll: true});
     });
   }
+  function renderPageNavigation(page) {
+    const content=document.getElementById('content');
+    if(!content)return;
+    let shell=document.getElementById('workspacePageNavigation');
+    const section=workspacePageSection(page);
+    // The main Communications page already has its own unified channel row.
+    const show=section && (section.items.length>1 || section.related.length || section.active!==page);
+    if(!show){if(shell)shell.remove();delete document.body.dataset.workspaceSection;return;}
+    if(!shell){shell=document.createElement('section');shell.id='workspacePageNavigation';shell.className='workspace-page-navigation no-print';content.before(shell);}
+    document.body.dataset.workspaceSection=section.id;
+    shell.setAttribute('aria-label',section.title+' workspace');
+    const labels={jobs:'Jobs',ai_manager:'AI Manager',expenses:'Receipts',attention:'Needs Attention'};
+    const tab=n=>`<button type="button" class="workspace-section-tab ${section.active===n.key?'is-current':''}" onclick="go('${n.key}')" ${section.active===n.key?'aria-current="page"':''}><span class="workspace-emoji" aria-hidden="true">${meta(n.key)[1]}</span><span>${esc(labels[n.key]||n.label)}</span></button>`;
+    shell.innerHTML=`<div class="workspace-section-heading"><div><b>${esc(section.title)}</b><p>${esc(section.description)}</p></div><button type="button" class="workspace-all-tools" onclick="go('more')">All tools <span aria-hidden="true">↗</span></button></div><nav class="workspace-section-tabs" aria-label="${esc(section.title)} pages">${section.items.map(tab).join('')}${section.related.length?'<span class="workspace-section-divider" aria-hidden="true"></span>'+section.related.map(tab).join(''):''}</nav>`;
+    const active=shell.querySelector('[aria-current="page"]'),tabs=shell.querySelector('.workspace-section-tabs');
+    // Keep the current section visible on a narrow screen without moving the page.
+    if(active&&tabs)tabs.scrollLeft=Math.max(0,active.offsetLeft-tabs.offsetLeft-12);
+  }
   let queued = false;
   function scheduleDecoration() {
     if (queued) return;
@@ -115,6 +155,7 @@
         if (currentIcon.textContent !== buttonIcon) currentIcon.textContent = buttonIcon;
       } else button.querySelector('svg')?.replaceWith(emoji(buttonIcon));
     });
+    renderPageNavigation(page);
     scheduleDecoration();
   }
   window.EZFIXWorkspaceTheme = {
