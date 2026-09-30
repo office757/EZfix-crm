@@ -10,7 +10,7 @@ function fixture(role='owner'){
 }
 let n=0;function check(name,fn){fn();n++;console.log('PASS '+name);}
 check('Owner sidebar groups the existing routes without duplicate entries',()=>{
- const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','receptionist','dashboard','communications','jobs','calendar','customers','office','ai_manager','followups','estimates','invoices','payments','banking','expenses','team','payroll','reports','products','inventory','suppliers','gallery','visualizer','socialposts','settings']);
+ const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','receptionist','dashboard','jobs','calendar','customers','office','ai_manager','followups','estimates','invoices','payments','banking','expenses','team','payroll','reports','products','inventory','suppliers','gallery','visualizer','socialposts','settings']);
  f.context.route.page='receptionist';assert.equal(f.run("isSidebarItemActive({key:'receptionist'})"),true);assert.equal(f.run("isSidebarItemActive({key:'ai_manager'})"),false);
  f.context.route.page='leads';assert.equal(f.run("isSidebarItemActive({key:'jobs'})"),true);
 });
