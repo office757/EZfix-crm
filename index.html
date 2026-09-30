@@ -1342,7 +1342,7 @@ const NAV = [
   { key:'socialposts', label:'Social Media', emoji:'📣', officeAccess:true, ownerOnly:true, launcher:false, sidebarGroup:'workspace', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6M19 8l2-2M19 12h3M19 16l2 2' },
   { key:'office', label:'Office', emoji:'🏢', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M4 21V3h12v18M16 10h4v11M2 21h20M8 7h4M8 11h4M8 15h4' },
   // Secondary modules — reachable from the More/module launcher, not the main sidebar (kept out of NAV list rendering via sidebar:false), still owner/tech-gated the same way.
-  { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
+  { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Useful Tools' , hideForTech: true},
   { key:'inventory', label:'Inventory', emoji:'📦', icon:'M3 7h18M3 7v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7M3 7l2-4h14l2 4M9 11h6', sidebar:false, category:'Service & Stock' , hideForTech: true},
   { key:'suppliers', label:'Suppliers & Orders', emoji:'🚚', icon:'M3 3h18v6H3zM3 9v12h18V9M8 13h8', hideForTech: true, sidebar:false, fullWidth:true, category:'Service & Stock' },
   { key:'expenses', label:'Receipts', emoji:'🧾', icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h1', sidebar:false, launcher:false, category:'Sales & Billing' , hideForTech: true},
@@ -1354,8 +1354,8 @@ const NAV = [
   { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', officeAccess:true, ownerOnly: true, sidebar:false, category:'Team & Payroll', fullWidth:true },
   { key:'auditlog', label:'Activity History', emoji:'🕒', icon:'M12 8v4l3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'checklist', label:'Dev Checklist', emoji:'📋', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
-  { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
-  { key:'visualizer', label:'Door Visualizer', emoji:'🏠', icon:'M3 11l9-8 9 8M5 10v10h14V10', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
+  { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Useful Tools' , hideForTech: true},
+  { key:'visualizer', label:'Door Visualizer', emoji:'🏠', icon:'M3 11l9-8 9 8M5 10v10h14V10', sidebar:false, category:'Useful Tools' , hideForTech: true},
   { key:'viscatalog', label:'Visualizer Catalog', emoji:'⚙️', icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', ownerOnly: true, sidebar:false, category:'Sales Tools', launcher:false },
   { key:'walog', label:'WhatsApp Log', emoji:'🟢', icon:'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'receptionist', label:'Ashley', emoji:'🤖', icon:'M12 8V4H8M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zM2 14h2M20 14h2M9 18h6', ownerOnly: true, sidebar:false, category:'AI Tools' },
@@ -1363,7 +1363,7 @@ const NAV = [
 ];
 const CATEGORY_META = {
   'Sales & Billing': { emoji:'💳', header:'#242424', paired:true, centered:true },
-  'Gallery & Visualizer': { emoji:'🖼️', header:'#242424', paired:true, centered:true },
+  'Useful Tools': { emoji:'🖼️', header:'#242424', paired:true, centered:true },
   'Office & AI': { emoji:'✨', header:'#242424', paired:true, centered:true },
   'Service & Stock': { emoji:'🧰', header:'#242424', paired:true, centered:true },
   'Team & Payroll': { emoji:'👥', header:'#242424', paired:true, centered:true },
@@ -1371,18 +1371,18 @@ const CATEGORY_META = {
 };
 
 const SIDEBAR_GROUPS = [
-  {id:'daily',label:'Daily Work',keys:['jobs','calendar','customers','office','followups']},
+  {id:'daily',label:'Daily Work',keys:['jobs','calendar','office']},
   {id:'finance',label:'Finance',keys:['estimates','invoices','payments','banking']},
-  {id:'team',label:'Team & Payroll',keys:['team','payroll','reports','earnings'],collapsed:true},
-  {id:'gallery',label:'Gallery & Visualizer',keys:['gallery','visualizer','products'],collapsed:true}
+  {id:'gallery',label:'Useful Tools',keys:['gallery','visualizer','products'],collapsed:true},
+  {id:'team',label:'Team & Payroll',keys:['team','payroll','reports','earnings'],collapsed:true}
 ];
 const sidebarGroupState = {};
 function sidebarNavItems() {
-  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','receptionist','dashboard','communications',...SIDEBAR_GROUPS.flatMap(g=>g.keys),...(IS_OWNER?[]:['socialposts','settings'])];
+  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','receptionist','dashboard','communications',...SIDEBAR_GROUPS.flatMap(g=>g.id==='daily'&&isTechnicianView()?['jobs','calendar','customers']:g.keys),...(IS_OWNER?[]:['socialposts','settings'])];
   return keys.map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)&&(!n.hideForTech||!isTechnicianView())&&(!isTechnicianView()||technicianAllowedPage(n.key)));
 }
 function isSidebarItemActive(n) {
-  return route.page===n.key || (n.key==='jobs' && route.page==='leads') || (n.key==='ai_manager' && route.page==='ai_system');
+  return route.page===n.key || (n.key==='jobs' && route.page==='leads') || (n.key==='office' && !isTechnicianView() && ['customers','followups'].includes(route.page)) || (n.key==='ai_manager' && route.page==='ai_system');
 }
 function renderNav() {
   const el = document.getElementById('navList');
@@ -2051,7 +2051,7 @@ function renderTechnicianDashboard(content, actions) {
 }
 function dashboardModuleCategories() {
   const secondary = NAV.filter(n => n.launcher!==false && n.sidebar===false && canAccessWorkspaceNav(n) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
-  const order = ['Sales & Billing','Office & AI','Team & Payroll','Service & Stock','Gallery & Visualizer','Business Workspace'];
+  const order = ['Sales & Billing','Office & AI','Useful Tools','Team & Payroll','Service & Stock','Business Workspace'];
   const groups = {};
   secondary.forEach(n => { const category=n.category==='AI Tools'?'Office & AI':n.category||'Other'; (groups[category] = groups[category]||[]).push(n); });
   if(!isTechnicianView()&&!isMarketingManager()){

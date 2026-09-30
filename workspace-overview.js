@@ -131,7 +131,7 @@ function renderWorkspaceHub(content,actions,page){
 function workspaceToolCategories(){
  const presentation={
   'Sales & Billing':{tone:'amber',emoji:'💳'},
-  'Gallery & Visualizer':{tone:'blue',emoji:'🖼️'},
+  'Useful Tools':{tone:'blue',emoji:'🖼️'},
   'Service & Stock':{tone:'sage',emoji:'🧰'},
   'Office & AI':{tone:'violet',emoji:'✨'},
   'Team & Payroll':{tone:'rose',emoji:'👥'},

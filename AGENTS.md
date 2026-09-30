@@ -16,3 +16,5 @@ David additionally authorized Ashley tool tiles, moving AI Manager under Ashley,
 Approved final mapping: Office and Follow-Ups & Tasks in Daily Work; Finance only Estimates, Invoices, Payments, Banking; Receipts, Inventory and Suppliers inside Office; Products & Services grouped with Gallery and Visualizer. Ashley message surfaces use gentle channel-specific backgrounds. David authorized shipping these on September 29, 2026.
 
 David additionally requested moving the owner's Social Media and business Settings entry points into Ashley, removing their trailing sidebar/More entries. Preserve Office social access and distinguish Business Settings from Ashley Settings.
+
+David additionally requested Customers and Follow-Ups & Tasks inside Office, removing their duplicate owner/office sidebar entries. Keep technician and marketing customer access. Rename Gallery & Visualizer to Useful Tools and place it above Team & Payroll in both navigation and tool launchers (September 29, 2026).

@@ -10,9 +10,10 @@ function fixture(role='owner'){
 }
 let n=0;function check(name,fn){fn();n++;console.log('PASS '+name);}
 check('Owner sidebar groups the existing routes without duplicate entries',()=>{
- const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','receptionist','dashboard','jobs','calendar','customers','office','followups','estimates','invoices','payments','banking','team','payroll','reports','gallery','visualizer','products']);
+ const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','receptionist','dashboard','jobs','calendar','office','estimates','invoices','payments','banking','gallery','visualizer','products','team','payroll','reports']);
  f.context.route.page='receptionist';assert.equal(f.run("isSidebarItemActive({key:'receptionist'})"),true);assert.equal(f.run("isSidebarItemActive({key:'ai_manager'})"),false);
  f.context.route.page='leads';assert.equal(f.run("isSidebarItemActive({key:'jobs'})"),true);
+ for(const page of ['customers','followups']){f.context.route.page=page;assert.equal(f.run("isSidebarItemActive({key:'office'})"),true);}
 });
 check('Ashley owns business tool entry points without changing staff access',()=>{
  const ashley=section('function renderAiReceptionist(', 'function ashleyChannelIcon(');
@@ -30,7 +31,8 @@ check('Owner launcher keeps gallery tools separate and removes warranties from t
  const keys=groups.flatMap(g=>g.items.map(n=>n.key));
  for(const key of ['estimates','invoices','quickpay','gallery','visualizer','products','receptionist','ai_system','team','reports','payroll'])assert.ok(keys.includes(key),key);
  for(const key of ['inventory','suppliers','ai_manager','communications','attention','expenses','followups','warranties','viscatalog','auditlog','checklist','walog','settings','socialposts','leads'])assert.ok(!keys.includes(key),key);
- assert.deepEqual(groups.find(g=>g.name==='Gallery & Visualizer').items.map(n=>n.key),['products','gallery','visualizer']);
+ assert.ok(groups.findIndex(g=>g.name==='Useful Tools')<groups.findIndex(g=>g.name==='Team & Payroll'));
+ assert.deepEqual(groups.find(g=>g.name==='Useful Tools').items.map(n=>n.key),['products','gallery','visualizer']);
  assert.deepEqual(groups.find(g=>g.name==='Business Workspace').items.map(n=>n.key),['banking']);
  assert.ok(groups.find(g=>g.name==='Office & AI').items.some(n=>n.key==='office'));
  assert.ok(groups.find(g=>g.name==='Office & AI').items.some(n=>n.key==='receptionist'));
@@ -38,6 +40,7 @@ check('Owner launcher keeps gallery tools separate and removes warranties from t
 check('Technician launcher exposes own earnings and allowed document workflows',()=>{
  const f=fixture('technician');assert.deepEqual(f.run('dashboardModuleCategories().flatMap(g=>g.items.map(n=>n.key))').sort(),['earnings','estimates','invoices','quickpay']);
  assert.ok(f.run('sidebarNavItems().map(n=>n.key)').every(k=>!['settings','communications','ai_manager','payments','team'].includes(k)));
+ assert.ok(f.run('sidebarNavItems().map(n=>n.key)').includes('customers'));
 });
 check('Marketing manager retains Leads without gaining Jobs or billing navigation',()=>{
  const f=fixture('marketing');assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['dashboard','leads','customers']);
