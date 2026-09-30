@@ -59,7 +59,9 @@ function homeReferenceUrl(id){return homePhotos().find(p=>p.id===id)?.url||'/ass
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
 window.__visCatalogState=visCatalogState;
 const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||(window.DoorDesign?.profile(p)?window.DoorDesign.defaultImage(p):(p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''))):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
-const referenceDoors=()=>STORE.products.filter(p=>p.active!==false&&val(p,'catalogKind')==='garage_door_model');
+// Reference models are intentionally inactive for normal sales/AI pricing.
+// Their catalog membership, rather than the sales flag, controls this picker.
+const referenceDoors=()=>STORE.products.filter(p=>val(p,'catalogKind')==='garage_door_model');
 let photoSelectionVersion=0;
 const refDoor=d=>d?.referenceProductId?getOne('products',d.referenceProductId):null;
 const legacyDoor=d=>d?.modelId?getOne('doorModels',d.modelId):null;
