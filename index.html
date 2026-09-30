@@ -740,6 +740,15 @@
  @media(max-width:420px){body[data-workspace-page="calendar"] .cal-day-job{grid-template-columns:65px minmax(0,1fr);gap:8px;padding:12px 10px}.cal-date-strip{gap:4px}body[data-workspace-page="calendar"] .cal-day-main .cal-photo-thumb{width:52px;height:52px}}
 }
 
+
+/* Ashley tools: user-requested tiles; scoped to this panel only. */
+.doc-tabbar.ashley-tool-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;background:transparent!important;padding:0!important;border:0!important;box-shadow:none!important;border-radius:0;max-width:760px;width:100%;height:auto!important}
+.ashley-tool-grid .doc-tab{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;width:100%;min-height:96px;height:auto;padding:14px 8px!important;white-space:normal!important;overflow-wrap:anywhere;text-align:center;font-size:13px;line-height:1.35;font-weight:650;color:var(--ink);background:var(--paper,#fff)!important;border:1px solid var(--line,#e7e5e4)!important;border-radius:16px!important;box-shadow:0 2px 6px rgba(30,20,40,.035)}
+.ashley-tool-grid .doc-tab.active{background:#f2e9fc!important;border-color:#aa83cb!important;color:#68448b!important;box-shadow:0 0 0 1px rgba(145,103,183,.12)}
+.ashley-tool-grid .doc-tab svg{width:26px;height:26px}
+.ashley-tool-grid .doc-tab:focus-visible{outline:3px solid #aa83cb;outline-offset:3px}
+@media(min-width:760px){.doc-tabbar.ashley-tool-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+
 </style>
 <!-- EZFIX_PRODUCT_CATALOG_UI_V1_HEAD --><link rel="stylesheet" href="/product-catalog-ui.css" data-ezfix-product-catalog="v1"><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_HEAD -->
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
@@ -7977,7 +7986,7 @@ function renderAiReceptionist(content, actions) {
         <button class="btn btn-sm" onclick="showReceptionistSetupInfo()">What's needed?</button>
       </div>
     </div>
-    <div class="doc-tabbar" style="max-width:680px;flex-wrap:wrap;height:auto">
+    <div class="doc-tabbar ashley-tool-grid">
       <button class="doc-tab ${receptionistState.subview==='test'?'active':''}" onclick="receptionistState.subview='test'; render()">🧪 Test Simulator</button>
       <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
       <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
