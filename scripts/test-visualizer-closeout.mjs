@@ -50,8 +50,10 @@ test('uploaded homes spread multiple doors and corrupt photos never reach storag
  await h.nodes.get('f_houseimg').change({target:{files:[{name:'home.jpg',type:'image/jpeg',size:100}]}});assert.deepEqual(Array.from(h.c.visState.doors,d=>d.pos.x),[25,75]);
  let uploads=0;h.c.uploadAsset=async()=>uploads++;h.c.window.DoorDesign.loadImage=async()=>{throw new Error('Bad image')};await h.nodes.get('f_houseimg').change({target:{files:[{name:'broken.jpg',type:'image/jpeg',size:100}]}});assert.equal(uploads,0);assert.equal(h.c.visState.houseImage.url,'stored:home.jpg');
 });
-test('preview export bounds large photos to 1600 pixels without distorting proportions',async()=>{
- const h=harness();h.c.visState.houseImage={url:'large.jpg'};await h.c.captureVisPreview();assert.equal(h.canvases[0].width,1600);assert.equal(h.canvases[0].height,1200);
+test('preview export preserves detail up to 2048 pixels without distorting proportions',async()=>{
+ const h=harness();h.c.visState.houseImage={url:'large.jpg'};await h.c.captureVisPreview();assert.equal(h.canvases[0].width,2048);assert.equal(h.canvases[0].height,1536);
+ h.c.window.DoorDesign.loadImage=async()=>({naturalWidth:900,naturalHeight:1200});await h.c.captureVisPreview();assert.equal(h.canvases[1].width,900);assert.equal(h.canvases[1].height,1200,'small originals must not be artificially enlarged');
+ h.c.window.DoorDesign.loadImage=async()=>({naturalWidth:6000,naturalHeight:8000});await h.c.captureVisPreview();assert.equal(h.canvases[2].width,1536);assert.equal(h.canvases[2].height,2048);
 });
 test('pointer cancellation releases drag listeners and ignores a second pointer',()=>{
  const h=harness(),overlay={style:{}};h.nodes.set('visStage',{getBoundingClientRect:()=>({left:0,top:0,width:100,height:100}),querySelector:()=>overlay});h.c.startDoorDrag({pointerId:1,preventDefault:()=>{}},0);h.events.get('pointermove')({pointerId:2,clientX:90,clientY:90});assert.equal(h.c.visState.doors[0].pos.x,50);h.events.get('pointermove')({pointerId:1,clientX:90,clientY:90});assert.equal(h.c.visState.doors[0].pos.x,90);h.events.get('pointercancel')({pointerId:1});assert.equal(h.events.size,0);
