@@ -10,3 +10,5 @@ This is a source/UI backup, not a backup of database records, uploads or service
 Current explicit exception: add emoji-labelled WhatsApp, Email and SMS controls inside Ashley using existing messaging functionality. No Facebook or Instagram controls are requested. Preserve current styling and existing sending safeguards.
 
 David also explicitly requested consolidating Communications into Ashley and removing its duplicate owner navigation entry. Preserve staff access and existing message history and links.
+
+David additionally authorized Ashley tool tiles, moving AI Manager under Ashley, and keeping Follow-Up & Tasks inside Office instead of duplicate owner navigation.

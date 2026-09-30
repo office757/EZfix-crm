@@ -740,6 +740,15 @@
  @media(max-width:420px){body[data-workspace-page="calendar"] .cal-day-job{grid-template-columns:65px minmax(0,1fr);gap:8px;padding:12px 10px}.cal-date-strip{gap:4px}body[data-workspace-page="calendar"] .cal-day-main .cal-photo-thumb{width:52px;height:52px}}
 }
 
+
+/* Ashley tools: user-requested tiles; scoped to this panel only. */
+.doc-tabbar.ashley-tool-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;background:transparent!important;padding:0!important;border:0!important;box-shadow:none!important;border-radius:0;max-width:760px;width:100%;height:auto!important}
+.ashley-tool-grid .doc-tab{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;width:100%;min-height:96px;height:auto;padding:14px 8px!important;white-space:normal!important;overflow-wrap:anywhere;text-align:center;font-size:13px;line-height:1.35;font-weight:650;color:var(--ink);background:var(--paper,#fff)!important;border:1px solid var(--line,#e7e5e4)!important;border-radius:16px!important;box-shadow:0 2px 6px rgba(30,20,40,.035)}
+.ashley-tool-grid .doc-tab.active{background:#f2e9fc!important;border-color:#aa83cb!important;color:#68448b!important;box-shadow:0 0 0 1px rgba(145,103,183,.12)}
+.ashley-tool-grid .doc-tab svg{width:26px;height:26px}
+.ashley-tool-grid .doc-tab:focus-visible{outline:3px solid #aa83cb;outline-offset:3px}
+@media(min-width:760px){.doc-tabbar.ashley-tool-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+
 </style>
 <!-- EZFIX_PRODUCT_CATALOG_UI_V1_HEAD --><link rel="stylesheet" href="/product-catalog-ui.css" data-ezfix-product-catalog="v1"><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_HEAD -->
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
@@ -1293,7 +1302,7 @@ async function deductInventoryForItems(items) {
 function isOfficeRole(){return CURRENT_TEAM_MEMBER?.role==='office';}
 function canOperateOffice(){return !isTechnicianView()&&(IS_OWNER||isOfficeRole());}
 function officeAllowedPage(page){return ['dashboard','more','office','attention','banking','communications','calls','jobs','leads','customers','calendar','estimates','invoices','quickpay','payments','products','inventory','suppliers','expenses','followups','warranties','team','payroll','reports','gallery','socialposts','visualizer'].includes(page);}
-function canAccessWorkspaceNav(n){return !(IS_OWNER&&n.key==='communications')&&(!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
+function canAccessWorkspaceNav(n){return !(IS_OWNER&&['communications','ai_manager','followups'].includes(n.key))&&(!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
 const NAV = [
   {key:'calls',label:'Calls & recordings',icon:'M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4c0 2-3 2-5 1C9 17 5 13 3 6c-1-2 0-3 2-3z',sidebar:false,launcher:false,hideForTech:true},
   { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales & Billing' },
@@ -1405,6 +1414,8 @@ function technicianOwnsLead(lead) {
 function isMarketingManager(){ return CURRENT_TEAM_MEMBER?.role==='marketing_manager'; }
 function marketingAllowedPage(page){ return ['dashboard','leads','customers','more'].includes(page); }
 function go(page, id) {
+  if(IS_OWNER&&!isTechnicianView()&&page==='ai_manager'){receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';page='receptionist';}
+
   if (IS_OWNER && !isTechnicianView() && page==='communications') {
     receptionistState.subview = ['email','sms','whatsapp','unread'].includes(searchTerms.commFilter) ? searchTerms.commFilter : 'all';
     page='receptionist';
@@ -1436,6 +1447,8 @@ window.go = go; window.openSidebar = openSidebar; window.closeSidebar = closeSid
 
 /* ---------- render root ---------- */
 function render() {
+  if(IS_OWNER&&!isTechnicianView()&&route.page==='ai_manager'){receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';route.page='receptionist';}
+
   if (IS_OWNER && !isTechnicianView() && route.page==='communications') {
     receptionistState.subview = ['email','sms','whatsapp','unread'].includes(searchTerms.commFilter) ? searchTerms.commFilter : 'all';
     route.page='receptionist';
@@ -1871,7 +1884,7 @@ function renderAiManager(content,actions){
       <button class="doc-tab ${aiManagerState.subview==='google_ads'?'active':''}" onclick="aiManagerState.subview='google_ads';render()">Google Ads</button>
       <button class="doc-tab ${aiManagerState.subview==='approvals'?'active':''}" onclick="aiManagerState.subview='approvals';render()">Approvals</button>
       <button class="doc-tab ${aiManagerState.subview==='activity'?'active':''}" onclick="aiManagerState.subview='activity';render()">Activity</button>
-      <button class="doc-tab ${aiManagerState.subview==='receptionist'?'active':''}" onclick="aiManagerState.subview='receptionist';render()">Ashley / AI Receptionist</button>
+      <button class="doc-tab ${aiManagerState.subview==='receptionist'?'active':''}" onclick="receptionistState.subview='test';go('receptionist')">Ashley / AI Receptionist</button>
     </div>
     <div id="aiManagerBody"></div>`;
   const b=document.getElementById('aiManagerBody');
@@ -7977,7 +7990,8 @@ function renderAiReceptionist(content, actions) {
         <button class="btn btn-sm" onclick="showReceptionistSetupInfo()">What's needed?</button>
       </div>
     </div>
-    <div class="doc-tabbar" style="max-width:680px;flex-wrap:wrap;height:auto">
+    <div class="doc-tabbar ashley-tool-grid">
+      <button class="doc-tab ${receptionistState.subview==='manager'?'active':''}" onclick="receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';render()">🧠 AI Manager</button>
       <button class="doc-tab ${receptionistState.subview==='test'?'active':''}" onclick="receptionistState.subview='test'; render()">🧪 Test Simulator</button>
       <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
       <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
@@ -7988,6 +8002,7 @@ function renderAiReceptionist(content, actions) {
     <div style="margin-top:16px" id="receptionistBody"></div>
   `;
   const body = document.getElementById('receptionistBody');
+  if(receptionistState.subview==='manager'){if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';return renderAiManager(body,actions);}
   if (['whatsapp','email','sms','all','unread'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
   if (receptionistState.subview==='test') return renderReceptionistChat(body, 'test');
   if (receptionistState.subview==='assistant') return renderReceptionistChat(body, 'assistant');
