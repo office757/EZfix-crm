@@ -776,6 +776,7 @@
 <link rel="stylesheet" href="/workspace-overview.css"><link rel="stylesheet" href="/lead-dispatch.css"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#181818"><link rel="stylesheet" href="/workspace-theme.css">
 <link rel="stylesheet" href="/office-workspace.css">
 <link rel="stylesheet" href="/activity-history.css">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/ezfix-app-icon-192.png?v=2"><link rel="apple-touch-icon" sizes="180x180" href="/assets/ezfix-apple-touch-icon.png?v=2">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
@@ -1349,9 +1350,9 @@ const NAV = [
   { key:'followups', label:'Follow-Ups & Tasks', emoji:'✅', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'warranties', label:'Warranties', emoji:'🛡️', icon:'M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z', sidebar:false, launcher:false, category:'Service & Stock' , hideForTech: true},
   { key:'team', label:'Team', emoji:'👥', icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', sidebar:false, category:'Team & Payroll' , hideForTech: true},
-  { key:'payroll', label:'Tech Payroll', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', officeAccess:true, ownerOnly: true, sidebar:false, category:'Team & Payroll' },
+  { key:'payroll', label:'Tech Payroll', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', officeAccess:true, ownerOnly: true, sidebar:false, launcher:false, category:'Team & Payroll' },
   { key:'earnings', label:'My Earnings', emoji:'💵', icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', techOnly:true, sidebar:false, category:'Team & Payroll', fullWidth:true },
-  { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', officeAccess:true, ownerOnly: true, sidebar:false, category:'Team & Payroll', fullWidth:true },
+  { key:'reports', label:'Team Performance', emoji:'📊', icon:'M18 20V10M12 20V4M6 20v-6', officeAccess:true, ownerOnly: true, sidebar:false, launcher:false, category:'Team & Payroll', fullWidth:true },
   { key:'auditlog', label:'Activity History', emoji:'🕒', icon:'M12 8v4l3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'checklist', label:'Dev Checklist', emoji:'📋', icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', ownerOnly: true, sidebar:false, category:'Reports & System', launcher:false },
   { key:'gallery', label:'Gallery', emoji:'🖼️', icon:'M4 4h16v16H4zM4 15l4-4 4 4 4-6 4 5M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', sidebar:false, category:'Useful Tools' , hideForTech: true},
@@ -1370,34 +1371,19 @@ const CATEGORY_META = {
   'Business Workspace': { emoji:'▦', header:'#242424', paired:true, centered:true },
 };
 
-const SIDEBAR_GROUPS = [
-  {id:'daily',label:'Daily Work',keys:['jobs','calendar','office']},
-  {id:'finance',label:'Finance',keys:['estimates','invoices','payments','banking']},
-  {id:'gallery',label:'Useful Tools',keys:['gallery','visualizer','products'],collapsed:true},
-  {id:'team',label:'Team & Payroll',keys:['team','payroll','reports','earnings'],collapsed:true}
-];
-const sidebarGroupState = {};
 function sidebarNavItems() {
-  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','receptionist','dashboard','communications',...SIDEBAR_GROUPS.flatMap(g=>g.id==='daily'&&isTechnicianView()?['jobs','calendar','customers']:g.keys),...(IS_OWNER?[]:['socialposts','settings'])];
+  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','receptionist','dashboard','communications','jobs','calendar',...(isTechnicianView()?['customers']:[]),'office','estimates','invoices','banking','gallery','visualizer','products','team','earnings',...(IS_OWNER?[]:['socialposts','settings'])];
   return keys.map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)&&(!n.hideForTech||!isTechnicianView())&&(!isTechnicianView()||technicianAllowedPage(n.key)));
 }
 function isSidebarItemActive(n) {
-  return route.page===n.key || (n.key==='jobs' && route.page==='leads') || (n.key==='office' && !isTechnicianView() && ['customers','followups'].includes(route.page)) || (n.key==='ai_manager' && route.page==='ai_system');
+  return route.page===n.key || (n.key==='jobs' && route.page==='leads') || (n.key==='office' && !isTechnicianView() && ['customers','followups'].includes(route.page)) || (n.key==='team' && ['payroll','reports'].includes(route.page)) || (n.key==='banking' && route.page==='payments') || (n.key==='ai_manager' && route.page==='ai_system');
 }
 function renderNav() {
   const el = document.getElementById('navList');
   const items=sidebarNavItems();
   const item=n=>`<button class="nav-item ${n.key==='quickpay'?'nav-quick-payment':''} ${isSidebarItemActive(n)?'active':''}" data-workspace-nav="${n.key}" onclick="go('${n.key}')" ${isSidebarItemActive(n)?'aria-current="page"':''}>
     ${window.EZFIXWorkspaceTheme ? window.EZFIXWorkspaceTheme.navIcon(n.key) : `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>`}${n.label}</button>`;
-  if(isTechnicianView()||isMarketingManager())el.innerHTML=items.map(item).join('');
-  else {
-    const select=keys=>keys.map(k=>items.find(n=>n.key===k)).filter(Boolean);
-    el.innerHTML=select(['quickpay','receptionist','dashboard','communications']).map(item).join('')+SIDEBAR_GROUPS.map(g=>{
-      const entries=select(g.keys);if(!entries.length)return '';
-      const active=entries.some(isSidebarItemActive),open=active||(sidebarGroupState[g.id]??!g.collapsed);
-      return `<details class="nav-feature-group" ${open?'open':''} ontoggle="sidebarGroupState['${g.id}']=this.open"><summary>${esc(g.label)}<span aria-hidden="true">⌄</span></summary>${entries.map(item).join('')}</details>`;
-    }).join('')+select(['socialposts','settings']).map(item).join('');
-  }
+  el.innerHTML=items.map(item).join('');
   renderViewAsOptions();
 }
 function openSidebar(){
@@ -5031,6 +5017,7 @@ function renderTeam(content, actions) {
   if (isTechnicianView()) { go('dashboard'); return; }
   if (route.id) return renderTeamDetail(content, actions, route.id);
   actions.innerHTML = isOfficeRole()?'':`<button class="btn btn-primary" onclick="openTeamModal()">+ Add team member</button>${IS_OWNER?'<button class="btn" onclick="OfficeWorkspace.addUser()">+ Office user</button>':''}`;
+  actions.innerHTML += ['reports','payroll'].map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)).map(n=>`<button class="btn" onclick="go('${n.key}')">${n.label}</button>`).join('');
   const list = STORE.team.filter(m=>!m.archivedAt).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const migration = analyzeTechnicianMigration();
   const techMembers = list.filter(m=>String(m.role||'').toLowerCase()==='technician');
@@ -11273,6 +11260,7 @@ async function initUserRole() {
 <script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js"></script><script src="/workspace-overview.js"></script><script src="/office-workspace.js"></script><script src="/lead-dispatch.js"></script>
 <script src="/workspace-theme.js"></script>
 <script src="/phone-alerts.js"></script>
+<script src="/notification-alerts.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>
 </html>

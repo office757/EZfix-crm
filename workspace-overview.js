@@ -121,7 +121,7 @@ function renderWorkspaceAttention(content,actions){
 function renderWorkspaceHub(content,actions,page){
  if(page==='office'&&canOperateOffice())return OfficeWorkspace.renderOffice(content,actions);
  actions.innerHTML='';
- const banking=page==='banking',keys=banking?['payments','invoices','expenses','payroll']:['team','followups','products','inventory','suppliers','reports','viscatalog','settings'];
+ const banking=page==='banking',keys=banking?['payments','invoices','expenses']:['team','followups','products','inventory','suppliers','reports','viscatalog','settings'];
  const detail={payments:'Review payments received',invoices:'Balances, billing and receipts',expenses:'Track business expenses',payroll:'Technician commissions and payouts',team:'People and account access',followups:'Tasks and customer follow-ups',products:'Your service and parts catalog',inventory:'Stock and inventory levels',suppliers:'Vendors and purchase orders',reports:'Team performance',viscatalog:'Manage door reference images',settings:'Company and integration settings'};
  const entries=keys.map(k=>NAV.find(n=>n.key===k)).filter(n=>n&&canAccessWorkspaceNav(n));
  content.innerHTML=`<section class="overview-panel"><header class="overview-panel-heading"><div><span class="overview-eyebrow">${banking?'MONEY & RECORDS':'TEAM & OPERATIONS'}</span><h2>${banking?'Banking':'Office'}</h2></div></header><div class="overview-hub-grid">${entries.map(n=>`<button data-workspace-link="${n.key}" onclick="go('${n.key}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="${n.icon}"/></svg><b>${n.label}</b><span>${detail[n.key]}</span><i>↗</i></button>`).join('')}</div></section>`;
