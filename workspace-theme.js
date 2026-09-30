@@ -4,7 +4,7 @@ function workspacePageSection(page) {
   
   const sections = [
     {id:'work',title:'Daily Work',description:'Leads and scheduled work.',keys:['leads','jobs','calendar',...(isTechnicianView()||isMarketingManager()?['customers']:[])]},
-    {id:'operations',title:'Office',description:'Customers, follow-ups and daily tasks.',keys:['office','customers','followups'],related:['calendar']},
+    {id:'operations',title:'Office',description:'Customers, follow-ups and daily tasks.',keys:['office','customers','followups']},
     {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['receptionist','ai_manager','attention'],aliases:{ai_system:'ai_manager'}},
     {id:'finance',title:'Finance',description:'Estimates, invoices, payments and business expenses.',keys:['quickpay','estimates','invoices']},
     {id:'banking',title:'Banking',description:'Payments and banking records.',keys:['banking','payments']},
