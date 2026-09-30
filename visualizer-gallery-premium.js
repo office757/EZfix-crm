@@ -1,10 +1,65 @@
+/* One compositor for the live view and every exported/saved preview. */
+(() => {
+'use strict';
+const clamp=(v,a,b,f)=>Number.isFinite(Number(v))?Math.max(a,Math.min(b,Number(v))):f;
+function valid(q){
+ if(!Array.isArray(q)||q.length!==4||q.some(p=>!Number.isFinite(p?.x)||!Number.isFinite(p?.y)||p.x<0||p.x>100||p.y<0||p.y>100))return false;
+ const cross=q.map((p,i)=>{const b=q[(i+1)%4],c=q[(i+2)%4];return (b.x-p.x)*(c.y-b.y)-(b.y-p.y)*(c.x-b.x);});
+ return cross.every(x=>x>.01)&&Math.abs(q.reduce((s,p,i)=>s+p.x*q[(i+1)%4].y-p.y*q[(i+1)%4].x,0))>2;
+}
+function corners(d,w,h,ratio=0.875){
+ if(valid(d.pos?.corners))return d.pos.corners.map(p=>({x:p.x*w/100,y:p.y*h/100}));
+ const p=d.pos||{},dw=w*clamp(p.widthPct,5,100,30)/100*clamp(p.scale,.2,3,1),dh=p.heightPct?h*clamp(p.heightPct,5,100,40)/100*clamp(p.scale,.2,3,1):dw*ratio;
+ const a=clamp(p.rotation,-360,360,0)*Math.PI/180,c=Math.cos(a),s=Math.sin(a),x=w*clamp(p.x,0,100,50)/100,y=h*clamp(p.y,0,100,55)/100;
+ return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>({x:x+u*dw/2*c-v*dh/2*s,y:y+u*dw/2*s+v*dh/2*c}));
+}
+// Projective mapping of a unit square onto a convex opening.
+function project(q,u,v){
+ const [a,b,c,d]=q,dx=b.x-c.x,dy=b.y-c.y,ex=d.x-c.x,ey=d.y-c.y,sx=a.x-b.x+c.x-d.x,sy=a.y-b.y+c.y-d.y,det=dx*ey-ex*dy;
+ let g=0,h=0;if(Math.abs(det)>1e-8){g=(sx*ey-ex*sy)/det;h=(dx*sy-sx*dy)/det;}
+ const den=g*u+h*v+1;
+ return {x:((b.x-a.x+g*b.x)*u+(d.x-a.x+h*d.x)*v+a.x)/den,y:((b.y-a.y+g*b.y)*u+(d.y-a.y+h*d.y)*v+a.y)/den};
+}
+const textureCache=new WeakMap();
+function texture(img,d){
+ const key=JSON.stringify(d.realism||{}),cached=textureCache.get(img);if(cached?.key===key)return cached.canvas;
+ const cv=document.createElement('canvas');cv.width=1000;cv.height=Math.max(160,Math.round(1000*img.naturalHeight/img.naturalWidth));const ctx=cv.getContext('2d'),look=d.realism||{};
+ ctx.filter='brightness('+clamp(look.light,.65,1.25,.96)+') contrast(1.025)';ctx.drawImage(img,0,0,cv.width,cv.height);ctx.filter='none';
+ const depth=clamp(look.depth,0,1,.45),w=cv.width,h=cv.height;
+ // The door sits behind the jamb: shadows stay INSIDE the opening.
+ const shade=(x0,y0,x1,y1,stops)=>{const g=ctx.createLinearGradient(x0,y0,x1,y1);stops.forEach(([at,color])=>g.addColorStop(at,color));ctx.fillStyle=g;ctx.fillRect(0,0,w,h);};
+ shade(0,0,0,h,[[0,'rgba(0,0,0,'+(depth*.65)+')'],[.09,'rgba(0,0,0,'+(depth*.15)+')'],[.35,'rgba(0,0,0,0)'],[.93,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.25)+')']]);
+ shade(0,0,w,0,[[0,'rgba(0,0,0,'+(depth*.38)+')'],[.035,'rgba(0,0,0,0)'],[.65,'rgba(255,255,255,.025)'],[.975,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.28)+')']]);
+ textureCache.set(img,{key,canvas:cv});return cv;
+}
+function triangle(ctx,img,s,t){
+ const [a,b,c]=s,[p,q,r]=t,det=(b.x-a.x)*(c.y-a.y)-(c.x-a.x)*(b.y-a.y);if(Math.abs(det)<1e-8)return;
+ const A=((q.x-p.x)*(c.y-a.y)-(r.x-p.x)*(b.y-a.y))/det,B=((q.y-p.y)*(c.y-a.y)-(r.y-p.y)*(b.y-a.y))/det,C=((r.x-p.x)*(b.x-a.x)-(q.x-p.x)*(c.x-a.x))/det,D=((r.y-p.y)*(b.x-a.x)-(q.y-p.y)*(c.x-a.x))/det;
+ ctx.save();ctx.beginPath();const center={x:(p.x+q.x+r.x)/3,y:(p.y+q.y+r.y)/3};[p,q,r].forEach((v,i)=>{const dx=v.x-center.x,dy=v.y-center.y,len=Math.hypot(dx,dy)||1;ctx[i?'lineTo':'moveTo'](v.x+dx/len*1.2,v.y+dy/len*1.2);});ctx.closePath();ctx.clip();ctx.transform(A,B,C,D,p.x-A*a.x-C*a.y,p.y-B*a.x-D*a.y);const left=Math.min(a.x,b.x,c.x),top=Math.min(a.y,b.y,c.y),width=Math.max(a.x,b.x,c.x)-left,height=Math.max(a.y,b.y,c.y)-top;ctx.drawImage(img,left,top,width,height,left,top,width,height);ctx.restore();
+}
+function draw(output,img,d,w,h){
+ const layer=document.createElement('canvas');layer.width=w;layer.height=h;const ctx=layer.getContext('2d');
+ const q=corners(d,w,h,img.naturalHeight/img.naturalWidth),tex=texture(img,d),cut=clamp(d.realism?.cut,0,.22,0),uv=[[cut,0],[1-cut,0],[1,cut],[1,1],[0,1],[0,cut]];
+ ctx.save();ctx.beginPath();uv.forEach(([u,v],i)=>{const p=project(q,u,v);ctx[i?'lineTo':'moveTo'](p.x,p.y);});ctx.closePath();ctx.clip();
+ const [a,b,c,e]=q,affine=Math.hypot(a.x-b.x+c.x-e.x,a.y-b.y+c.y-e.y)<.05;
+ if(affine){ctx.save();ctx.transform((b.x-a.x)/tex.width,(b.y-a.y)/tex.width,(e.x-a.x)/tex.height,(e.y-a.y)/tex.height,a.x,a.y);ctx.drawImage(tex,0,0);ctx.restore();}
+ else{const n=12;for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+  const uv=[[x/n,y/n],[(x+1)/n,y/n],[(x+1)/n,(y+1)/n],[x/n,(y+1)/n]],s=uv.map(([u,v])=>({x:u*tex.width,y:v*tex.height})),t=uv.map(([u,v])=>project(q,u,v));triangle(ctx,tex,[s[0],s[1],s[2]],[t[0],t[1],t[2]]);triangle(ctx,tex,[s[0],s[2],s[3]],[t[0],t[2],t[3]]);
+ }}ctx.restore();output.save();output.globalAlpha=clamp(d.pos?.opacity,.35,1,1);output.drawImage(layer,0,0);output.restore();
+}
+const images=new Map();function load(url){if(!images.has(url)){const task=window.DoorDesign.loadImage(url);images.set(url,task);task.catch(()=>images.delete(url));if(images.size>32)images.delete(images.keys().next().value);}return images.get(url);}
+window.DoorRealism={valid,corners,project,texture,draw,clamp,load};
+})();
 (() => {
 'use strict';
 
+function preparedHomePhotos(){return (window.EZFIX_PHOTO_LIBRARY||[]).filter(p=>p.corners?.length===visState.doorCount);}
+function homeReferenceUrl(id){return (window.EZFIX_PHOTO_LIBRARY||[]).find(p=>p.id===id)?.url||'/assets/door-styles/'+id+'.png';}
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
 window.__visCatalogState=visCatalogState;
 const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||(window.DoorDesign?.profile(p)?window.DoorDesign.defaultImage(p):(p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''))):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
-const referenceDoors=()=>STORE.products.filter(p=>val(p,'catalogKind')==='garage_door_model');
+const referenceDoors=()=>STORE.products.filter(p=>p.active!==false&&val(p,'catalogKind')==='garage_door_model');
+let photoSelectionVersion=0;
 const refDoor=d=>d?.referenceProductId?getOne('products',d.referenceProductId):null;
 const legacyDoor=d=>d?.modelId?getOne('doorModels',d.modelId):null;
 const favoriteKey=()=> 'ezfix:door-favorites:v1:'+(CURRENT_TEAM_MEMBER?.id||'local');
@@ -44,11 +99,70 @@ const doorSpec=d=>{
   return [val(p,'collection'),val(p,'material'),val(p,'construction'),val(p,'rValue')?('R-'+val(p,'rValue')):''].filter(Boolean).join(' · ');
 };
 const visImg=(d,idx,active=false)=>{
-  const url=overlayUrl(d); if(!url)return '';
-  return '<img data-dooridx="'+idx+'" src="'+esc(url)+'" class="vis-door-overlay '+(active?'vis-door-active':'')+'" style="'+visDoorStyle(d)+'" onpointerdown="startDoorDrag(event,'+idx+')">';
+ const url=overlayUrl(d);if(!url)return '';
+ return '<canvas data-dooridx="'+idx+'" data-source="'+esc(url)+'" role="img" aria-label="Selected door preview" class="vis-door-overlay vis-realistic '+(active?'vis-door-active':'')+'" style="'+visDoorStyle(d)+'" onpointerdown="startDoorDrag(event,'+idx+')"></canvas>';
 };
-function visDoorStyle(d){return 'left:'+d.pos.x+'%;top:'+d.pos.y+'%;width:'+(d.pos.widthPct||30)+'%;'+(d.pos.heightPct?'height:'+d.pos.heightPct+'%;':'')+'transform:translate(-50%,-50%) rotate('+d.pos.rotation+'deg) scale('+d.pos.scale+');opacity:'+d.pos.opacity;}
-window.setVisFit=function(idx,key,value){const n=Number(value),d=visState.doors[idx];if(!d||!['widthPct','heightPct'].includes(key)||!Number.isFinite(n))return;d.pos[key]=Math.max(5,Math.min(100,n));const el=document.querySelector('#visStage [data-dooridx="'+idx+'"]');if(el)el.style[key==='widthPct'?'width':'height']=d.pos[key]+'%';};
+function visDoorStyle(d){return 'left:0;top:0;width:100%;height:100%;transform:none;opacity:1';}
+let previewVersion=0;
+let paintFrame=0;function queueVisPaint(){if(typeof requestAnimationFrame!=='function')return paintVisDoors();if(paintFrame)return;paintFrame=requestAnimationFrame(()=>{paintFrame=0;paintVisDoors();});}
+async function paintVisDoors(){
+ const version=++previewVersion,state=visState;
+ if(!document.querySelectorAll)return;
+ const nodes=[...document.querySelectorAll('.vis-realistic')];
+ await Promise.all(nodes.map(async node=>{
+  const d=state.doors[Number(node.dataset.dooridx)],src=overlayUrl(d);if(!src)return;
+  try{const img=await window.DoorRealism.load(src);if(version!==previewVersion||state!==visState||!node.isConnected)return;
+   const house=node.parentElement.querySelector('.vis-house-img');if(!house?.naturalWidth){house?.addEventListener('load',paintVisDoors,{once:true});return;}
+   node.width=Math.min(1000,house.naturalWidth);node.height=Math.round(node.width*house.naturalHeight/house.naturalWidth);
+   window.DoorRealism.draw(node.getContext('2d'),img,d,node.width,node.height);
+   // Canvas occupies the photo; only the actual door polygon accepts a drag.
+   const q=window.DoorRealism.corners(d,100,100,img.naturalHeight/img.naturalWidth*house.naturalWidth/house.naturalHeight);
+   node.style.clipPath='polygon('+q.map(p=>p.x+'% '+p.y+'%').join(',')+')';
+  }catch(e){if(version===previewVersion){node.setAttribute('aria-label','Door preview could not load');toast(e.message,true);}}
+ }));
+}
+window.setVisFit=function(idx,key,value){const n=Number(value),d=visState.doors[idx];if(!d||!['widthPct','heightPct'].includes(key)||!Number.isFinite(n))return;delete d.pos.corners;d.pos[key]=Math.max(5,Math.min(100,n));queueVisPaint();};
+window.setVisRealism=function(idx,key,value){const d=visState.doors[idx];if(!d||!['light','depth','cut'].includes(key))return;const n=Number(value);if(!Number.isFinite(n))return;d.realism={...d.realism,[key]:window.DoorRealism.clamp(n,key==='light'?.65:0,key==='light'?1.25:key==='cut'?.22:1,key==='light'?.96:0)};queueVisPaint();};
+let cornerFitDoor=-1;
+window.toggleVisCornerFit=function(idx){
+ const d=visState.doors[idx];if(!d)return;cornerFitDoor=cornerFitDoor===idx?-1:idx;
+ if(cornerFitDoor>=0&&!window.DoorRealism.valid(d.pos.corners)){
+  const img=document.querySelector('#visStage .vis-house-img');const w=img?.naturalWidth||1000,h=img?.naturalHeight||750;
+  d.pos.corners=window.DoorRealism.corners(d,w,h,Number(d.height||7)/Number(d.width||8)).map(p=>({x:Math.max(0,Math.min(100,p.x/w*100)),y:Math.max(0,Math.min(100,p.y/h*100))}));
+ }render();
+};
+function cornerHandles(d,idx){if(cornerFitDoor!==idx||!window.DoorRealism.valid(d.pos.corners))return '';return d.pos.corners.map((p,k)=>'<button type="button" class="vis-corner" style="left:'+p.x+'%;top:'+p.y+'%" aria-label="Opening corner '+(k+1)+'; arrow keys to adjust" onpointerdown="startVisCornerDrag(event,'+idx+','+k+')" onkeydown="nudgeVisCorner(event,'+idx+','+k+')">'+(k+1)+'</button>').join('');}
+function changeCorner(idx,k,x,y){const d=visState.doors[idx],q=d.pos.corners.map(p=>({...p}));q[k]={x:Math.max(0,Math.min(100,x)),y:Math.max(0,Math.min(100,y))};if(!window.DoorRealism.valid(q))return;d.pos.corners=q;const handle=document.querySelectorAll('#visStage .vis-corner')[k];if(handle){handle.style.left=q[k].x+'%';handle.style.top=q[k].y+'%';}queueVisPaint();}
+window.nudgeVisCorner=function(e,idx,k){const moves={ArrowLeft:[-.2,0],ArrowRight:[.2,0],ArrowUp:[0,-.2],ArrowDown:[0,.2]},m=moves[e.key];if(!m)return;e.preventDefault();const p=visState.doors[idx].pos.corners[k];changeCorner(idx,k,p.x+m[0],p.y+m[1]);};
+window.startVisCornerDrag=function(e,idx,k){
+ e.preventDefault();e.stopPropagation();if(dragCleanup)dragCleanup();const state=visState,r=document.getElementById('visStage').getBoundingClientRect(),id=e.pointerId;
+ const move=ev=>{if(ev.pointerId!==id||state!==visState)return;changeCorner(idx,k,(ev.clientX-r.left)/r.width*100,(ev.clientY-r.top)/r.height*100);};
+ const cleanup=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);window.removeEventListener('blur',cleanup);dragCleanup=null;};
+ const end=ev=>{if(ev.pointerId!==id)return;cleanup();};dragCleanup=cleanup;document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);window.addEventListener('blur',cleanup);
+};
+
+// Pointer cancellation and navigation must never leave a door drag active.
+let dragCleanup=null;
+startDoorDrag=function(event,idx){
+ if(dragCleanup)dragCleanup();
+ const stage=document.getElementById('visStage'),target=visState,door=target.doors[idx];
+ if(!stage||!door)return;
+ const rect=stage.getBoundingClientRect();if(!rect.width||!rect.height)return;
+ event.preventDefault();target.activeDoor=idx;
+ const pointer=event.pointerId;
+ const startX=event.clientX,startY=event.clientY,original=JSON.parse(JSON.stringify(door.pos));
+ const move=ev=>{if(target!==visState||route.page!=='visualizer'||(pointer!==undefined&&ev.pointerId!==pointer))return;
+  const dx=(ev.clientX-(Number.isFinite(startX)?startX:rect.left+original.x/100*rect.width))/rect.width*100,dy=(ev.clientY-(Number.isFinite(startY)?startY:rect.top+original.y/100*rect.height))/rect.height*100;
+  if(!Number.isFinite(dx)||!Number.isFinite(dy))return;
+  if(window.DoorRealism.valid(original.corners)){const minX=Math.min(...original.corners.map(p=>p.x)),maxX=Math.max(...original.corners.map(p=>p.x)),minY=Math.min(...original.corners.map(p=>p.y)),maxY=Math.max(...original.corners.map(p=>p.y));const mx=Math.max(-minX,Math.min(100-maxX,dx)),my=Math.max(-minY,Math.min(100-maxY,dy));door.pos.corners=original.corners.map(p=>({x:p.x+mx,y:p.y+my}));}
+  else{door.pos.x=Math.max(0,Math.min(100,original.x+dx));door.pos.y=Math.max(0,Math.min(100,original.y+dy));}
+  queueVisPaint();
+ };
+ const cleanup=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.removeEventListener('pointercancel',finish);window.removeEventListener('blur',cleanup);if(dragCleanup===cleanup)dragCleanup=null;};
+ const finish=ev=>{if(pointer!==undefined&&ev.pointerId!==pointer)return;cleanup();if(target===visState&&route.page==='visualizer')render();};
+ dragCleanup=cleanup;document.addEventListener('pointermove',move);document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',finish);window.addEventListener('blur',cleanup);
+};
+window.startDoorDrag=startDoorDrag;
 
 const baseFresh=freshDoorConfig;
 freshDoorConfig=function(){
@@ -110,22 +224,22 @@ function setVisOpacity(idx,value){
   if(!d||!Number.isFinite(opacity))return;
   d.pos.opacity=Math.max(.35,Math.min(1,opacity));
   const overlay=document.querySelector('#visStage [data-dooridx="'+idx+'"]');
-  if(overlay)overlay.style.opacity=d.pos.opacity;
+  paintVisDoors();
 }
 window.setVisOpacity=setVisOpacity;
 function setVisScale(idx,value){
  const d=visState.doors[idx],scale=Number(value);if(!d||!Number.isFinite(scale))return;
  d.pos.scale=Math.max(.2,Math.min(3,scale));
  const overlay=document.querySelector('#visStage [data-dooridx="'+idx+'"]');
- if(overlay)overlay.style.transform='translate(-50%,-50%) rotate('+d.pos.rotation+'deg) scale('+d.pos.scale+')';
+ delete d.pos.corners;paintVisDoors();
 }
 window.setVisScale=setVisScale;
 function resetVisPosition(){
   const d=visState.doors[visState.activeDoor];if(!d)return;
-  d.pos={...freshDoorConfig().pos};
+  d.pos={...freshDoorConfig().pos};cornerFitDoor=-1;
   render();
 }
-window.resetVisPosition=resetVisPosition;
+window.resetVisPosition=resetVisPosition;const baseVisRotate=typeof nudgeVisRotation==='function'?nudgeVisRotation:()=>{};nudgeVisRotation=function(delta){delete visState.doors[visState.activeDoor].pos.corners;baseVisRotate(delta);};window.nudgeVisRotation=nudgeVisRotation;
 
 async function uploadVisualizerOverlay(productId,input){
   if(!IS_OWNER)return toast('Owner access required',true);
@@ -169,12 +283,16 @@ renderVisualizer=function(content,actions){
 window.renderVisualizer=renderVisualizer;
 async function resumeSavedVisualizerDesign(id){
  const d=getOne('savedDesigns',id);if(!d)return toast('Saved design not found',true);
+ const selection=++photoSelectionVersion;
  const house=d.houseImage?.url?{...d.houseImage}:d.houseImageId?{id:d.houseImageId,url:d.houseImageUrl}:d.houseImageUrl?{url:d.houseImageUrl}:null;
  if(house?.id?.startsWith(ASSET_BUCKET+'/')){
   try{const {data,error}=await SB.storage.from(ASSET_BUCKET).createSignedUrl(house.id.slice(ASSET_BUCKET.length+1),3600);if(error||!data?.signedUrl)throw error;house.url=data.signedUrl;}catch{return toast('The home photo could not be loaded. Try again.',true);}
  }
- const doors=(Array.isArray(d.doors)&&d.doors.length?JSON.parse(JSON.stringify(d.doors)):[freshDoorConfig()]).map(x=>({...freshDoorConfig(),...x,pos:{...freshDoorConfig().pos,...x.pos}}));
- visState={step:house?3:2,doorCount:Math.min(4,Number(d.doorCount)||doors.length||1),doors,activeDoor:0,applyToAll:false,houseImage:house,presetCustomerId:d.customerId||'',presetLeadId:'',presetJobId:'',compareList:[],savedDesignId:d.id,designName:d.designName||''};
+ const count=Math.max(1,Math.min(4,Math.trunc(Number(d.doorCount)||d.doors?.length||1)));
+ const savedDoors=Array.isArray(d.doors)?d.doors:[];
+ const doors=Array.from({length:count},(_,i)=>{const x=savedDoors[i]&&typeof savedDoors[i]==='object'?savedDoors[i]:{},base=freshDoorConfig(),pos={...base.pos,...x.pos};for(const [key,min,max] of [['x',0,100],['y',0,100],['scale',.2,3],['rotation',-360,360],['opacity',.35,1],['widthPct',5,100],['heightPct',5,100]]){if(pos[key]===undefined)continue;const n=Number(pos[key]);if(Number.isFinite(n))pos[key]=Math.max(min,Math.min(max,n));else if(base.pos[key]!==undefined)pos[key]=base.pos[key];else delete pos[key];}if(!window.DoorRealism.valid(pos.corners))delete pos.corners;return {...base,...x,pos};});
+ if(selection!==photoSelectionVersion)return;
+ visState={step:house?3:2,doorCount:count,doors,activeDoor:0,applyToAll:false,houseImage:house,presetCustomerId:d.customerId||'',presetLeadId:'',presetJobId:'',compareList:[],savedDesignId:d.id,designName:d.designName||''};
  visWorkspaceTab='designer';visCatalogState.tab=doors[0].referenceProductId?'design':'models';render();toast('Saved design loaded');
 }
 window.resumeSavedVisualizerDesign=resumeSavedVisualizerDesign;
@@ -208,26 +326,35 @@ window.continueVisualizerSetup=function(){
  visState.step=2;render();
 };
 renderVisStep2=function(body){
- body.innerHTML=`<section class="studio-setup studio-photo"><div class="studio-setup-heading"><span>02 / HOME IMAGE</span><h2>Your customer’s home</h2><p>Take a photo, upload one, or start with an EZfix reference below.</p></div><div class="studio-photo-actions"><label for="f_housecamera"><span>◎</span><b>Take a photo</b><small>Use your phone camera</small></label><label for="f_houseimg"><span>↥</span><b>Upload a photo</b><small>JPG, PNG or WebP · up to 15 MB</small></label></div><input hidden type="file" accept="image/*" capture="environment" id="f_housecamera"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="f_houseimg"><div class="studio-reference-heading"><h3>Or use an EZfix reference</h3><span>Our prepared style illustrations</span></div><div class="studio-reference-grid">${DOOR_STYLE_EXAMPLES.map(([id,name,detail])=>`<button class="studio-reference ${visState.houseImage?.referenceId===id?'selected':''}" data-reference="${id}" aria-pressed="${visState.houseImage?.referenceId===id}" onclick="selectVisReferenceImage(this.dataset.reference)"><img src="/assets/door-styles/${id}.png" alt="${esc(name)} reference" loading="lazy"><b>${esc(name)}</b><small>${esc(detail)}</small></button>`).join('')}</div>${visState.houseImage?`<div class="studio-photo-selection"><img src="${esc(visState.houseImage.url)}" alt="Selected home image"><div><span>Selected image</span><b>${esc(visState.houseImage.name||'Customer photo')}</b><small>${visState.houseImage.kind==='reference'?'EZfix illustration · choose an actual catalog model next':'Customer photo'}</small></div></div>`:''}<footer><button class="btn" onclick="visState.step=1;render()">← Door size</button><button class="btn btn-primary" ${visState.houseImage?'':'disabled'} onclick="visState.step=3;render()">Choose door design →</button></footer></section>`;
+ body.innerHTML=`<section class="studio-setup studio-photo"><div class="studio-setup-heading"><span>02 / HOME IMAGE</span><h2>Your customer’s home</h2><p>Take a photo, upload one, or start with an EZfix reference below.</p></div><div class="studio-photo-actions"><label for="f_housecamera"><span>◎</span><b>Take a photo</b><small>Use your phone camera</small></label><label for="f_houseimg"><span>↥</span><b>Upload a photo</b><small>JPG, PNG or WebP · up to 15 MB</small></label></div><input hidden type="file" accept="image/*" capture="environment" id="f_housecamera"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="f_houseimg"><div class="studio-reference-heading"><h3>Or use an EZfix reference</h3><span>Real photos & prepared examples</span></div><div class="studio-reference-grid">${[...preparedHomePhotos().map(p=>[p.id,p.name,'Real photo · prepared opening fit']),...DOOR_STYLE_EXAMPLES].map(([id,name,detail])=>`<button class="studio-reference ${visState.houseImage?.referenceId===id?'selected':''}" data-reference="${id}" aria-pressed="${visState.houseImage?.referenceId===id}" onclick="selectVisReferenceImage(this.dataset.reference)"><img src="${homeReferenceUrl(id)}" alt="${esc(name)} reference" loading="lazy"><b>${esc(name)}</b><small>${esc(detail)}</small></button>`).join('')}</div>${visState.houseImage?`<div class="studio-photo-selection"><img src="${esc(visState.houseImage.url)}" alt="Selected home image"><div><span>Selected image</span><b>${esc(visState.houseImage.name||'Customer photo')}</b><small>${visState.houseImage.kind==='reference'?'EZfix illustration · choose an actual catalog model next':visState.houseImage.kind==='installation'?'Real EZfix installation':visState.houseImage.kind==='installation'?'Real door photo':'Customer photo'}</small></div></div>`:''}<footer><button class="btn" onclick="visState.step=1;render()">← Door size</button><button class="btn btn-primary" ${visState.houseImage?'':'disabled'} onclick="visState.step=3;render()">Choose door design →</button></footer></section>`;
  const upload=async e=>{
   const file=e.target.files?.[0];if(!file)return;
+  const selection=++photoSelectionVersion,target=visState;
   if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024)return toast('Choose a JPG, PNG or WebP photo smaller than 15 MB.',true);
-  try{toast('Uploading home photo…');const asset=await uploadAsset(file,'visualizer');visState.houseImage={...asset,name:file.name,kind:'customer'};visState.doors.forEach(d=>{d.pos={...freshDoorConfig().pos};});render();}catch(err){toast(err.message||'Home photo upload failed',true);}
+  try{const localUrl=URL.createObjectURL(file);try{await window.DoorDesign.loadImage(localUrl);}finally{URL.revokeObjectURL(localUrl);}if(selection!==photoSelectionVersion||target!==visState)return;toast('Uploading home photo…');const asset=await uploadAsset(file,'visualizer');if(selection!==photoSelectionVersion||target!==visState)return;visState.houseImage={...asset,name:file.name,kind:'customer'};visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};});render();}catch(err){if(selection===photoSelectionVersion&&target===visState)toast(err.message||'Home photo upload failed',true);}
  };
  document.getElementById('f_houseimg').addEventListener('change',upload);
  document.getElementById('f_housecamera').addEventListener('change',upload);
 };
 window.selectVisReferenceImage=async function(id){
- const ref=DOOR_STYLE_EXAMPLES.find(x=>x[0]===id);if(!ref)return;
+ const photo=(window.EZFIX_PHOTO_LIBRARY||[]).find(p=>p.id===id),ref=photo?[photo.id,photo.name]:DOOR_STYLE_EXAMPLES.find(x=>x[0]===id);if(!ref)return;
+ const selection=++photoSelectionVersion,target=visState;
  try{
+  if(photo){
+   if(photo.openings!==visState.doorCount)return toast('Choose a photo with the same number of openings.',true);
+   await window.DoorDesign.loadImage(photo.url);if(selection!==photoSelectionVersion||target!==visState)return;
+   visState.houseImage={url:photo.url,kind:'installation',referenceId:id,name:photo.name};
+   visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};if(window.DoorRealism.valid(photo.corners?.[i]))d.pos.corners=photo.corners[i].map(p=>({...p}));d.realism={light:.96,depth:.45,cut:photo.cut||0};});cornerFitDoor=-1;render();return;
+  }
   const count=visState.doorCount,cols=count===1?1:2,rows=Math.ceil(count/cols),url='/assets/door-styles/'+id+'.png';
   let background=url;
   if(count>1){const img=await window.DoorDesign.loadImage(url),canvas=document.createElement('canvas');canvas.width=1600;canvas.height=Math.round(1600/cols*rows*.75);const ctx=canvas.getContext('2d');ctx.fillStyle='#eef0eb';ctx.fillRect(0,0,canvas.width,canvas.height);for(let i=0;i<count;i++)ctx.drawImage(img,i%cols*canvas.width/cols,Math.floor(i/cols)*canvas.height/rows,canvas.width/cols,canvas.height/rows);background=canvas.toDataURL('image/jpeg',.88);}
+  if(selection!==photoSelectionVersion||target!==visState)return;
   visState.houseImage={url:background,kind:'reference',referenceId:id,name:ref[1]+' · EZfix reference'};
   const single=id.startsWith('single-');
   visState.doors.slice(0,count).forEach((d,i)=>{d.pos={x:(i%cols*100+50)/cols,y:(Math.floor(i/cols)*100+(single?50:48))/rows,widthPct:(single?62.5:88)/cols,heightPct:(single?75:60)/rows,scale:1,rotation:0,opacity:1};});
   render();
- }catch(err){toast(err.message||'Reference image could not be loaded.',true);}
+ }catch(err){if(selection===photoSelectionVersion&&target===visState)toast(err.message||'Reference image could not be loaded.',true);}
 };
 
 renderVisStep3=function(body){
@@ -239,9 +366,9 @@ renderVisStep3=function(body){
   const collectionBody=`<div class="vg-filter-grid"><input id="visModelSearch" aria-label="Search door models" placeholder="Search collection or exact model…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)"><select aria-label="Manufacturer" onchange="visCatalogManufacturer(this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visCatalogState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select><button class="btn btn-sm ${visCatalogState.tab==='favorites'?'btn-primary':''}" onclick="visPickerTab('${visCatalogState.tab==='favorites'?'models':'favorites'}')">★ Favorites (${favorites.length})</button><label class="vg-ready-filter"><input type="checkbox" ${visCatalogState.readyOnly?'checked':''} onchange="visCatalogReadyOnly(this.checked)"> On-home preview available</label></div><div class="vg-results-count">${groups.length} ${visCatalogState.search?'matching models':'collections'}</div><div class="vg-door-grid">${shown.map(p=>modelCard(p,i,d)).join('')}</div>${!groups.length?'<div class="vg-empty-state"><b>No matching doors</b><p>Change the search or manufacturer to see more.</p></div>':''}${groups.length>shown.length?'<button class="btn btn-sm studio-more" onclick="showMoreVisDoors()">Show more collections</button>':''}`;
   body.innerHTML=`<div class="vg-layout">
     <section class="vg-canvas-card">
-      <div class="vg-stage-head"><div><b>${visState.houseImage.kind==='reference'?'Your EZfix reference':'Your home. Your new door.'}</b><span>Drag the selected door to position it in the opening</span></div><button class="btn btn-sm" onclick="visState.step=2;render()">Change image</button></div>
-      <div class="vis-stage vg-stage" id="visStage"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Home preview">${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door from the collection panel to preview it here.</div>':''}</div>
-      <details class="studio-fit-panel"><summary>Fit door ${i+1} to the opening <span>${d.width} × ${d.height} ft</span></summary><div class="studio-fit-tools"><label>Width<input aria-label="Opening width" type="range" min="5" max="100" step=".5" value="${d.pos.widthPct||30}" oninput="setVisFit(${i},'widthPct',this.value)"></label><label>Height<input aria-label="Opening height" type="range" min="5" max="100" step=".5" value="${d.pos.heightPct||40}" oninput="setVisFit(${i},'heightPct',this.value)"></label><div><button class="btn btn-sm" onclick="nudgeVisRotation(-2)" aria-label="Rotate counterclockwise">↶</button><button class="btn btn-sm" onclick="nudgeVisRotation(2)" aria-label="Rotate clockwise">↷</button><button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button></div><details><summary>Transparency</summary><input aria-label="Door opacity" type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></details></div></details>
+      <div class="vg-stage-head"><div><b>${visState.houseImage.kind==='reference'?'Your EZfix reference':'Your home. Your new door.'}</b><span>Drag to position · use Fit 4 corners for angled photos</span></div><button class="btn btn-sm" onclick="visState.step=2;render()">Change image</button></div>
+      <div class="vis-stage vg-stage" id="visStage"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Home preview">${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}${cornerHandles(d,i)}${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door from the collection panel to preview it here.</div>':''}</div>
+      <details class="studio-fit-panel"><summary>Fit door ${i+1} to the opening <span>${d.width} × ${d.height} ft</span></summary><div class="studio-fit-tools"><label>Width<input aria-label="Opening width" type="range" min="5" max="100" step=".5" value="${d.pos.widthPct||30}" oninput="setVisFit(${i},'widthPct',this.value)"></label><label>Height<input aria-label="Opening height" type="range" min="5" max="100" step=".5" value="${d.pos.heightPct||40}" oninput="setVisFit(${i},'heightPct',this.value)"></label><div><button class="btn btn-sm" onclick="nudgeVisRotation(-2)" aria-label="Rotate counterclockwise">↶</button><button class="btn btn-sm" onclick="nudgeVisRotation(2)" aria-label="Rotate clockwise">↷</button><button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button></div><button type="button" class="btn btn-sm" onclick="toggleVisCornerFit(${i})">${cornerFitDoor===i?'Done fitting corners':'Fit 4 corners'}</button><p class="muted">Place corners 1–4 inside the door frame, clockwise from top left.</p><label>Natural light<input aria-label="Door lighting" type="range" min=".65" max="1.25" step=".01" value="${d.realism?.light??.96}" oninput="setVisRealism(${i},'light',this.value)"></label><label>Recess & shadow<input aria-label="Door recess shadow" type="range" min="0" max="1" step=".02" value="${d.realism?.depth??.45}" oninput="setVisRealism(${i},'depth',this.value)"></label><label>Angled upper corners<input aria-label="Angled opening corners" type="range" min="0" max=".22" step=".01" value="${d.realism?.cut??0}" oninput="setVisRealism(${i},'cut',this.value)"></label><details><summary>Transparency</summary><input aria-label="Door opacity" type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></details></div></details>
       <p class="studio-preview-note">${visState.houseImage.kind==='reference'?'EZfix style illustration. ':''}Layout and finish preview · confirm final color and details against manufacturer samples.</p>
     </section>
     <section class="vg-picker-card studio-configurator">
@@ -253,7 +380,7 @@ renderVisStep3=function(body){
     </section>
   </div><div class="vg-footer-actions"><button class="btn" onclick="visState.step=2;render()">← Home image</button><span>Step 3 of 4 · Design your door</span><button class="btn btn-primary" ${!visState.doors.slice(0,visState.doorCount).every(x=>x.referenceProductId||x.modelId)?'disabled':''} onclick="visState.step=4;render()">Review & Save →</button></div>`;
 };
-window.renderVisStep3=renderVisStep3;
+const renderRealismStep3=renderVisStep3;renderVisStep3=function(body){renderRealismStep3(body);queueVisPaint();};window.renderVisStep3=renderVisStep3;
 
 function designSpecRows(d){
  const p=refDoor(d),c=window.DoorDesign?.choice(d);
@@ -265,9 +392,9 @@ function summaryCard(d,idx){
 }
 renderVisStep4=function(body){
  const doors=visState.doors.slice(0,visState.doorCount),configured=doors.every(d=>d.referenceProductId||d.modelId);
- body.innerHTML=`<section class="studio-review"><div class="studio-review-heading"><span>04 / REVIEW & SAVE</span><h2>Your new garage door</h2><p>Review the image and the full specification before saving or creating an estimate.</p></div><div class="studio-beforeafter"><section><h3>Before</h3><div class="studio-review-image"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Before the door design"></div></section><section><h3>After</h3><div class="studio-review-image" id="visBaWrap"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="After design background">${doors.map(d=>{const u=overlayUrl(d);return u?'<img src="'+esc(u)+'" alt="Selected door overlay" class="vis-door-overlay" style="'+visDoorStyle(d)+';position:absolute">':''}).join('')}</div></section></div><p class="studio-preview-note">Preview colors and proportions may vary from the installed door.${doors.some(d=>{const c=window.DoorDesign?.choice(d);return c?.glass||c?.hardware;})?' Selected glass and hardware are listed below. Their appearance in the preview remains as shown in the original catalog image.':''}</p><div class="vg-review-actions studio-review-actions"><button class="btn" onclick="visState.step=3;render()">← Edit design</button><button class="btn" onclick="openSaveDesignModal()">Save Design</button><button class="btn" onclick="downloadVisPdf()">Save as PDF</button><button class="btn" onclick="window.print()">Print</button><button class="btn" onclick="shareDesign()">Share</button><button class="btn btn-primary" ${configured?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button></div><div class="studio-spec-grid">${doors.map(summaryCard).join('')}</div></section>`;
+ body.innerHTML=`<section class="studio-review"><div class="studio-review-heading"><span>04 / REVIEW & SAVE</span><h2>Your new garage door</h2><p>Review the image and the full specification before saving or creating an estimate.</p></div><div class="studio-beforeafter"><section><h3>Before</h3><div class="studio-review-image"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Before the door design"></div></section><section><h3>After</h3><div class="studio-review-image" id="visBaWrap"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="After design background">${doors.map((d,idx)=>visImg(d,idx)).join('')}</div></section></div><p class="studio-preview-note">Preview colors and proportions may vary from the installed door.${doors.some(d=>{const c=window.DoorDesign?.choice(d);return c?.glass||c?.hardware;})?' Selected glass and hardware are listed below. Their appearance in the preview remains as shown in the original catalog image.':''}</p><div class="vg-review-actions studio-review-actions"><button class="btn" onclick="visState.step=3;render()">← Edit design</button><button class="btn" onclick="openSaveDesignModal()">Save Design</button><button class="btn" onclick="downloadVisPdf()">Save as PDF</button><button class="btn" onclick="window.print()">Print</button><button class="btn" onclick="shareDesign()">Share</button><button class="btn btn-primary" ${configured?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button></div><div class="studio-spec-grid">${doors.map(summaryCard).join('')}</div></section>`;
 };
-window.renderVisStep4=renderVisStep4;
+const renderRealismStep4=renderVisStep4;renderVisStep4=function(body){renderRealismStep4(body);queueVisPaint();};window.renderVisStep4=renderVisStep4;
 window.downloadVisPdf=async function(){
  if(!window.jspdf)return toast('PDF tools are still loading. Please try again.',true);
  try{
@@ -302,12 +429,13 @@ window.seeSimilarInstallations=seeSimilarInstallations;
 
 captureVisPreview=async function(){
   if(!visState.houseImage)return null;
-  await Promise.all(visState.doors.slice(0,visState.doorCount).map(d=>window.DoorDesign?.prepare(d)));
-  const house=new Image();house.crossOrigin='anonymous';await new Promise((ok,bad)=>{house.onload=ok;house.onerror=bad;house.src=visState.houseImage.url});
-  const canvas=document.createElement('canvas');canvas.width=house.naturalWidth;canvas.height=house.naturalHeight;const ctx=canvas.getContext('2d');ctx.drawImage(house,0,0);
-  for(const d of visState.doors.slice(0,visState.doorCount)){
+  const snapshot=JSON.parse(JSON.stringify({houseImage:visState.houseImage,doors:visState.doors.slice(0,visState.doorCount)}));
+  await Promise.all(snapshot.doors.map(d=>window.DoorDesign?.prepare(d)));
+  const house=await window.DoorDesign.loadImage(snapshot.houseImage.url);
+  const canvas=document.createElement('canvas');const resize=Math.min(1,1600/Math.max(house.naturalWidth,house.naturalHeight));canvas.width=Math.max(1,Math.round(house.naturalWidth*resize));canvas.height=Math.max(1,Math.round(house.naturalHeight*resize));const ctx=canvas.getContext('2d');ctx.drawImage(house,0,0,canvas.width,canvas.height);
+  for(const d of snapshot.doors){
     const src=overlayUrl(d);if(!src)continue;
-    try{const img=new Image();img.crossOrigin='anonymous';await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=src});const dw=canvas.width*(d.pos.widthPct||30)/100*d.pos.scale,dh=d.pos.heightPct?canvas.height*d.pos.heightPct/100*d.pos.scale:dw*(img.naturalHeight/img.naturalWidth),cx=d.pos.x/100*canvas.width,cy=d.pos.y/100*canvas.height;ctx.save();ctx.globalAlpha=d.pos.opacity;ctx.translate(cx,cy);ctx.rotate(d.pos.rotation*Math.PI/180);ctx.drawImage(img,-dw/2,-dh/2,dw,dh);ctx.restore()}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
+    try{const img=await window.DoorDesign.loadImage(src);window.DoorRealism.draw(ctx,img,d,canvas.width,canvas.height);}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
   }
   return canvas.toDataURL('image/jpeg',.86);
 };
@@ -315,7 +443,8 @@ window.captureVisPreview=captureVisPreview;
 
 createEstimateFromDesign=async function(){
   const doors=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId);
-  if(!doors.length)return toast('Choose at least one door first');
+  if(!doors.length||doors.length!==visState.doorCount)return toast('Choose a model for every door first',true);
+  if(doors.some(d=>d.referenceProductId&&(!refDoor(d)||refDoor(d).active===false)))return toast('A selected door is no longer available. Choose an active catalog model.',true);
   try{await Promise.all(doors.map(d=>window.DoorDesign?.prepare(d)));}catch(e){return toast(e.message,true);}
   const items=doors.map((d,i)=>{
     const p=refDoor(d),m=legacyDoor(d),size=d.customSize?(d.customWidth+"'x"+d.customHeight+"'"):(d.width+"'x"+d.height+"'");
@@ -363,7 +492,7 @@ renderVisCatalog=function(content,actions){
   if(visAdminState.manufacturer)list=list.filter(p=>p.manufacturer===visAdminState.manufacturer);
   if(visAdminState.collection)list=list.filter(p=>val(p,'collection')===visAdminState.collection);
   if(visAdminState.readiness==='ready')list=list.filter(p=>!!(val(p,'visualizerOverlayUrl')||window.DoorDesign?.choice({referenceProductId:p.id})));
-  if(visAdminState.readiness==='missing')list=list.filter(p=>!val(p,'visualizerOverlayUrl'));
+  if(visAdminState.readiness==='missing')list=list.filter(p=>!val(p,'visualizerOverlayUrl')&&!window.DoorDesign?.choice({referenceProductId:p.id}));
   const q=visAdminState.search.trim().toLowerCase();
   if(q){const ts=q.split(/\s+/).filter(Boolean);list=list.filter(p=>{const hay=[p.name,p.manufacturer,p.model,p.sku,p.details,val(p,'collection'),val(p,'modelNumber'),val(p,'material'),val(p,'construction')].join(' ').toLowerCase();return ts.every(t=>hay.includes(t))})}
   list=list.sort((a,b)=>String(a.manufacturer||'').localeCompare(String(b.manufacturer||''))||String(val(a,'collection')||'').localeCompare(String(val(b,'collection')||''))||String(a.name||'').localeCompare(String(b.name||'')));
@@ -371,7 +500,7 @@ renderVisCatalog=function(content,actions){
   content.innerHTML=`<div class="vga-hero"><div><span>Visualizer Catalog</span><h2>Reference Door Readiness</h2><p>Reference data stays in Products. This page only manages the real overlay image used on customer home photos.</p></div><div class="vga-stats"><div><b>${all.length}</b><span>Reference Models</span></div><div><b>${ready.length}</b><span>Visualizer Ready</span></div><div><b>${all.length-ready.length}</b><span>Need Overlay</span></div></div></div>
   <div class="vga-controls"><input placeholder="Search model, collection, material…" value="${esc(visAdminState.search)}" oninput="setVisAdminFilter('search',this.value)"><select onchange="setVisAdminFilter('manufacturer',this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visAdminState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select><select onchange="setVisAdminFilter('collection',this.value)"><option value="">All collections</option>${collections.map(x=>'<option '+(visAdminState.collection===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select><select onchange="setVisAdminFilter('readiness',this.value)"><option value="all" ${visAdminState.readiness==='all'?'selected':''}>All readiness</option><option value="ready" ${visAdminState.readiness==='ready'?'selected':''}>Visualizer Ready</option><option value="missing" ${visAdminState.readiness==='missing'?'selected':''}>Missing Overlay</option></select></div>
   <div class="vga-result-line"><b>${list.length}</b> matching model${list.length===1?'':'s'}${list.length>shown.length?' · showing first '+shown.length:''}</div>
-  <div class="vga-grid">${shown.map(p=>{const img=val(p,'imageUrl'),overlay=val(p,'visualizerOverlayUrl');return '<article class="vga-card"><div class="vga-image">'+(overlay?'<img src="'+esc(overlay)+'" alt="" class="vga-overlay-img">':img?'<img src="'+esc(img)+'" alt="">':'<div class="vga-placeholder">Garage Door</div>')+'<span class="'+(overlay?'ready':'missing')+'">'+(overlay?'Ready':'Needs Overlay')+'</span></div><div class="vga-copy"><small>'+esc([p.manufacturer,val(p,'collection')].filter(Boolean).join(' · '))+'</small><b>'+esc(p.name)+'</b><p>'+esc([val(p,'material'),val(p,'construction'),val(p,'rValue')?('R-'+val(p,'rValue')):''].filter(Boolean).join(' · '))+'</p><div class="vga-actions"><label class="btn btn-sm">'+(overlay?'Replace Overlay':'Upload Overlay')+'<input hidden type="file" accept="image/png,image/webp,image/jpeg" onchange="uploadVisualizerOverlay(\''+esc(p.id)+'\',this)"></label>'+(overlay?'<button class="btn btn-sm" onclick="clearVisualizerOverlay(\''+esc(p.id)+'\')">Remove</button>':'')+(val(p,'officialUrl')?'<a class="btn btn-sm" href="'+esc(val(p,'officialUrl'))+'" target="_blank" rel="noopener">Official</a>':'')+'</div></div></article>'}).join('')}</div>`;
+  <div class="vga-grid">${shown.map(p=>{const img=val(p,'imageUrl'),overlay=val(p,'visualizerOverlayUrl'),isReady=!!(overlay||window.DoorDesign?.choice({referenceProductId:p.id}));return '<article class="vga-card"><div class="vga-image">'+(overlay?'<img src="'+esc(overlay)+'" alt="" class="vga-overlay-img">':img?'<img src="'+esc(img)+'" alt="">':'<div class="vga-placeholder">Garage Door</div>')+'<span class="'+(isReady?'ready':'missing')+'">'+(isReady?'Ready':'Needs Overlay')+'</span></div><div class="vga-copy"><small>'+esc([p.manufacturer,val(p,'collection')].filter(Boolean).join(' · '))+'</small><b>'+esc(p.name)+'</b><p>'+esc([val(p,'material'),val(p,'construction'),val(p,'rValue')?('R-'+val(p,'rValue')):''].filter(Boolean).join(' · '))+'</p><div class="vga-actions"><label class="btn btn-sm">'+(overlay?'Replace Overlay':'Upload Overlay')+'<input hidden type="file" accept="image/png,image/webp,image/jpeg" onchange="uploadVisualizerOverlay(\''+esc(p.id)+'\',this)"></label>'+(overlay?'<button class="btn btn-sm" onclick="clearVisualizerOverlay(\''+esc(p.id)+'\')">Remove</button>':'')+(val(p,'officialUrl')?'<a class="btn btn-sm" href="'+esc(val(p,'officialUrl'))+'" target="_blank" rel="noopener">Official</a>':'')+'</div></div></article>'}).join('')}</div>`;
 };
 window.renderVisCatalog=renderVisCatalog;
 
