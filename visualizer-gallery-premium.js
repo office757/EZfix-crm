@@ -55,7 +55,71 @@ function reflectGlass(pixels,w,h,regions,photo,q){
   }
  }
 }
+// Separate broad illumination from the photographed embossing. Closing fills
+// narrow panel grooves; it leaves the larger roof and foreground shadows.
+function lightingField(canvas,regions=[],target=false){
+ const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,rgba=ctx.getImageData(0,0,w,h).data,values=new Float32Array(w*h),valid=new Uint8Array(w*h),samples=[],colors=[[],[],[]];
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  const i=(y*w+x)*4,lum=(rgba[i]+rgba[i+1]+rgba[i+2])/3,spread=Math.max(rgba[i],rgba[i+1],rgba[i+2])-Math.min(rgba[i],rgba[i+1],rgba[i+2]);
+  const pane=regions.some(p=>x/w>=p.x&&x/w<=p.x+p.width&&y/h>=p.y&&y/h<=p.y+p.height);
+  values[y*w+x]=lum;
+  if(!pane&&rgba[i+3]>200&&lum>12&&(!target||spread<Math.max(22,lum*.14))){valid[y*w+x]=1;if(y>h*.2&&y<h*.94){samples.push(lum);if(x%4===0&&y%4===0&&lum>80)for(let ch=0;ch<3;ch++)colors[ch].push(rgba[i+ch]/lum);}}
+ }
+ samples.sort((a,b)=>a-b);const base=Math.max(18,samples[Math.floor(samples.length*.82)]||220),supported=!target||(samples.length>w*h*.2&&base>115);
+ for(let y=0;y<h;y++){
+  const row=[];for(let x=0;x<w;x++)if(valid[y*w+x])row.push(values[y*w+x]);const fill=median(row)||base;
+  for(let x=0;x<w;x++)if(!valid[y*w+x])values[y*w+x]=fill;
+ }
+ function extrema(input,r,max){
+  const row=new Float32Array(w*h),out=new Float32Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=max?0:255;for(let k=Math.max(0,x-r);k<=Math.min(w-1,x+r);k++)v=max?Math.max(v,input[y*w+k]):Math.min(v,input[y*w+k]);row[y*w+x]=v;}
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=max?0:255;for(let k=Math.max(0,y-r);k<=Math.min(h-1,y+r);k++)v=max?Math.max(v,row[k*w+x]):Math.min(v,row[k*w+x]);out[y*w+x]=v;}
+  return out;
+ }
+ const radius=target?Math.max(2,Math.round(w/128)):3,closed=extrema(extrema(values,radius,true),radius,false),r=target?Math.max(3,Math.round(w/24)):6,integral=new Float64Array((w+1)*(h+1)),out=new Float32Array(w*h);
+ // A chair, cable or plant can cast a thin, very dark shadow. Keep those
+ // original pixels; the closing above is only for the old panel's relief.
+ if(target)for(let i=0;i<closed.length;i++)if(valid[i]&&values[i]<base*.6)closed[i]=base;
+ for(let y=0;y<h;y++){let sum=0;for(let x=0;x<w;x++){sum+=closed[y*w+x];integral[(y+1)*(w+1)+x+1]=integral[y*(w+1)+x+1]+sum;}}
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  const a=Math.max(0,x-r),b=Math.min(w,x+r+1),c=Math.max(0,y-r),d=Math.min(h,y+r+1),sum=integral[d*(w+1)+b]-integral[c*(w+1)+b]-integral[d*(w+1)+a]+integral[c*(w+1)+a];
+  const broad=sum/((b-a)*(d-c))/base,original=values[y*w+x]/base,shadow=target&&valid[y*w+x]?clamp((.68-original)/.15,0,1,0):0;
+  out[y*w+x]=supported?clamp(broad*(1-shadow)+original*shadow,.12,1.2,1):1;
+ }
+ return {width:w,height:h,data:out,base,supported,balance:colors.map(c=>clamp(median(c),.75,1.25,1))};
+}
+const photoMaterialFields=new WeakMap(),photoSceneFields=new WeakMap();
+function photoSceneField(house,q,ratio){
+ if(!house||!q)return null;let entries=photoSceneFields.get(house);if(!entries){entries=new Map();photoSceneFields.set(house,entries);}const key=JSON.stringify(q);if(entries.has(key))return entries.get(key);
+ // Sample the full photograph, rather than a small whole-house thumbnail.
+ // Otherwise hard shadow edges become visible blocks in an HD export.
+ const photoCanvas=document.createElement('canvas'),processingScale=Math.min(1,2048/Math.max(house.naturalWidth,house.naturalHeight));photoCanvas.width=Math.max(1,Math.round(house.naturalWidth*processingScale));photoCanvas.height=Math.max(1,Math.round(house.naturalHeight*processingScale));const pc=photoCanvas.getContext('2d');pc.drawImage(house,0,0,photoCanvas.width,photoCanvas.height);const photo={width:photoCanvas.width,height:photoCanvas.height,data:pc.getImageData(0,0,photoCanvas.width,photoCanvas.height).data};
+ const opening=q.map(p=>({x:p.x*photo.width,y:p.y*photo.height})),nativeWidth=(Math.hypot(opening[1].x-opening[0].x,opening[1].y-opening[0].y)+Math.hypot(opening[2].x-opening[3].x,opening[2].y-opening[3].y))/2;
+ const cv=document.createElement('canvas');cv.width=Math.max(128,Math.round(Math.min(1024,nativeWidth)));cv.height=Math.max(64,Math.round(cv.width*ratio));const ctx=cv.getContext('2d'),frame=ctx.createImageData(cv.width,cv.height);
+ for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){const p=project(opening,(x+.5)/cv.width,(y+.5)/cv.height);window.PhotoDoor.sample(photo.data,photo.width,photo.height,p.x,p.y,frame.data,(y*cv.width+x)*4);}
+ ctx.putImageData(frame,0,0);
+ const path=String(house.currentSrc||house.src||'').split(/[?#]/)[0],ref=window.PhotoDoor.sources.find(s=>path.endsWith(s.url)&&s.corners.every((p,i)=>Math.hypot(p.x/100-q[i].x,p.y/100-q[i].y)<.008));
+ const regions=ref?window.PhotoDoor.paneRegions(ref,frame.data,cv.width,cv.height):window.DoorDesign.glassGeometry(frame.data,cv.width,cv.height).regions;
+ const field=lightingField(cv,regions,true);entries.set(key,field);if(entries.size>8)entries.delete(entries.keys().next().value);return field;
+}
+function fieldAt(field,u,v){if(!field)return 1;const x=Math.max(0,Math.min(field.width-1,u*field.width-.5)),y=Math.max(0,Math.min(field.height-1,v*field.height-.5)),a=Math.floor(x),b=Math.floor(y),fx=x-a,fy=y-b,right=Math.min(field.width-1,a+1),bottom=Math.min(field.height-1,b+1);return field.data[b*field.width+a]*(1-fx)*(1-fy)+field.data[b*field.width+right]*fx*(1-fy)+field.data[bottom*field.width+a]*(1-fx)*fy+field.data[bottom*field.width+right]*fx*fy;}
+function photographicTexture(img,d,scene,house,q){
+ const preview=d.designPreview,regions=preview.glassRegions||[],key=JSON.stringify(['photo',d.realism||{},scene,regions,q]);let entries=textureCache.get(img);if(!entries){entries=new Map();textureCache.set(img,entries);}const cached=entries.get(key);if(cached?.house===house)return cached.canvas;
+ const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;const ctx=cv.getContext('2d');ctx.drawImage(img,0,0);
+ let material=photoMaterialFields.get(img);if(!material){const small=document.createElement('canvas');small.width=Math.min(256,cv.width);small.height=Math.max(1,Math.round(small.width*cv.height/cv.width));small.getContext('2d').drawImage(img,0,0,small.width,small.height);material=lightingField(small,regions);photoMaterialFields.set(img,material);}
+ let environment=null;try{environment=photoSceneField(house,q,cv.height/cv.width);}catch{}
+ const frame=ctx.getImageData(0,0,cv.width,cv.height),pixels=frame.data,light=clamp(d.realism?.light,.65,1.25,1),shadows=clamp(d.realism?.shadows,0,1,1),balance=preview.originalFinish&&/^(White|Gray|Black)$/.test(preview.sourceFinish)?material.balance:[1,1,1];
+ for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){
+  const u=(x+.5)/cv.width,v=(y+.5)/cv.height,i=(y*cv.width+x)*4,pane=regions.some(p=>u>=p.x&&u<=p.x+p.width&&v>=p.y&&v<=p.y+p.height);
+  const source=pane?1:fieldAt(material,u,v),target=1+(fieldAt(environment,u,v)-1)*shadows,gain=light*scene.gain*target/source;
+  pixels[i]=pixels[i]*gain*scene.red/(pane?1:balance[0]);pixels[i+1]=pixels[i+1]*gain/(pane?1:balance[1]);pixels[i+2]=pixels[i+2]*gain*scene.blue/(pane?1:balance[2]);
+ }
+ ctx.putImageData(frame,0,0);
+ const depth=clamp(d.realism?.depth,0,1,0);if(depth){const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,'rgba(0,0,0,'+depth*.5+')');g.addColorStop(.07,'rgba(0,0,0,0)');g.addColorStop(.98,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,'+depth*.25+')');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);}
+ entries.set(key,{canvas:cv,house});if(entries.size>8)entries.delete(entries.keys().next().value);return cv;
+}
 function texture(img,d,scene={gain:1,red:1,blue:1,across:0,down:0},house=null,q=null){
+ if(d.designPreview?.photographic)return photographicTexture(img,d,scene,house,q);
  const regions=d.designPreview?.glassRegions,key=JSON.stringify([d.realism||{},scene,regions,q]);let entries=textureCache.get(img);if(!entries){entries=new Map();textureCache.set(img,entries);}const cached=entries.get(key);if(cached?.house===house)return cached.canvas;
  const cv=document.createElement('canvas');cv.width=Math.min(1600,Math.max(1000,img.naturalWidth));cv.height=Math.max(160,Math.round(cv.width*img.naturalHeight/img.naturalWidth));const ctx=cv.getContext('2d'),look=d.realism||{};
  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.filter='brightness('+clamp(look.light,.65,1.25,.96)+') contrast(1.025)';ctx.drawImage(img,0,0,cv.width,cv.height);ctx.filter='none';
@@ -120,21 +184,27 @@ function preserveForeground(ctx,d,w,h){
 }
 function draw(output,img,d,w,h,house){
  const layer=document.createElement('canvas');layer.width=w;layer.height=h;const ctx=layer.getContext('2d');
- const q=corners(d,w,h,img.naturalHeight/img.naturalWidth),normalized=q.map(p=>({x:p.x/w,y:p.y/h})),light=sceneLight(house,normalized),tex=texture(img,d,light,house,normalized),cut=clamp(d.realism?.cut,0,.22,0),uv=[[cut,0],[1-cut,0],[1,cut],[1,1],[0,1],[0,cut]];
+ const q=corners(d,w,h,img.naturalHeight/img.naturalWidth),normalized=q.map(p=>({x:p.x/w,y:p.y/h})),preview=d.designPreview;
+ const exactPhoto=preview?.photographic&&preview.nativeGeometry&&preview.originalFinish&&house&&String(house.currentSrc||house.src||'').split(/[?#]/)[0].endsWith(preview.sourcePhotoUrl)&&preview.sourceCorners.every((p,i)=>Math.hypot(p.x/100-normalized[i].x,p.y/100-normalized[i].y)<.00001)&&clamp(d.realism?.light,.65,1.25,1)===1&&clamp(d.realism?.depth,0,1,0)===0&&clamp(d.realism?.shadows,0,1,1)===1;
+ const cut=clamp(d.realism?.cut,0,.22,0),uv=[[cut,0],[1-cut,0],[1,cut],[1,1],[0,1],[0,cut]];
  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  ctx.save();ctx.beginPath();uv.forEach(([u,v],i)=>{const p=project(q,u,v);ctx[i?'lineTo':'moveTo'](p.x,p.y);});ctx.closePath();ctx.clip();
+ if(exactPhoto)ctx.drawImage(house,0,0,w,h);
+ else{
+ const light=sceneLight(house,normalized),tex=texture(img,d,light,house,normalized);
  const [a,b,c,e]=q,affine=Math.hypot(a.x-b.x+c.x-e.x,a.y-b.y+c.y-e.y)<.05;
  if(affine){ctx.save();ctx.transform((b.x-a.x)/tex.width,(b.y-a.y)/tex.width,(e.x-a.x)/tex.height,(e.y-a.y)/tex.height,a.x,a.y);ctx.drawImage(tex,0,0);ctx.restore();}
  else{const mapped=warp(tex,q,w,h);if(mapped)ctx.drawImage(mapped.canvas,mapped.left,mapped.top);}
+ }
  ctx.restore();preserveForeground(ctx,d,w,h);output.save();output.globalAlpha=clamp(d.pos?.opacity,.35,1,1);output.drawImage(layer,0,0);output.restore();
 }
-const images=new Map();function load(url){if(!images.has(url)){const task=window.DoorDesign.loadImage(url);images.set(url,task);task.catch(()=>images.delete(url));if(images.size>32)images.delete(images.keys().next().value);}return images.get(url);}
-window.DoorRealism={valid,corners,project,inverse,warp,sceneLight,texture,reflectGlass,draw,clamp,load,foregroundStrokes,preserveForeground};
+const images=new Map();function load(url){if(!images.has(url)){const task=window.DoorDesign.loadImage(url);images.set(url,task);task.catch(()=>images.delete(url));if(images.size>12)images.delete(images.keys().next().value);}return images.get(url);}
+window.DoorRealism={valid,corners,project,inverse,warp,sceneLight,texture,reflectGlass,draw,clamp,load,foregroundStrokes,preserveForeground,lightingField,photoSceneField,fieldAt};
 })();
 (() => {
 'use strict';
 
-function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZFIX_INSPIRATION_LIBRARY||[])];}
+function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZFIX_INSPIRATION_LIBRARY||[])].map(p=>{const sources=(window.PhotoDoor?.sources||[]).filter(s=>s.photoId===p.id).sort((a,b)=>a.opening-b.opening);return sources.length===p.openings?{...p,corners:sources.map(s=>s.corners)}:p;});}
 function preparedHomePhotos(){return homePhotos().filter(p=>p.corners?.length===visState.doorCount);}
 function homeReferenceUrl(id){return homePhotos().find(p=>p.id===id)?.url||'/assets/door-styles/'+id+'.png';}
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
@@ -182,7 +252,7 @@ const legacyDoor=d=>d?.modelId?getOne('doorModels',d.modelId):null;
 const favoriteKey=()=> 'ezfix:door-favorites:v1:'+(CURRENT_TEAM_MEMBER?.id||'local');
 function favoriteIds(){try{const ids=JSON.parse(localStorage.getItem(favoriteKey())||'[]');return new Set(Array.isArray(ids)?ids.filter(x=>typeof x==='string'):[]);}catch{return new Set();}}
 function toggleVisFavorite(id){
-  if(!referenceDoors().some(p=>p.id===id))return;
+  if(!referenceDoors().some(p=>p.id===id)&&!window.PhotoDoor?.families.some(f=>'photo-family:'+f.id===id))return;
   const ids=favoriteIds();ids.has(id)?ids.delete(id):ids.add(id);
   try{localStorage.setItem(favoriteKey(),JSON.stringify([...ids]));}catch{return toast('Favorites could not be saved on this device.',true);}
   const focus=document.activeElement?.dataset.favoriteId;render();
@@ -198,16 +268,19 @@ function modelCard(p,i,d){
  return '<article class="vg-model-tile '+(d.referenceProductId===p.id||f&&f.id===window.DoorDesign?.family(refDoor(d))?.id?'selected':'')+'"><button class="vg-door-card" data-product-id="'+esc(p.id)+'" onclick="selectVisReferenceDoor('+i+',this.dataset.productId)"><div class="vg-door-thumb">'+(val(p,'imageUrl')?'<img loading="lazy" src="'+esc(val(p,'imageUrl'))+'" alt="'+esc(p.name)+'">':'🚪')+'<span class="'+(ready?'is-ready':'')+'">'+(ready?'On-home preview':'Reference')+'</span></div><div class="vg-door-copy"><b>'+esc(title)+'</b><span>'+esc(p.manufacturer||'')+'</span><small>'+esc(window.DoorDesign?.imageLabel(p)||'Model photo')+'</small></div></button>'+favoriteButton(p)+'</article>';
 }
 const overlayUrl=d=>{
+  if(d?.photoDesignId)return window.DoorDesign?.overlay(d)||'';
   const p=refDoor(d);
   return p ? ((!d.visualDesignOverride&&val(p,'visualizerOverlayUrl'))||window.DoorDesign?.overlay(d)||val(p,'visualizerOverlayUrl')||'') : (legacyDoor(d)?.doorImageUrl||'');
 };
 const doorTitle=d=>{
+  if(d?.photoDesignId)return window.PhotoDoor?.choice(d)?.f.label||'Garage Door';
   const p=refDoor(d); if(p)return p.name||'Garage Door';
   const m=legacyDoor(d); if(!m)return 'Garage Door';
   const mf=getOne('manufacturers',m.manufacturerId);
   return [mf?.name,m.modelName].filter(Boolean).join(' ')||'Garage Door';
 };
 const doorCollection=d=>{
+  if(d?.photoDesignId)return '';
   const p=refDoor(d); if(p)return val(p,'collection')||'';
   return legacyDoor(d)?.collectionName||'';
 };
@@ -239,7 +312,7 @@ async function paintVisDoors(){
  }));
 }
 window.setVisFit=function(idx,key,value){const n=Number(value),d=visState.doors[idx];if(!d||!['widthPct','heightPct'].includes(key)||!Number.isFinite(n))return;checkpoint('fit:'+idx+':'+key);delete d.pos.corners;d.pos[key]=Math.max(5,Math.min(100,n));queueVisPaint();};
-window.setVisRealism=function(idx,key,value){const d=visState.doors[idx];if(!d||!['light','depth','cut'].includes(key))return;const n=Number(value);if(!Number.isFinite(n))return;checkpoint('light:'+idx+':'+key);d.realism={...d.realism,[key]:window.DoorRealism.clamp(n,key==='light'?.65:0,key==='light'?1.25:key==='cut'?.22:1,key==='light'?.96:0)};queueVisPaint();};
+window.setVisRealism=function(idx,key,value){const d=visState.doors[idx];if(!d||!['light','depth','cut','shadows'].includes(key))return;const n=Number(value);if(!Number.isFinite(n))return;checkpoint('light:'+idx+':'+key);d.realism={...d.realism,[key]:window.DoorRealism.clamp(n,key==='light'?.65:0,key==='light'?1.25:key==='cut'?.22:1,key==='light'?1:key==='shadows'?1:0)};queueVisPaint();};
 let cornerFitDoor=-1;
 window.toggleVisCornerFit=function(idx){
  const d=visState.doors[idx];if(!d)return;cornerFitDoor=cornerFitDoor===idx?-1:idx;
@@ -314,7 +387,7 @@ function syncReferenceFields(d,p){
   d.manufacturerId='';
   d.collectionKey=val(p,'collection')||'';
   d.color='';
-  delete d.visualDesign;delete d.designPreview;delete d.visualDesignOverride;
+  delete d.photoDesignId;delete d.visualDesign;delete d.designPreview;delete d.visualDesignOverride;
   window.DoorDesign?.normalize(d);
   d.construction=val(p,'construction')||'';
 }
@@ -421,7 +494,7 @@ async function resumeSavedVisualizerDesign(id){
  const doors=Array.from({length:count},(_,i)=>{const x=savedDoors[i]&&typeof savedDoors[i]==='object'?savedDoors[i]:{},base=freshDoorConfig(),pos={...base.pos,...x.pos};for(const [key,min,max] of [['x',0,100],['y',0,100],['scale',.2,3],['rotation',-360,360],['opacity',.35,1],['widthPct',5,100],['heightPct',5,100]]){if(pos[key]===undefined)continue;const n=Number(pos[key]);if(Number.isFinite(n))pos[key]=Math.max(min,Math.min(max,n));else if(base.pos[key]!==undefined)pos[key]=base.pos[key];else delete pos[key];}if(!window.DoorRealism.valid(pos.corners))delete pos.corners;const door={...base,...x,pos,foreground:window.DoorRealism.foregroundStrokes(x.foreground)};delete door.designPreview;return door;});
  if(selection!==photoSelectionVersion)return;
  visState={step:house?3:2,doorCount:count,doors,activeDoor:0,applyToAll:false,houseImage:house,presetCustomerId:d.customerId||'',presetLeadId:'',presetJobId:'',compareList:[],savedDesignId:d.id,designName:d.designName||''};
- visWorkspaceTab='designer';visCatalogState.tab=doors[0].referenceProductId?'design':'models';const target=visState;render();
+ visWorkspaceTab='designer';visCatalogState.tab=doors[0].photoDesignId||doors[0].referenceProductId?'design':'models';const target=visState;render();
  try{await Promise.all(doors.map(d=>window.DoorDesign?.prepare(d)));if(selection===photoSelectionVersion&&target===visState){render();toast('Saved design loaded');}}catch(e){if(selection===photoSelectionVersion&&target===visState)toast(e.message,true);}
 }
 window.resumeSavedVisualizerDesign=resumeSavedVisualizerDesign;
@@ -457,7 +530,7 @@ window.continueVisualizerSetup=function(){
  visState.step=2;render();
 };
 renderVisStep2=function(body){
- body.innerHTML=`<section class="studio-setup studio-photo"><div class="studio-setup-heading"><span>02 / HOME IMAGE</span><h2>Your customer’s home</h2><p>Take a photo, upload one, or start with an EZfix reference below.</p></div><div class="studio-photo-actions"><label for="f_housecamera"><span>◎</span><b>Take a photo</b><small>Use your phone camera</small></label><label for="f_houseimg"><span>↥</span><b>Upload a photo</b><small>JPG, PNG or WebP · up to 15 MB</small></label></div><input hidden type="file" accept="image/*" capture="environment" id="f_housecamera"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="f_houseimg"><div class="studio-reference-heading"><h3>Or use an EZfix reference</h3><span>Real photos & prepared examples</span></div><div class="studio-reference-grid">${[...preparedHomePhotos().map(p=>[p.id,p.name,(p.aiGenerated?'AI inspiration':'Real photo')+' · prepared opening fit']),...DOOR_STYLE_EXAMPLES].map(([id,name,detail])=>`<button class="studio-reference ${visState.houseImage?.referenceId===id?'selected':''}" data-reference="${id}" aria-pressed="${visState.houseImage?.referenceId===id}" onclick="selectVisReferenceImage(this.dataset.reference)"><img src="${homeReferenceUrl(id)}" alt="${esc(name)} reference" loading="lazy"><b>${esc(name)}</b><small>${esc(detail)}</small></button>`).join('')}</div>${visState.houseImage?`<div class="studio-photo-selection"><img src="${esc(visState.houseImage.url)}" alt="Selected home image"><div><span>Selected image</span><b>${esc(visState.houseImage.name||'Customer photo')}</b><small>${visState.houseImage.kind==='reference'?'EZfix illustration · choose an actual catalog model next':visState.houseImage.kind==='inspiration'?'AI inspiration':visState.houseImage.kind==='installation'?'Real door photo':'Customer photo'}</small></div></div>`:''}<footer><button class="btn" onclick="visState.step=1;render()">← Door size</button><button class="btn btn-primary" ${visState.houseImage?'':'disabled'} onclick="visState.step=3;render()">Choose door design →</button></footer></section>`;
+ body.innerHTML=`<section class="studio-setup studio-photo"><div class="studio-setup-heading"><span>02 / HOME IMAGE</span><h2>Your customer’s home</h2><p>Take a photo, upload one, or start with an EZfix reference below.</p></div><div class="studio-photo-actions"><label for="f_housecamera"><span>◎</span><b>Take a photo</b><small>Use your phone camera</small></label><label for="f_houseimg"><span>↥</span><b>Upload a photo</b><small>JPG, PNG or WebP · up to 15 MB</small></label></div><input hidden type="file" accept="image/*" capture="environment" id="f_housecamera"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="f_houseimg"><div class="studio-reference-heading"><h3>Or use an EZfix reference</h3><span>Real installation photographs</span></div><div class="studio-reference-grid">${[...preparedHomePhotos().filter(p=>!p.aiGenerated).map(p=>[p.id,p.name,'Real installation · prepared opening fit'])].map(([id,name,detail])=>`<button class="studio-reference ${visState.houseImage?.referenceId===id?'selected':''}" data-reference="${id}" aria-pressed="${visState.houseImage?.referenceId===id}" onclick="selectVisReferenceImage(this.dataset.reference)"><img src="${homeReferenceUrl(id)}" alt="${esc(name)} reference" loading="lazy"><b>${esc(name)}</b><small>${esc(detail)}</small></button>`).join('')}</div>${visState.houseImage?`<div class="studio-photo-selection"><img src="${esc(visState.houseImage.url)}" alt="Selected home image"><div><span>Selected image</span><b>${esc(visState.houseImage.name||'Customer photo')}</b><small>${visState.houseImage.kind==='reference'?'EZfix illustration · choose an actual catalog model next':visState.houseImage.kind==='inspiration'?'AI inspiration':visState.houseImage.kind==='installation'?'Real door photo':'Customer photo'}</small></div></div>`:''}<footer><button class="btn" onclick="visState.step=1;render()">← Door size</button><button class="btn btn-primary" ${visState.houseImage?'':'disabled'} onclick="visState.step=3;render()">Choose door design →</button></footer></section>`;
  const upload=async e=>{
   const file=e.target.files?.[0];if(!file)return;
   const selection=++photoSelectionVersion,target=visState;
@@ -475,7 +548,7 @@ window.selectVisReferenceImage=async function(id){
    if(photo.openings!==visState.doorCount)return toast('Choose a photo with the same number of openings.',true);
    await window.DoorDesign.loadImage(photo.url);if(selection!==photoSelectionVersion||target!==visState)return;
    visState.houseImage={url:photo.url,kind:photo.aiGenerated?'inspiration':'installation',referenceId:id,name:photo.name};
-   visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{delete d.foreground;d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};if(window.DoorRealism.valid(photo.corners?.[i]))d.pos.corners=photo.corners[i].map(p=>({...p}));d.realism={light:.96,depth:.45,cut:photo.cut||0};});cornerFitDoor=-1;render();return;
+   visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{delete d.foreground;d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};if(window.DoorRealism.valid(photo.corners?.[i]))d.pos.corners=photo.corners[i].map(p=>({...p}));d.realism={light:d.photoDesignId?1:.96,depth:d.photoDesignId?0:.45,shadows:1,cut:photo.cut||0};});cornerFitDoor=-1;render();return;
   }
   const count=visState.doorCount,cols=count===1?1:2,rows=Math.ceil(count/cols),url='/assets/door-styles/'+id+'.png';
   let background=url;
@@ -489,32 +562,33 @@ window.selectVisReferenceImage=async function(id){
 };
 
 renderVisStep3=function(body){
-  const i=visState.activeDoor,d=visState.doors[i],selected=refDoor(d),c=window.DoorDesign?.choice(d);
-  const refs=filteredReferenceDoors(),all=referenceDoors(),favorites=all.filter(p=>favoriteIds().has(p.id));
-  const list=visCatalogState.tab==='favorites'?refs.filter(p=>favoriteIds().has(p.id)):refs;
-  const groups=visCatalogState.search?list:(window.DoorDesign?.groupModels(list)||list),shown=groups.slice(0,visCatalogState.limit);
-  const manufacturers=[...new Set(all.map(p=>p.manufacturer).filter(Boolean))].sort();
-  const collectionBody=`<div class="vg-filter-grid"><input id="visModelSearch" aria-label="Search door models" placeholder="Search collection or exact model…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)"><select aria-label="Manufacturer" onchange="visCatalogManufacturer(this.value)"><option value="">All manufacturers</option>${manufacturers.map(x=>'<option '+(visCatalogState.manufacturer===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select><button class="btn btn-sm ${visCatalogState.tab==='favorites'?'btn-primary':''}" onclick="visPickerTab('${visCatalogState.tab==='favorites'?'models':'favorites'}')">★ Favorites (${favorites.length})</button><label class="vg-ready-filter"><input type="checkbox" ${visCatalogState.readyOnly?'checked':''} onchange="visCatalogReadyOnly(this.checked)"> On-home preview available</label></div><div class="vg-results-count">${groups.length} ${visCatalogState.search?'matching models':'collections'}</div><div class="vg-door-grid">${shown.map(p=>modelCard(p,i,d)).join('')}</div>${!groups.length?'<div class="vg-empty-state"><b>No matching doors</b><p>Change the search or manufacturer to see more.</p></div>':''}${groups.length>shown.length?'<button class="btn btn-sm studio-more" onclick="showMoreVisDoors()">Show more collections</button>':''}`;
+  const i=visState.activeDoor,d=visState.doors[i],c=window.DoorDesign?.choice(d),photo=window.PhotoDoor?.choice(d),selected=photo?{id:'photo-family:'+photo.f.id,name:photo.f.label}:refDoor(d);
+  const all=window.PhotoDoor?.families||[],favorites=all.filter(f=>favoriteIds().has('photo-family:'+f.id));
+  const terms=visCatalogState.search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const list=all.filter(f=>(!visCatalogState.collection||f.group===visCatalogState.collection)&&terms.every(t=>(f.label+' '+f.group).toLowerCase().includes(t))&&(visCatalogState.tab!=='favorites'||favoriteIds().has('photo-family:'+f.id)));
+  const groups=[...new Set(all.map(f=>f.group))];
+  const collectionBody=`<div class="vg-filter-grid"><input id="visModelSearch" aria-label="Search door designs" placeholder="Search Short Panel, Long Panel, carriage…" value="${esc(visCatalogState.search)}" oninput="visCatalogSearch(this.value)"><select aria-label="Door style family" onchange="visCatalogCollection(this.value)"><option value="">All designs</option>${groups.map(x=>'<option '+(visCatalogState.collection===x?'selected':'')+'>'+esc(x)+'</option>').join('')}</select><button class="btn btn-sm ${visCatalogState.tab==='favorites'?'btn-primary':''}" onclick="visPickerTab('${visCatalogState.tab==='favorites'?'models':'favorites'}')">★ Favorites (${favorites.length})</button></div><div class="vg-results-count">${list.length} design families · ${window.PhotoDoor?.sources.length||0} real door references</div><div class="vg-door-grid">${list.map(f=>{const source=window.PhotoDoor.preferred(f.id,d),active=d.photoDesignId===f.id;return '<article class="vg-model-tile '+(active?'selected':'')+'"><button class="vg-door-card" data-design-id="'+f.id+'" onclick="selectVisPhotoDesign('+i+',this.dataset.designId)"><div class="vg-door-thumb"><img data-photo-thumb="'+source.id+'" alt="'+esc(f.label)+'"><span class="is-ready">Real photograph</span></div><div class="vg-door-copy"><b>'+esc(f.label)+'</b><span>'+esc(f.group)+'</span><small>'+window.PhotoDoor.sources.filter(s=>s.family===f.id).length+' photographed references</small></div></button>'+favoriteButton({id:'photo-family:'+f.id,name:f.label})+'</article>';}).join('')}</div>${!list.length?'<div class="vg-empty-state"><b>No matching designs</b><p>Change the search or style filter.</p></div>':''}`;
   body.innerHTML=`<div class="vg-layout">
     <section class="vg-canvas-card">
       <div class="vg-stage-head"><div><b>${visState.houseImage.kind==='reference'?'Your EZfix reference':'Your home. Your new door.'}</b><span>Drag to position · use Fit 4 corners for angled photos</span></div><button class="btn btn-sm" onclick="visState.step=2;render()">Change image</button></div>
-      ${editToolbar()}<div class="studio-viewport" aria-label="Scrollable home preview"><div class="vis-stage vg-stage ${foregroundMode?'studio-brush-mode':''}" id="visStage" style="width:${visZoom*100}%" onpointerdown="if(window.__visForegroundMode)startVisForegroundStroke(event,visState.activeDoor)"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" crossorigin="anonymous" alt="Home preview" draggable="false">${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}${cornerHandles(d,i)}${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door from the collection panel to preview it here.</div>':''}</div></div>
-      <details class="studio-fit-panel"><summary>Fit door ${i+1} to the opening <span>${d.width} × ${d.height} ft</span></summary><div class="studio-fit-tools"><label>Width<input aria-label="Opening width" type="range" min="5" max="100" step=".5" value="${d.pos.widthPct||30}" oninput="setVisFit(${i},'widthPct',this.value)"></label><label>Height<input aria-label="Opening height" type="range" min="5" max="100" step=".5" value="${d.pos.heightPct||40}" oninput="setVisFit(${i},'heightPct',this.value)"></label><div><button class="btn btn-sm" onclick="nudgeVisRotation(-2)" aria-label="Rotate counterclockwise">↶</button><button class="btn btn-sm" onclick="nudgeVisRotation(2)" aria-label="Rotate clockwise">↷</button><button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button></div><button type="button" class="btn btn-sm" onclick="toggleVisCornerFit(${i})">${cornerFitDoor===i?'Done fitting corners':'Fit 4 corners'}</button><p class="muted">Place corners 1–4 inside the door frame, clockwise from top left.</p><label>Natural light<input aria-label="Door lighting" type="range" min=".65" max="1.25" step=".01" value="${d.realism?.light??.96}" oninput="setVisRealism(${i},'light',this.value)"></label><label>Recess & shadow<input aria-label="Door recess shadow" type="range" min="0" max="1" step=".02" value="${d.realism?.depth??.45}" oninput="setVisRealism(${i},'depth',this.value)"></label><label>Angled upper corners<input aria-label="Angled opening corners" type="range" min="0" max=".22" step=".01" value="${d.realism?.cut??0}" oninput="setVisRealism(${i},'cut',this.value)"></label><details><summary>Transparency</summary><input aria-label="Door opacity" type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></details></div></details>
-      <p class="studio-preview-note">${visState.houseImage.kind==='reference'?'EZfix style illustration. ':''}Layout and finish preview · confirm final color and details against manufacturer samples.</p>
+      ${editToolbar()}<div class="studio-viewport" aria-label="Scrollable home preview"><div class="vis-stage vg-stage ${foregroundMode?'studio-brush-mode':''}" id="visStage" style="width:${visZoom*100}%" onpointerdown="if(window.__visForegroundMode)startVisForegroundStroke(event,visState.activeDoor)"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" crossorigin="anonymous" alt="Home preview" draggable="false">${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}${cornerHandles(d,i)}${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a photographed door design to preview it here.</div>':''}</div></div>
+      <details class="studio-fit-panel"><summary>Fit door ${i+1} to the opening <span>${d.width} × ${d.height} ft</span></summary><div class="studio-fit-tools"><label>Width<input aria-label="Opening width" type="range" min="5" max="100" step=".5" value="${d.pos.widthPct||30}" oninput="setVisFit(${i},'widthPct',this.value)"></label><label>Height<input aria-label="Opening height" type="range" min="5" max="100" step=".5" value="${d.pos.heightPct||40}" oninput="setVisFit(${i},'heightPct',this.value)"></label><div><button class="btn btn-sm" onclick="nudgeVisRotation(-2)" aria-label="Rotate counterclockwise">↶</button><button class="btn btn-sm" onclick="nudgeVisRotation(2)" aria-label="Rotate clockwise">↷</button><button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button></div><button type="button" class="btn btn-sm" onclick="toggleVisCornerFit(${i})">${cornerFitDoor===i?'Done fitting corners':'Fit 4 corners'}</button><p class="muted">Place corners 1–4 inside the door frame, clockwise from top left.</p><label>Natural light<input aria-label="Door lighting" type="range" min=".65" max="1.25" step=".01" value="${d.realism?.light??.96}" oninput="setVisRealism(${i},'light',this.value)"></label><label>Recess & shadow<input aria-label="Door recess shadow" type="range" min="0" max="1" step=".02" value="${d.realism?.depth??.45}" oninput="setVisRealism(${i},'depth',this.value)"></label>${photo?'<label>Photo shadows<input aria-label="Photo shadow strength" type="range" min="0" max="1" step=".05" value="'+(d.realism?.shadows??1)+'" oninput="setVisRealism('+i+',\'shadows\',this.value)"></label>':''}<label>Angled upper corners<input aria-label="Angled opening corners" type="range" min="0" max=".22" step=".01" value="${d.realism?.cut??0}" oninput="setVisRealism(${i},'cut',this.value)"></label><details><summary>Transparency</summary><input aria-label="Door opacity" type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></details></div></details>
+      <p class="studio-preview-note">${visState.houseImage.kind==='reference'?'EZfix style illustration. ':''}Layout and finish preview · confirm the supplied product and finish.</p>
     </section>
     <section class="vg-picker-card studio-configurator">
-      <div class="vg-picker-title"><div><span class="vg-eyebrow">EZfix door studio</span><h3>Design Door ${i+1}</h3><p>${d.width}′ wide × ${d.height}′ tall${selected?' · '+esc(selected.manufacturer):''}</p></div>${selected?favoriteButton(selected):''}</div>
-      ${visState.doorCount>1?'<div class="vis-door-tabs">'+visState.doors.slice(0,visState.doorCount).map((dd,idx)=>'<button class="vis-door-tab '+(i===idx?'active':'')+'" onclick="visState.activeDoor='+idx+';visPickerTab(visState.doors['+idx+'].referenceProductId?\'design\':\'models\')">Door '+(idx+1)+'</button>').join('')+'</div>':''}
-      <details id="studioCollections" class="studio-option" name="door-configuration" ${!selected||visCatalogState.tab!=='design'?'open':''}><summary><span>Door collection</span><b>${esc(c?.f.label||doorCollection(d)||'Choose a collection')}</b></summary><div class="studio-option-body">${collectionBody}</div></details>
-      ${selected?(window.DoorDesign?.controls(d,i)||'<div class="vg-empty-state"><b>Manufacturer reference</b><p>This model has a reference photo. Its configuration options have not been verified yet.</p></div>'):'<p class="studio-selection-hint">Choose a collection to see its available designs and options.</p>'}
+      <div class="vg-picker-title"><div><span class="vg-eyebrow">EZfix door studio</span><h3>Design Door ${i+1}</h3><p>${d.width}′ wide × ${d.height}′ tall${photo?' · '+photo.source.columns+' panels × '+photo.source.sections+' sections':''}</p></div>${selected?favoriteButton(selected):''}</div>
+      ${visState.doorCount>1?'<div class="vis-door-tabs">'+visState.doors.slice(0,visState.doorCount).map((dd,idx)=>'<button class="vis-door-tab '+(i===idx?'active':'')+'" onclick="visState.activeDoor='+idx+';visPickerTab((visState.doors['+idx+'].photoDesignId||visState.doors['+idx+'].referenceProductId)?\'design\':\'models\')">Door '+(idx+1)+'</button>').join('')+'</div>':''}
+      <details id="studioCollections" class="studio-option" name="door-configuration" ${!selected||visCatalogState.tab!=='design'?'open':''}><summary><span>Door design</span><b>${esc(c?.f.label||doorCollection(d)||'Choose a design')}</b></summary><div class="studio-option-body">${collectionBody}</div></details>
+      ${selected?(window.DoorDesign?.controls(d,i)||'<div class="vg-empty-state"><b>Manufacturer reference</b><p>This model has a reference photo. Its configuration options have not been verified yet.</p></div>'):'<p class="studio-selection-hint">Choose a photographed design to see its window layouts and colors.</p>'}
       ${visState.doorCount>1?'<label class="vg-apply-all"><input type="checkbox" '+(visState.applyToAll?'checked':'')+' onchange="toggleVisApplyToAll(this.checked)"> Apply design to all doors</label>':''}
     </section>
-  </div><div class="vg-footer-actions"><button class="btn" onclick="visState.step=2;render()">← Home image</button><span>Step 3 of 4 · Design your door</span><button class="btn btn-primary" ${!visState.doors.slice(0,visState.doorCount).every(x=>x.referenceProductId||x.modelId)?'disabled':''} onclick="visState.step=4;render()">Review & Save →</button></div>`;
+  </div><div class="vg-footer-actions"><button class="btn" onclick="visState.step=2;render()">← Home image</button><span>Step 3 of 4 · Design your door</span><button class="btn btn-primary" ${!visState.doors.slice(0,visState.doorCount).every(x=>x.photoDesignId||x.referenceProductId||x.modelId)?'disabled':''} onclick="visState.step=4;render()">Review & Save →</button></div>`;
 };
-const renderRealismStep3=renderVisStep3;renderVisStep3=function(body){renderRealismStep3(body);queueVisPaint();};window.renderVisStep3=renderVisStep3;
+const renderRealismStep3=renderVisStep3;renderVisStep3=function(body){renderRealismStep3(body);window.PhotoDoor?.hydrate(body);queueVisPaint();};window.renderVisStep3=renderVisStep3;
 
 function designSpecRows(d){
  const p=refDoor(d),c=window.DoorDesign?.choice(d);
+ if(c?.photographic)return [['Size',c.width+' × '+c.height+' ft'],['Door design',c.f.label],['Panel layout',c.source.columns+' panels across · '+c.source.sections+' sections'],['Color',c.finish==='original'?c.source.finish+' · as photographed':c.color.label],['Windows & inserts',c.variant.label],['Window placement',c.variant.placement],['Hardware',c.source.hardware?'As photographed':'None'],['Product name',d.productDescription||'']].filter(x=>x[1]);
  return [['Size',(d.customSize?d.customWidth:d.width)+' × '+(d.customSize?d.customHeight:d.height)+' ft'],['Brand',p?.manufacturer||getOne('manufacturers',legacyDoor(d)?.manufacturerId)?.name||''],['Collection',doorCollection(d)],['Construction',c?window.DoorDesign.modelLabel(c.p):doorTitle(d)],['Door design',c?.panel.label||''],['Color',c?.color.label||d.color||'As shown'],['Window placement',c?(window.DoorDesign.isClosed(c.panel,c.variant)?'Closed':'Top'):''],['Window design',c?.variant.label||''],['Glass',c?.glass?.label||'As shown'],['Hardware',c?.hardware?.label||'None']].filter(x=>x[1]);
 }
 function summaryCard(d,idx){
@@ -532,8 +606,8 @@ window.startVisComparisonDrag=function(e){
  const end=ev=>{if(ev.pointerId!==id)return;move(ev);cleanup();};move(e);dragCleanup=cleanup;document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);window.addEventListener('blur',cleanup);
 };
 renderVisStep4=function(body){
- const doors=visState.doors.slice(0,visState.doorCount),configured=doors.every(d=>d.referenceProductId||d.modelId);
- body.innerHTML=`<section class="studio-review"><div class="studio-review-heading"><span>04 / REVIEW & SAVE</span><h2>Your new garage door</h2><p>Review the image and the full specification before saving or creating an estimate.</p></div>${reviewComparison(doors)}<p class="studio-preview-note">Preview colors and proportions may vary from the installed door.${doors.some(d=>{const c=window.DoorDesign?.choice(d);return c?.glass||c?.hardware;})?' Selected glass and hardware are listed below. Their appearance in the preview remains as shown in the original catalog image.':''}</p><div class="vg-review-actions studio-review-actions"><button class="btn" onclick="visState.step=3;render()">← Edit design</button><button class="btn" onclick="openSaveDesignModal()">Save Design</button><button class="btn" onclick="downloadVisPdf()">Save as PDF</button><button class="btn" id="visDownloadImage" onclick="downloadVisImage()">Download HD image</button><button class="btn" onclick="window.print()">Print</button><button class="btn" onclick="shareDesign()">Share</button><button class="btn btn-primary" ${configured?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button></div><div class="studio-spec-grid">${doors.map(summaryCard).join('')}</div></section>`;
+ const doors=visState.doors.slice(0,visState.doorCount),configured=doors.every(d=>d.photoDesignId||d.referenceProductId||d.modelId);
+ body.innerHTML=`<section class="studio-review"><div class="studio-review-heading"><span>04 / REVIEW & SAVE</span><h2>Your new garage door</h2><p>Review the image and the full specification before saving or creating an estimate.</p></div>${reviewComparison(doors)}<p class="studio-preview-note">Preview colors and proportions may vary from the installed door.${doors.some(d=>{const c=window.DoorDesign?.choice(d);return !c?.photographic&&(c?.glass||c?.hardware);})?' Selected glass and hardware are listed below. Their appearance in the preview remains as shown in the original catalog image.':''}</p><div class="vg-review-actions studio-review-actions"><button class="btn" onclick="visState.step=3;render()">← Edit design</button><button class="btn" onclick="openSaveDesignModal()">Save Design</button><button class="btn" onclick="downloadVisPdf()">Save as PDF</button><button class="btn" id="visDownloadImage" onclick="downloadVisImage()">Download HD image</button><button class="btn" onclick="window.print()">Print</button><button class="btn" onclick="shareDesign()">Share</button><button class="btn btn-primary" ${configured?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button></div><div class="studio-spec-grid">${doors.map(summaryCard).join('')}</div></section>`;
 };
 const renderRealismStep4=renderVisStep4;renderVisStep4=function(body){renderRealismStep4(body);queueVisPaint();};window.renderVisStep4=renderVisStep4;
 window.downloadVisPdf=async function(){
@@ -544,7 +618,7 @@ window.downloadVisPdf=async function(){
   const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter'}),margin=36,w=258,ratio=house.naturalHeight/house.naturalWidth,iw=Math.min(w,290/ratio),h=iw*ratio;
   pdf.setFont('helvetica','bold');pdf.setFontSize(21);pdf.text('EZfix | Garage door design',margin,46);pdf.setFontSize(10);pdf.setTextColor(105);pdf.text(name,margin,66);
   pdf.text('BEFORE',margin,94);pdf.text('AFTER',318,94);pdf.addImage(cv.toDataURL('image/jpeg',.95),'JPEG',margin+(w-iw)/2,106,iw,h);pdf.addImage(after,'JPEG',318+(w-iw)/2,106,iw,h);
-  let y=125+h;pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.text('Layout preview. Confirm colors, glass and hardware against manufacturer samples.',margin,y);y+=28;
+  let y=125+h;pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.text('Layout preview. Confirm the supplied product, finish, glass and hardware.',margin,y);y+=28;
   for(const [idx,d] of snapshot.doors.entries()){
    if(y>620){pdf.addPage();y=44;}pdf.setTextColor(30);pdf.setFont('helvetica','bold');pdf.setFontSize(13);pdf.text('Door '+(idx+1),margin,y);y+=20;pdf.setFontSize(10);
    for(const [label,value] of designSpecRows(d)){const lines=pdf.splitTextToSize(String(value).replace(/×/g,'x'),390);if(y+lines.length*12>745){pdf.addPage();y=44;}pdf.setFont('helvetica','normal');pdf.setTextColor(110);pdf.text(label,margin,y);pdf.setTextColor(30);pdf.text(lines,155,y);y+=Math.max(18,lines.length*12+5);}y+=20;
@@ -554,7 +628,7 @@ window.downloadVisPdf=async function(){
 };
 
 shareDesign=function(){
-  const lines=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId).map((d,i)=>'Door '+(i+1)+': '+doorTitle(d)+(doorCollection(d)?' · '+doorCollection(d):'')+' · '+designSpecRows(d).map(x=>x.join(': ')).join(' · ')).join('\n');
+  const lines=visState.doors.slice(0,visState.doorCount).filter(d=>d.photoDesignId||d.referenceProductId||d.modelId).map((d,i)=>'Door '+(i+1)+': '+doorTitle(d)+(doorCollection(d)?' · '+doorCollection(d):'')+' · '+designSpecRows(d).map(x=>x.join(': ')).join(' · ')).join('\n');
   shareOrCopy('Your garage door design',"Here's the garage door design we put together at "+COMPANY.name+":\n\n"+lines+"\n\nQuestions or ready to move forward? Call "+COMPANY.phone+".",'');
 };
 window.shareDesign=shareDesign;
@@ -588,12 +662,13 @@ window.downloadVisImage=async function(){
 };
 
 createEstimateFromDesign=async function(){
-  const doors=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId);
-  if(!doors.length||doors.length!==visState.doorCount)return toast('Choose a model for every door first',true);
+  const doors=visState.doors.slice(0,visState.doorCount).filter(d=>d.photoDesignId||d.referenceProductId||d.modelId);
+  if(!doors.length||doors.length!==visState.doorCount)return toast('Choose a design for every door first',true);
   if(doors.some(d=>d.referenceProductId&&(!refDoor(d)||refDoor(d).active===false)))return toast('A selected door is no longer available. Choose an active catalog model.',true);
   try{await Promise.all(doors.map(d=>window.DoorDesign?.prepare(d)));}catch(e){return toast(e.message,true);}
   const items=doors.map((d,i)=>{
     const p=refDoor(d),m=legacyDoor(d),size=d.customSize?(d.customWidth+"'x"+d.customHeight+"'"):(d.width+"'x"+d.height+"'");
+    if(d.photoDesignId){const c=window.PhotoDoor.choice(d);return {desc:(doors.length>1?'Garage door #'+(i+1)+' — ':'')+(d.productDescription?.trim()||c.f.label),details:'Size: '+size+'\n'+window.PhotoDoor.description(d),visualDesign:{...d.visualDesign,photoDesignId:d.photoDesignId},qty:1,rate:0,taxable:true,doorImage:{id:null,url:overlayUrl(d),label:c.f.label+' · '+window.PhotoDoor.description(d)}};}
     if(p){
       const design=window.DoorDesign?.choice(d)?.panel?.label||val(p,'panelStyle');
       const specs=[val(p,'collection')?'Collection: '+val(p,'collection'):'','Size: '+size,design?'Design: '+design:'',val(p,'material')?'Material: '+val(p,'material'):'',val(p,'construction')?'Construction: '+val(p,'construction'):'',val(p,'rValue')?'R-Value: '+val(p,'rValue'):''].filter(Boolean).join('\n');
@@ -611,6 +686,7 @@ const baseApplyAll=toggleVisApplyToAll;
 toggleVisApplyToAll=async function(checked){
  checkpoint();
  const selected=visState.doors[visState.activeDoor];
+ if(selected?.photoDesignId){visState.applyToAll=!!checked;const target=visState;if(checked)target.doors.slice(0,target.doorCount).forEach(d=>{if(d!==selected){window.PhotoDoor.copyDesign(selected,d);const source=window.PhotoDoor.preferred(d.photoDesignId,d,window.PhotoDoor.choice(selected).source.layout);if(source)d.visualDesign.sourceId=source.id;d.realism={...d.realism,light:1,depth:0,shadows:1};}});render();if(checked)try{await Promise.all(target.doors.slice(0,target.doorCount).map(d=>window.DoorDesign.prepare(d)));if(target===visState&&route.page==='visualizer')render();}catch(e){if(target===visState)toast(e.message,true);}return;}
  if(!selected?.referenceProductId)return baseApplyAll(checked);
  visState.applyToAll=!!checked;
  if(checked)visState.doors.slice(0,visState.doorCount).forEach(d=>{if(d!==selected){syncReferenceFields(d,refDoor(selected));d.visualDesign=selected.visualDesign?{...selected.visualDesign}:undefined;d.visualDesignOverride=!!selected.visualDesignOverride;delete d.designPreview;}});
