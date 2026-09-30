@@ -48,9 +48,9 @@ test('day view and day popup show the same chronological order',()=>{
 });
 test('week grid places 2–4 PM at 2 PM with its full two-hour height',()=>{
   const output=renderCalendarFixture(html,{jobs});const cards=[...output.matchAll(/<button class="cal-hour-job\b[^>]*>/g)].map(x=>x[0]);
-  const card=cards.find(x=>x.includes("go('jobs','afternoon')"));assert.ok(card);assert.match(card,/top:360px/);assert.match(card,/height:114px/);
-  const early=cards.find(x=>x.includes("go('jobs','early')"));assert.ok(early);assert.match(early,/top:30px/);
-  assert.equal(cards.length,4);assert.ok(!cards.some(x=>x.includes("go('jobs','unknown')")));assert.match(output,/Unscheduled time/);
+  const card=cards.find(x=>x.includes("openCalendarJobPreview('afternoon')"));assert.ok(card);assert.match(card,/top:360px/);assert.match(card,/height:114px/);
+  const early=cards.find(x=>x.includes("openCalendarJobPreview('early')"));assert.ok(early);assert.match(early,/top:30px/);
+  assert.equal(cards.length,4);assert.ok(!cards.some(x=>x.includes("openCalendarJobPreview('unknown')")));assert.match(output,/Unscheduled time/);
 });
 test('dragging a shorthand appointment preserves its two-hour duration in the saved request',async()=>{
   const c=runtime();vm.runInContext(section('function formatCalendarClock(','async function handleJobDrop(')+section('async function handleJobTimeDrop(','window.handleJobDrop'),c);
