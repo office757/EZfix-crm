@@ -24,7 +24,7 @@ check('Technicians and owner technician preview cannot gain office, finance or t
  }
 });
 check('Office account retains operational access without owner AI or settings',()=>{
- const f=fixture('office');assert.ok(f.section('office').items.some(n=>n.key==='followups'));assert.deepEqual(f.section('office').related.map(n=>n.key),['calendar']);assert.deepEqual(fixture('owner').section('office').related.map(n=>n.key),['calendar']);for(const role of ['owner','office'])assert.deepEqual(fixture(role).section('calendar').items.map(n=>n.key),['leads','jobs','calendar']);
+ const f=fixture('office');assert.ok(f.section('office').items.some(n=>n.key==='followups'));for(const role of ['owner','office'])assert.deepEqual(fixture(role).section('office').items.map(n=>n.key),['office','customers','followups']);for(const role of ['owner','office'])assert.deepEqual(fixture(role).section('calendar').items.map(n=>n.key),['leads','jobs','calendar']);
  assert.ok(!f.section('office').items.some(n=>['ai_manager','receptionist','ai_system'].includes(n.key)));
  assert.equal(f.section('settings'),null);
  assert.ok(f.section('payroll').items.some(n=>n.key==='reports'));

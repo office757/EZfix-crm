@@ -22,3 +22,7 @@ David additionally requested Customers and Follow-Ups & Tasks inside Office, rem
 David requested Team Performance and Tech Payroll inside Team, Payments inside Banking, and a permanently open sidebar without category headings or collapsible groups. Keep existing role permissions and nested page links (September 29, 2026).
 
 David requested Calendar in the Office related tools row, owner sidebar order Quick Payment, Dashboard, Ashley, Calendar, Office, Invoices, Estimates, Door Visualizer, Gallery, Products & Services, Banking, Team, Settings. Remove owner Jobs & Leads sidebar entry; retain its pages via Calendar and preserve staff role permissions (September 29, 2026).
+
+David requested Calendar immediately after Office in its tools row for phone visibility, followed by a downloadable source backup (September 30, 2026).
+
+David clarified Office needs an embedded compact monthly calendar, not a Calendar button. Replace the Office tools-row Calendar link with a real monthly grid above Office operations; day selection opens that date in the full calendar (September 30, 2026).

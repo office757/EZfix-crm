@@ -12,6 +12,13 @@ assert.equal(scripts[0]?.src,'/whatsapp-linked-device.js');
 const office=c.window.OfficeWorkspace,content={innerHTML:''},actions={innerHTML:''};
 office.renderOffice(content,actions);for(const key of ['communications','calls','calendar','inventory','suppliers','products','team','payroll','gallery','payments','estimates','invoices','socialposts'])assert.ok(content.innerHTML.includes(`data-workspace-link="${key}"`),key);
 assert.ok(!actions.innerHTML.includes('addUser'));
+assert.equal((content.innerHTML.match(/data-office-date=/g)||[]).length,42);
+const firstDate=content.innerHTML.match(/data-office-date="([^"]+)"/)[1];
+c.STORE.jobs=[{scheduledDate:firstDate},{scheduledDate:firstDate,deletedAt:'deleted'}];office.renderOffice(content,actions);assert.match(content.innerHTML,/1 scheduled jobs/);
+const original=content.innerHTML;office.shiftMonth(1);office.renderOffice(content,actions);assert.notEqual(content.innerHTML,original);office.shiftMonth(-1);
+c.searchTerms={};c.calendarViewMode='month';c.saveUiState=()=>c.saved=true;c.go=page=>c.destination=page;office.openDate(firstDate);assert.equal(c.searchTerms.calendarSelectedDate,firstDate);assert.equal(c.calendarViewMode,'day');assert.equal(c.destination,'calendar');assert.equal(c.saved,true);
+c.CURRENT_TEAM_MEMBER.role='technician';c.destination='unchanged';office.openDate(firstDate);assert.equal(c.destination,'unchanged');c.CURRENT_TEAM_MEMBER.role='office';
+
 office.post();c.document.getElementById('social_title').value='New installation';c.document.getElementById('social_caption').value='Project update';c.document.getElementById('social_status').value='draft';await c.modal.onSave();assert.equal(writes[0][0],'socialPosts');assert.equal(writes[0][1].platforms[0],'instagram');
 writes.length=0;c.document.getElementById('social_status').value='posted_manual';await c.modal.onSave();assert.equal(writes.length,0);assert.match(c.notice,/published post link/);
 c.STORE.socialPosts=[{id:'post',title:'<script>bad</script>',caption:'Test <unsafe>',status:'ready',platforms:['instagram'],photos:[]}];office.renderSocial(content,actions);assert.ok(content.innerHTML.includes('&lt;script&gt;'));assert.ok(!content.innerHTML.includes('<script>'));assert.ok(content.innerHTML.includes('Account connection pending'));
