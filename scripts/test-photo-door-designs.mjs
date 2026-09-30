@@ -53,6 +53,11 @@ test('preparation returns a door-only lossless overlay and never displays the wh
  const {P,D}=harness(),d=door();assert.equal(D.overlay(d),'');assert(!d.designPreview);const p=await P.prepare(d);assert(p.url.startsWith('data:image/png'));assert.equal(D.overlay(d),p.url);assert.equal(p.sourcePhotoUrl,'/assets/installation-photos/installation-101.jpg');assert.equal(p.nativeGeometry,true);assert.equal(p.columns,4);assert.equal(p.sections,4);
  const widened=door('square-short','photo-101-0','original',16);assert.equal((await P.prepare(widened)).nativeGeometry,false);
 });
+test('closed long panels use the photographed solid section and cannot retain the glass row',async()=>{
+ const {P,D}=harness(),closed=P.sources.find(s=>s.id==='photo-017-0-closed');assert.equal(closed.panelFill,'closed-top');assert.equal(closed.photoId,'installation-017');assert.equal(closed.layout,'closed');assert.equal(closed.band,null);
+ D.loadImage=async()=>picture(100,100,(_,y)=>y<44?[20,20,20,255]:[210,210,210,255]);const d=door('square-long',closed.id,'original',16),preview=await P.prepare(d);assert.equal(preview.nativeGeometry,false);assert.equal(preview.columns,4);assert.equal(preview.sections,4);assert.equal(preview.glassRegions.length,0);
+ const texture=P.rectify(await D.loadImage(),closed,100),pixels=texture.getContext('2d').getImageData(0,0,texture.width,texture.height).data;assert(pixels[(Math.floor(texture.height*.1)*texture.width+Math.floor(texture.width*.5))*4]>200,'first section is actual painted material, rather than glass or a drawn panel');
+});
 test('a late photo load cannot attach an obsolete finish to the active design',async()=>{
  const {P,D}=harness();let resolve;D.loadImage=()=>new Promise(r=>resolve=r);const d=door(),old=P.prepare(d);d.visualDesign.finish='black';const current=P.prepare(d);resolve(picture());await old;await current;assert.equal(d.designPreview.key,P.choice(d).key);assert.match(d.designPreview.key,/black/);const first=d.designPreview;assert.equal(await P.prepare(d),first);
 });
@@ -69,6 +74,14 @@ test('native finish retains the exact photograph while a new finish changes its 
 test('neutral paint loses the source blue cast without changing photographed pane reflections',()=>{
  const {R}=harness(),img=picture(96,96,(x,y)=>x>9&&x<28&&y<20?[18,45,85,255]:[180,210,230,255]),d={designPreview:{photographic:true,originalFinish:true,sourceFinish:'White',glassRegions:[{x:.09,y:0,width:.22,height:.22}]},realism:{light:1,depth:0}},tex=R.texture(img,d),pixels=tex.getContext('2d').getImageData(0,0,96,96).data,body=(60*96+60)*4,pane=(10*96+15)*4;
  assert(Math.abs(pixels[body]-pixels[body+2])<=2);assert.deepEqual(Array.from(pixels.slice(pane,pane+4)),[18,45,85,255]);
+});
+test('colored steel retains its photographed paint hue without importing a local sunset cast',()=>{
+ const {R}=harness(),img=picture(96,96,(x,y)=>x>74?[160,110,30,255]:[35,105,55,255]),d={designPreview:{photographic:true,originalFinish:true,sourceFinish:'Green',sourceMaterial:'painted-steel',glassRegions:[]},realism:{light:1,depth:0}},tex=R.texture(img,d),pixels=tex.getContext('2d').getImageData(0,0,96,96).data,plain=(60*96+30)*4,warm=(60*96+85)*4;
+ assert(Math.abs(pixels[plain]/pixels[plain+1]-pixels[warm]/pixels[warm+1])<.02);assert(pixels[warm+1]>pixels[warm],'retain green paint instead of the old orange reflection');
+});
+test('natural wood retains individual grain colors during lighting transfer',()=>{
+ const {R}=harness(),img=picture(96,96,x=>x<48?[105,65,35,255]:[70,80,45,255]),d={designPreview:{photographic:true,originalFinish:true,sourceFinish:'Brown',sourceMaterial:'wood',glassRegions:[]},realism:{light:1,depth:0}},tex=R.texture(img,d),pixels=tex.getContext('2d').getImageData(0,0,96,96).data,a=(50*96+25)*4,b=(50*96+75)*4;
+ assert(pixels[a]>pixels[a+1]);assert(pixels[b]<pixels[b+1]);
 });
 test('scene illumination preserves thin real shadows and excludes old windows and panel grooves',()=>{
  const {R}=harness(),cv=canvas();cv.width=128;cv.height=128;const img=picture(128,128,(x,y)=>y<18||x===109&&y>105?[40,40,40,255]:x===48?[170,170,170,255]:[220,220,220,255]);cv.getContext('2d').drawImage(img);const field=R.lightingField(cv,[],true);assert(field.supported);assert(R.fieldAt(field,.5,.05)<.25);assert(R.fieldAt(field,109.5/128,115.5/128)<.25);assert(R.fieldAt(field,48.5/128,.6)>.95);
