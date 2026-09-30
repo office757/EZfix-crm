@@ -77,7 +77,7 @@ function workspacePageSection(page) {
     });
     root.querySelectorAll('.launcher-cat').forEach(card => {
       const title = card.querySelector('.launcher-cat-head')?.textContent || '';
-      const category = Object.keys(categoryTones).find(key => title.includes(key));
+      const category = Object.keys(categoryTones).find(key => title.toLowerCase().includes(key.toLowerCase()));
       if (category) card.dataset.workspaceTone = categoryTones[category];
     });
     root.querySelectorAll('[data-workspace-link]').forEach(button => {
