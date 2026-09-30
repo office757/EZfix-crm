@@ -2958,11 +2958,11 @@ function updateBridgeDiagnosticsPanel() {
   // the fix for the render->poll->render loop: a poll's own diagnostics
   // update must never itself trigger another render/poll cycle.
   const el = document.getElementById('bridgeDiagnosticsPanel');
-  if (!el) return; // not currently on Communications — nothing to update, nothing to trigger
+  if (!IS_OWNER || route.page!=='receptionist' || receptionistState.subview!=='diagnostics' || !el) return;
   el.innerHTML = renderBridgeDiagnosticsHtml();
 }
 function renderBridgeDiagnosticsHtml() {
-  return `<b>SMS Bridge Diagnostics (temporary, owner-only)</b><br>
+  return `<b>SMS Bridge Diagnostics</b><br>
     SMS Bridge: ${SupabaseCommunicationBridge.configured()?'Configured':'Not configured'}<br>
     Target: ${_bridgeDiagnostics.targetHost ? esc(_bridgeDiagnostics.targetHost + _bridgeDiagnostics.targetPath) : '(not yet attempted)'}<br>
     Method: ${_bridgeDiagnostics.requestMethod ?? '—'}<br>
@@ -3262,8 +3262,7 @@ function renderCommunications(content, actions) {
       </div>
       <button class="btn btn-sm" onclick="markAllCommunicationsRead()">Mark all read</button>
     </div>
-    <div class="muted" style="font-size:11px;margin-bottom:10px">${window.__crmRealtimeConnected ? 'Live CRM updates connected via Supabase Realtime' : (SupabaseCommunicationBridge.configured() ? 'CRM bridge connected · realtime reconnecting' : 'SMS bridge not configured yet')}</div>
-    ${IS_OWNER ? `<div class="panel" style="margin-bottom:14px;background:var(--paper-2)"><div class="panel-body pad" style="font-size:11.5px;font-family:monospace" id="bridgeDiagnosticsPanel">${renderBridgeDiagnosticsHtml()}</div></div>` : ''}
+
     <input type="text" placeholder="Search communications…" value="${esc(searchTerms.commSearch||'')}" oninput="searchTerms.commSearch=this.value; render()" style="width:100%;margin-bottom:14px">
     <div class="two-col comm-split${selected?' comm-mobile-detail':''}">
       <div class="panel"><div class="panel-body">${listHtml}</div></div>
@@ -3596,7 +3595,9 @@ async function checkForWebsiteLeads(silent) {
   return { imported:0, disabled:true };
 }
 
+let lastLeadCheckDebug = null;
 function showLeadCheckReport(r) {
+  if (IS_OWNER) lastLeadCheckDebug = r.rawRes ? JSON.stringify(r.rawRes, null, 2).slice(0,3000) : null;
   showModal({
     title: 'Gmail lead check',
     body: r.error
@@ -3606,7 +3607,7 @@ function showLeadCheckReport(r) {
          <div class="kv"><div class="k">Matched existing customer/lead</div><div>${r.matchedExisting||0} <span class="muted">(no duplicate created — check Notifications)</span></div></div>
          <div class="kv"><div class="k">Already had</div><div>${r.alreadyHad}</div></div>
          ${r.skippedNoName.length ? `<div class="kv"><div class="k">Couldn't parse</div><div>${r.skippedNoName.length} email(s) didn't match the expected format</div></div>` : ''}
-         ${r.rawRes ? `<div class="field" style="margin-top:12px"><span class="lbl">Debug — raw response</span><textarea readonly style="font-size:10px;font-family:monospace" rows="8">${esc(JSON.stringify(r.rawRes, null, 2).slice(0,3000))}</textarea></div>` : ''}`,
+`,
     onSave: async () => { closeModal(); go('leads'); }
   });
   document.getElementById('modalSaveBtn').textContent = 'View leads';
@@ -7999,6 +8000,37 @@ function renderAiReceptionist(content, actions) {
   actions.innerHTML = '';
   const health = TelephonyAdapter.healthCheck();
   content.innerHTML = `
+    <div class="doc-tabbar ashley-tool-grid">
+      <button class="doc-tab ${receptionistState.subview==='manager'?'active':''}" onclick="receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';render()">🧠 AI Manager</button>
+      <button class="doc-tab ${receptionistState.subview==='test'?'active':''}" onclick="receptionistState.subview='test'; render()">🧪 Test Simulator</button>
+      <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
+      <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
+      <button class="doc-tab ${receptionistState.subview==='phone'?'active':''}" onclick="receptionistState.subview='phone'; render()">📞 Phone Connection</button>
+      ${[['all','All messages'],['unread','Unread'],['whatsapp','WhatsApp'],['email','Gmail'],['sms','SMS']].map(([key,label])=>`<button class="doc-tab ${receptionistState.subview===key?'active':''}" onclick="openAshleyChannel('${key}')">${ashleyChannelIcon(key)} ${label}</button>`).join('')}
+      <button class="doc-tab ${receptionistState.subview==='diagnostics'?'active':''}" onclick="receptionistState.subview='diagnostics';render()">📁 System Diagnostics</button>
+      <button class="doc-tab" onclick="go('socialposts')">📣 Social Media</button>
+      <button class="doc-tab" onclick="go('settings')">⚙️ Business Settings</button>
+      <button class="doc-tab ${receptionistState.subview==='settings'?'active':''}" onclick="receptionistState.subview='settings'; render()">🎧 Ashley Settings</button>
+    </div>
+    <div style="margin-top:16px" id="receptionistBody"></div>
+  `;
+  const body = document.getElementById('receptionistBody');
+  if(receptionistState.subview==='diagnostics')return renderAshleyDiagnostics(body,actions);
+  if(receptionistState.subview==='manager'){if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';return renderAiManager(body,actions);}
+  if (['whatsapp','email','sms','all','unread'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
+  if (receptionistState.subview==='test') return renderReceptionistChat(body, 'test');
+  if (receptionistState.subview==='assistant') return renderReceptionistChat(body, 'assistant');
+  if (receptionistState.subview==='phone') return renderPhoneConnection(body);
+  if (receptionistState.subview==='calls') return renderCallHistory(body);
+  return renderReceptionistSettings(body);
+}
+function renderAshleyDiagnostics(content, actions) {
+  actions.innerHTML = '';
+  if (!IS_OWNER || isTechnicianView()) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
+  const lastInboundSms = [...STORE.smsMessages].filter(m=>m.direction==='inbound').sort((a,b)=>recordTimestamp(b.receivedAt)-recordTimestamp(a.receivedAt))[0];
+  const pendingCount = STORE.smsMessages.filter(m=>m.matchAmbiguous).length;
+  content.innerHTML = `<section aria-label="System Diagnostics">
+    <div class="panel-head"><h3>📁 System Diagnostics</h3><button class="btn btn-sm" onclick="render()">Refresh</button></div>
     <div class="panel" style="margin-bottom:14px;background:var(--paper-2);border-style:dashed">
       <div class="panel-body pad" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
@@ -8008,27 +8040,44 @@ function renderAiReceptionist(content, actions) {
         <button class="btn btn-sm" onclick="showReceptionistSetupInfo()">What's needed?</button>
       </div>
     </div>
-    <div class="doc-tabbar ashley-tool-grid">
-      <button class="doc-tab ${receptionistState.subview==='manager'?'active':''}" onclick="receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';render()">🧠 AI Manager</button>
-      <button class="doc-tab ${receptionistState.subview==='test'?'active':''}" onclick="receptionistState.subview='test'; render()">🧪 Test Simulator</button>
-      <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
-      <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
-      <button class="doc-tab ${receptionistState.subview==='phone'?'active':''}" onclick="receptionistState.subview='phone'; render()">📞 Phone Connection</button>
-      ${[['all','All messages'],['unread','Unread'],['whatsapp','WhatsApp'],['email','Gmail'],['sms','SMS']].map(([key,label])=>`<button class="doc-tab ${receptionistState.subview===key?'active':''}" onclick="openAshleyChannel('${key}')">${ashleyChannelIcon(key)} ${label}</button>`).join('')}
-      <button class="doc-tab" onclick="go('socialposts')">📣 Social Media</button>
-      <button class="doc-tab" onclick="go('settings')">⚙️ Business Settings</button>
-      <button class="doc-tab ${receptionistState.subview==='settings'?'active':''}" onclick="receptionistState.subview='settings'; render()">🎧 Ashley Settings</button>
+    <div class="muted" style="font-size:11px;margin-bottom:10px">${window.__crmRealtimeConnected ? 'Live CRM updates connected via Supabase Realtime' : (SupabaseCommunicationBridge.configured() ? 'CRM bridge connected · realtime reconnecting' : 'SMS bridge not configured yet')}</div>
+    ${IS_OWNER ? `<div class="panel" style="margin-bottom:14px;background:var(--paper-2)"><div class="panel-body pad" style="font-size:11.5px;font-family:monospace" id="bridgeDiagnosticsPanel">${renderBridgeDiagnosticsHtml()}</div></div>` : ''}
+    <details class="settings-tools">
+      <summary>System tools &amp; logs</summary>
+      <div class="settings-tools-actions">
+        <button class="btn btn-sm" onclick="go('auditlog')">Activity History</button>
+        <button class="btn btn-sm" onclick="go('walog')">WhatsApp Log</button>
+        <button class="btn btn-sm" onclick="go('checklist')">Dev Checklist</button>
+      </div>
+    </details>
+    <h3 class="section-label">Integrations — Inkbox SMS/Voice</h3>
+    <div class="panel" style="margin-bottom:16px"><div class="panel-body pad">
+      <div class="kv"><div class="k">Inkbox Number</div><div>${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</div></div>
+      <div class="kv"><div class="k">Bridge configured</div><div>${SupabaseCommunicationBridge.configured() ? '🟢 Yes' : '🔴 No — anon key not set (see Dev Checklist)'}</div></div>
+      <div class="kv"><div class="k">Last inbound SMS received</div><div>${lastInboundSms ? fmtDate(lastInboundSms.receivedAt) : 'None yet'}</div></div>
+      <div class="kv"><div class="k">Total SMS synced</div><div>${STORE.smsMessages.length}</div></div>
+      <div class="kv"><div class="k">Ambiguous phone matches needing review</div><div>${pendingCount}</div></div>
+      <p class="muted" style="font-size:12px;margin-top:10px">Messages and calls are persisted server-side and CRM table changes stream through Supabase Realtime. Provider delivery state remains separate from handset receipt.</p>
+    </div></div>
+    <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>Ashley Integration Architecture</h3></div>
+      <div class="panel-body pad" style="font-size:13px;line-height:1.7">
+        <p style="margin-top:0"><b>Ashley / Inkbox · ${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</b> is the AI receptionist identity used for calls, SMS, call history and transcripts.</p>
+        <p><b>EZfix T-Mobile · +1 (774) 244-5533</b> remains the existing business line and is not replaced, ported, or reconfigured by this CRM.</p>
+        <p><b>Supabase backend</b> stores Inkbox webhook events, SMS lifecycle state, call records and transcripts. The browser receives CRM table changes through Supabase Realtime.</p>
+      </div>
     </div>
-    <div style="margin-top:16px" id="receptionistBody"></div>
-  `;
-  const body = document.getElementById('receptionistBody');
-  if(receptionistState.subview==='manager'){if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';return renderAiManager(body,actions);}
-  if (['whatsapp','email','sms','all','unread'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
-  if (receptionistState.subview==='test') return renderReceptionistChat(body, 'test');
-  if (receptionistState.subview==='assistant') return renderReceptionistChat(body, 'assistant');
-  if (receptionistState.subview==='phone') return renderPhoneConnection(body);
-  if (receptionistState.subview==='calls') return renderCallHistory(body);
-  return renderReceptionistSettings(body);
+
+    <div class="panel"><div class="panel-body pad">
+      <div class="kv"><div class="k">Voice Provider</div><div>🟢 Inkbox / Ashley</div></div>
+      <div class="kv"><div class="k">Webhook Receiver</div><div>🟢 Supabase Edge Function configured</div></div>
+      <div class="kv"><div class="k">CRM Realtime</div><div>${window.__crmRealtimeConnected?'🟢 Connected':'🟡 Reconnecting'}</div></div>
+      <div class="kv"><div class="k">Call / Transcript Sync</div><div>🟢 Server-side sync available</div></div>
+      <div class="kv"><div class="k">SMS Carrier Delivery</div><div>🟡 Provider issue under investigation</div></div>
+      <button class="btn btn-primary" onclick="syncCallsNow(this)" style="margin-top:12px">Sync Ashley now</button>
+    </div></div>
+
+    <details class="settings-tools"><summary>Gmail lead import debug</summary><div class="panel-body pad"><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${lastLeadCheckDebug ? esc(lastLeadCheckDebug) : 'No lead import debug report in this session.'}</pre></div></details>
+  </section>`;
 }
 function ashleyChannelIcon(channel) {
   if(channel==='all')return '📥';
@@ -8105,22 +8154,7 @@ function renderPhoneConnection(body) {
       </div>
     </div>
 
-    <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>Ashley Integration Architecture</h3></div>
-      <div class="panel-body pad" style="font-size:13px;line-height:1.7">
-        <p style="margin-top:0"><b>Ashley / Inkbox · ${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</b> is the AI receptionist identity used for calls, SMS, call history and transcripts.</p>
-        <p><b>EZfix T-Mobile · +1 (774) 244-5533</b> remains the existing business line and is not replaced, ported, or reconfigured by this CRM.</p>
-        <p><b>Supabase backend</b> stores Inkbox webhook events, SMS lifecycle state, call records and transcripts. The browser receives CRM table changes through Supabase Realtime.</p>
-      </div>
-    </div>
-
-    <div class="panel"><div class="panel-body pad">
-      <div class="kv"><div class="k">Voice Provider</div><div>🟢 Inkbox / Ashley</div></div>
-      <div class="kv"><div class="k">Webhook Receiver</div><div>🟢 Supabase Edge Function configured</div></div>
-      <div class="kv"><div class="k">CRM Realtime</div><div>${window.__crmRealtimeConnected?'🟢 Connected':'🟡 Reconnecting'}</div></div>
-      <div class="kv"><div class="k">Call / Transcript Sync</div><div>🟢 Server-side sync available</div></div>
-      <div class="kv"><div class="k">SMS Carrier Delivery</div><div>🟡 Provider issue under investigation</div></div>
-      <button class="btn btn-primary" onclick="syncCallsNow(this)" style="margin-top:12px">Sync Ashley now</button>
-    </div></div>
+    <button class="btn btn-primary" onclick="syncCallsNow(this)">Sync Ashley now</button>
   `;
 }
 function attemptConnectPhoneProvider() {
@@ -8625,26 +8659,7 @@ window.previewEmailLogoUrl = previewEmailLogoUrl;
 function renderSettings(content, actions) {
   if (!IS_OWNER) { content.innerHTML = emptyState('🔒','Owner access only',''); return; }
   const templates = { ...DEFAULT_TEMPLATES, ...(SETTINGS.templates||{}) };
-  const lastInboundSms = [...STORE.smsMessages].filter(m=>m.direction==='inbound').sort((a,b)=>recordTimestamp(b.receivedAt)-recordTimestamp(a.receivedAt))[0];
-  const pendingCount = STORE.smsMessages.filter(m=>m.matchAmbiguous).length;
   content.innerHTML = `
-    <details class="settings-tools">
-      <summary>System tools &amp; logs</summary>
-      <div class="settings-tools-actions">
-        <button class="btn btn-sm" onclick="go('auditlog')">Activity History</button>
-        <button class="btn btn-sm" onclick="go('walog')">WhatsApp Log</button>
-        <button class="btn btn-sm" onclick="go('checklist')">Dev Checklist</button>
-      </div>
-    </details>
-    <h3 class="section-label">Integrations — Inkbox SMS/Voice</h3>
-    <div class="panel" style="margin-bottom:16px"><div class="panel-body pad">
-      <div class="kv"><div class="k">Inkbox Number</div><div>${esc(SETTINGS.inkboxPhone?.number||'Not configured')}</div></div>
-      <div class="kv"><div class="k">Bridge configured</div><div>${SupabaseCommunicationBridge.configured() ? '🟢 Yes' : '🔴 No — anon key not set (see Dev Checklist)'}</div></div>
-      <div class="kv"><div class="k">Last inbound SMS received</div><div>${lastInboundSms ? fmtDate(lastInboundSms.receivedAt) : 'None yet'}</div></div>
-      <div class="kv"><div class="k">Total SMS synced</div><div>${STORE.smsMessages.length}</div></div>
-      <div class="kv"><div class="k">Ambiguous phone matches needing review</div><div>${pendingCount}</div></div>
-      <p class="muted" style="font-size:12px;margin-top:10px">Messages and calls are persisted server-side and CRM table changes stream through Supabase Realtime. Provider delivery state remains separate from handset receipt.</p>
-    </div></div>
     ${IS_OWNER ? `
     <h3 class="section-label">Branding</h3>
     <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>Email Branding</h3></div>
