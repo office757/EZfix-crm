@@ -32,10 +32,32 @@ function texture(img,d){
  shade(0,0,w,0,[[0,'rgba(0,0,0,'+(depth*.38)+')'],[.035,'rgba(0,0,0,0)'],[.65,'rgba(255,255,255,.025)'],[.975,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.28)+')']]);
  textureCache.set(img,{key,canvas:cv});return cv;
 }
-function triangle(ctx,img,s,t){
- const [a,b,c]=s,[p,q,r]=t,det=(b.x-a.x)*(c.y-a.y)-(c.x-a.x)*(b.y-a.y);if(Math.abs(det)<1e-8)return;
- const A=((q.x-p.x)*(c.y-a.y)-(r.x-p.x)*(b.y-a.y))/det,B=((q.y-p.y)*(c.y-a.y)-(r.y-p.y)*(b.y-a.y))/det,C=((r.x-p.x)*(b.x-a.x)-(q.x-p.x)*(c.x-a.x))/det,D=((r.y-p.y)*(b.x-a.x)-(q.y-p.y)*(c.x-a.x))/det;
- ctx.save();ctx.beginPath();const center={x:(p.x+q.x+r.x)/3,y:(p.y+q.y+r.y)/3};[p,q,r].forEach((v,i)=>{const dx=v.x-center.x,dy=v.y-center.y,len=Math.hypot(dx,dy)||1;ctx[i?'lineTo':'moveTo'](v.x+dx/len*1.2,v.y+dy/len*1.2);});ctx.closePath();ctx.clip();ctx.transform(A,B,C,D,p.x-A*a.x-C*a.y,p.y-B*a.x-D*a.y);const left=Math.min(a.x,b.x,c.x),top=Math.min(a.y,b.y,c.y),width=Math.max(a.x,b.x,c.x)-left,height=Math.max(a.y,b.y,c.y)-top;ctx.drawImage(img,left,top,width,height,left,top,width,height);ctx.restore();
+function inverse(q){
+ const [a,b,c,d]=q,dx=b.x-c.x,dy=b.y-c.y,ex=d.x-c.x,ey=d.y-c.y,sx=a.x-b.x+c.x-d.x,sy=a.y-b.y+c.y-d.y,det=dx*ey-ex*dy;
+ let g=0,h=0;if(Math.abs(det)>1e-8){g=(sx*ey-ex*sy)/det;h=(dx*sy-sx*dy)/det;}
+ const A=b.x-a.x+g*b.x,B=d.x-a.x+h*d.x,C=a.x,D=b.y-a.y+g*b.y,E=d.y-a.y+h*d.y,F=a.y;
+ // Adjugate suffices: the homogeneous division cancels the determinant.
+ return [E-F*h,C*h-B,B*F-C*E,F*g-D,A-C*g,C*D-A*F,D*h-E*g,B*g-A*h,A*E-B*D];
+}
+const texturePixels=new WeakMap();
+function warp(tex,q,w,h){
+ const left=Math.max(0,Math.floor(Math.min(...q.map(p=>p.x)))),top=Math.max(0,Math.floor(Math.min(...q.map(p=>p.y))));
+ const width=Math.max(0,Math.min(w,Math.ceil(Math.max(...q.map(p=>p.x))))-left),height=Math.max(0,Math.min(h,Math.ceil(Math.max(...q.map(p=>p.y))))-top);
+ if(!width||!height)return null;
+ const cv=document.createElement('canvas');cv.width=width;cv.height=height;const ctx=cv.getContext('2d'),frame=ctx.createImageData(width,height),out=frame.data,m=inverse(q),tw=tex.width,th=tex.height;
+ let src=texturePixels.get(tex);if(!src){src=tex.getContext('2d').getImageData(0,0,tw,th).data;texturePixels.set(tex,src);}
+ // Sample each destination pixel once. Triangle clips leave antialiased gaps
+ // and reveal the old door; inverse mapping has no internal edges at all.
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+  const px=left+x+.5,py=top+y+.5,den=m[6]*px+m[7]*py+m[8];if(Math.abs(den)<1e-10)continue;
+  const u=(m[0]*px+m[1]*py+m[2])/den,v=(m[3]*px+m[4]*py+m[5])/den;if(u<0||u>1||v<0||v>1)continue;
+  const tx=Math.max(0,Math.min(tw-1,u*tw-.5)),ty=Math.max(0,Math.min(th-1,v*th-.5)),ix=Math.floor(tx),iy=Math.floor(ty),fx=tx-ix,fy=ty-iy;
+  const a=(iy*tw+ix)*4,b=(iy*tw+Math.min(tw-1,ix+1))*4,c=(Math.min(th-1,iy+1)*tw+ix)*4,d=(Math.min(th-1,iy+1)*tw+Math.min(tw-1,ix+1))*4;
+  const wa=(1-fx)*(1-fy)*src[a+3],wb=fx*(1-fy)*src[b+3],wc=(1-fx)*fy*src[c+3],wd=fx*fy*src[d+3],alpha=wa+wb+wc+wd,i=(y*width+x)*4;
+  if(alpha>0)for(let ch=0;ch<3;ch++)out[i+ch]=(src[a+ch]*wa+src[b+ch]*wb+src[c+ch]*wc+src[d+ch]*wd)/alpha;
+  out[i+3]=alpha;
+ }
+ ctx.putImageData(frame,0,0);return {canvas:cv,left,top};
 }
 function draw(output,img,d,w,h){
  const layer=document.createElement('canvas');layer.width=w;layer.height=h;const ctx=layer.getContext('2d');
@@ -43,12 +65,11 @@ function draw(output,img,d,w,h){
  ctx.save();ctx.beginPath();uv.forEach(([u,v],i)=>{const p=project(q,u,v);ctx[i?'lineTo':'moveTo'](p.x,p.y);});ctx.closePath();ctx.clip();
  const [a,b,c,e]=q,affine=Math.hypot(a.x-b.x+c.x-e.x,a.y-b.y+c.y-e.y)<.05;
  if(affine){ctx.save();ctx.transform((b.x-a.x)/tex.width,(b.y-a.y)/tex.width,(e.x-a.x)/tex.height,(e.y-a.y)/tex.height,a.x,a.y);ctx.drawImage(tex,0,0);ctx.restore();}
- else{const n=12;for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-  const uv=[[x/n,y/n],[(x+1)/n,y/n],[(x+1)/n,(y+1)/n],[x/n,(y+1)/n]],s=uv.map(([u,v])=>({x:u*tex.width,y:v*tex.height})),t=uv.map(([u,v])=>project(q,u,v));triangle(ctx,tex,[s[0],s[1],s[2]],[t[0],t[1],t[2]]);triangle(ctx,tex,[s[0],s[2],s[3]],[t[0],t[2],t[3]]);
- }}ctx.restore();output.save();output.globalAlpha=clamp(d.pos?.opacity,.35,1,1);output.drawImage(layer,0,0);output.restore();
+ else{const mapped=warp(tex,q,w,h);if(mapped)ctx.drawImage(mapped.canvas,mapped.left,mapped.top);}
+ ctx.restore();output.save();output.globalAlpha=clamp(d.pos?.opacity,.35,1,1);output.drawImage(layer,0,0);output.restore();
 }
 const images=new Map();function load(url){if(!images.has(url)){const task=window.DoorDesign.loadImage(url);images.set(url,task);task.catch(()=>images.delete(url));if(images.size>32)images.delete(images.keys().next().value);}return images.get(url);}
-window.DoorRealism={valid,corners,project,texture,draw,clamp,load};
+window.DoorRealism={valid,corners,project,inverse,warp,texture,draw,clamp,load};
 })();
 (() => {
 'use strict';
@@ -440,7 +461,7 @@ captureVisPreview=async function(){
     const src=overlayUrl(d);if(!src)continue;
     try{const img=await window.DoorDesign.loadImage(src);window.DoorRealism.draw(ctx,img,d,canvas.width,canvas.height);}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
   }
-  return canvas.toDataURL('image/jpeg',.86);
+  return canvas.toDataURL('image/jpeg',.95);
 };
 window.captureVisPreview=captureVisPreview;
 
