@@ -26,3 +26,5 @@ David requested Calendar in the Office related tools row, owner sidebar order Qu
 David requested Calendar immediately after Office in its tools row for phone visibility, followed by a downloadable source backup (September 30, 2026).
 
 David clarified Office needs an embedded compact monthly calendar, not a Calendar button. Replace the Office tools-row Calendar link with a real monthly grid above Office operations; day selection opens that date in the full calendar (September 30, 2026).
+
+David approved the Office phone appearance and requested improving the desktop empty space: place the compact calendar beside Office operations on desktop only, preserve phone layout, publish and refresh the downloadable source backup (September 30, 2026).
