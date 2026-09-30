@@ -12,3 +12,5 @@ Current explicit exception: add emoji-labelled WhatsApp, Email and SMS controls 
 David also explicitly requested consolidating Communications into Ashley and removing its duplicate owner navigation entry. Preserve staff access and existing message history and links.
 
 David additionally authorized Ashley tool tiles, moving AI Manager under Ashley, and keeping Follow-Up & Tasks inside Office instead of duplicate owner navigation.
+
+Approved final mapping: Office and Follow-Ups & Tasks in Daily Work; Finance only Estimates, Invoices, Payments, Banking; Receipts, Inventory and Suppliers inside Office; Products & Services grouped with Gallery and Visualizer. Ashley message surfaces use gentle channel-specific backgrounds. David authorized shipping these on September 29, 2026.

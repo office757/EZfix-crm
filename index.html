@@ -749,6 +749,26 @@
 .ashley-tool-grid .doc-tab:focus-visible{outline:3px solid #aa83cb;outline-offset:3px}
 @media(min-width:760px){.doc-tabbar.ashley-tool-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
 
+
+/* Channel-specific conversation surfaces, scoped to Ashley. */
+.ashley-messages{--chat-bg:#eef2f7;--chat-accent:#2864c8;background:var(--chat-bg);border:1px solid #dce3eb;border-radius:20px;padding:16px;color:#243247}
+.ashley-messages[data-channel="whatsapp"]{--chat-bg:#eaf2ec;--chat-accent:#168467;background-color:#eaf2ec;background-image:radial-gradient(#bccfc166 .8px,transparent .8px);background-size:18px 18px}
+.ashley-messages[data-channel="email"]{--chat-bg:#f0f3f8;--chat-accent:#2854a0}
+.ashley-messages .panel{background:#ffffffeb;border:1px solid #dce3e6;border-radius:16px;overflow:hidden;box-shadow:0 3px 12px #25344a06}
+.ashley-messages .comm-detail-pane{background:#f8fafddd}
+.ashley-messages .kv.clickable{padding:14px!important;border-bottom:1px solid #e6ebee;line-height:1.5}
+.ashley-messages input,.ashley-messages textarea,.ashley-messages select{background:#fff!important;border:1px solid #cfd8e2!important;border-radius:12px!important;color:#243247;line-height:1.5}
+.ashley-messages textarea{padding:14px!important;min-height:96px}
+.ashley-messages .btn-primary{background:var(--chat-accent)!important;color:white!important;border-color:var(--chat-accent)!important}
+.ashley-message-thread{padding:14px;gap:12px!important;min-height:180px;border-radius:14px;background:#edf2f7}
+.ashley-message-bubble{border-radius:17px!important;padding:11px 14px!important;box-shadow:0 2px 4px #14263e09;line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap}
+.ashley-message-bubble.is-outbound{background:#2864c8!important;color:white!important;border-bottom-right-radius:5px!important}
+.ashley-message-bubble.is-inbound{background:white!important;color:#243247!important;border-bottom-left-radius:5px!important}
+.ashley-messages[data-channel="whatsapp"] .ashley-message-thread{background:#e8f0e9}
+.ashley-messages[data-channel="whatsapp"] .ashley-message-bubble.is-outbound{background:#d1f2d5!important;color:#173d2b!important}
+.ashley-messages #comm_email_compose{padding:18px;background:white;border:1px solid #dde4ec;border-radius:16px;box-shadow:0 4px 16px #263c5906}
+@media(max-width:600px){.ashley-messages{padding:10px;border-radius:16px}.ashley-messages .comm-split{gap:12px}.ashley-message-bubble{max-width:90%!important}}
+
 </style>
 <!-- EZFIX_PRODUCT_CATALOG_UI_V1_HEAD --><link rel="stylesheet" href="/product-catalog-ui.css" data-ezfix-product-catalog="v1"><!-- /EZFIX_PRODUCT_CATALOG_UI_V1_HEAD -->
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD --><link rel="stylesheet" href="/visualizer-gallery-premium.css" data-ezfix-vg="v1"><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_HEAD -->
@@ -1302,7 +1322,7 @@ async function deductInventoryForItems(items) {
 function isOfficeRole(){return CURRENT_TEAM_MEMBER?.role==='office';}
 function canOperateOffice(){return !isTechnicianView()&&(IS_OWNER||isOfficeRole());}
 function officeAllowedPage(page){return ['dashboard','more','office','attention','banking','communications','calls','jobs','leads','customers','calendar','estimates','invoices','quickpay','payments','products','inventory','suppliers','expenses','followups','warranties','team','payroll','reports','gallery','socialposts','visualizer'].includes(page);}
-function canAccessWorkspaceNav(n){return !(IS_OWNER&&['communications','ai_manager','followups'].includes(n.key))&&(!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
+function canAccessWorkspaceNav(n){return !(IS_OWNER&&['communications','ai_manager','expenses','inventory','suppliers'].includes(n.key))&&(!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
 const NAV = [
   {key:'calls',label:'Calls & recordings',icon:'M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4c0 2-3 2-5 1C9 17 5 13 3 6c-1-2 0-3 2-3z',sidebar:false,launcher:false,hideForTech:true},
   { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales & Billing' },
@@ -1322,7 +1342,7 @@ const NAV = [
   { key:'socialposts', label:'Social Media', emoji:'📣', officeAccess:true, ownerOnly:true, launcher:false, sidebarGroup:'workspace', icon:'M3 11v2l12 4V7L3 11zM7 14l2 6M19 8l2-2M19 12h3M19 16l2 2' },
   { key:'office', label:'Office', emoji:'🏢', hideForTech:true, launcher:false, sidebarGroup:'workspace', icon:'M4 21V3h12v18M16 10h4v11M2 21h20M8 7h4M8 11h4M8 15h4' },
   // Secondary modules — reachable from the More/module launcher, not the main sidebar (kept out of NAV list rendering via sidebar:false), still owner/tech-gated the same way.
-  { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Service & Stock' , hideForTech: true},
+  { key:'products', label:'Products & Services', emoji:'🧰', icon:'M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', sidebar:false, category:'Gallery & Visualizer' , hideForTech: true},
   { key:'inventory', label:'Inventory', emoji:'📦', icon:'M3 7h18M3 7v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7M3 7l2-4h14l2 4M9 11h6', sidebar:false, category:'Service & Stock' , hideForTech: true},
   { key:'suppliers', label:'Suppliers & Orders', emoji:'🚚', icon:'M3 3h18v6H3zM3 9v12h18V9M8 13h8', hideForTech: true, sidebar:false, fullWidth:true, category:'Service & Stock' },
   { key:'expenses', label:'Receipts', emoji:'🧾', icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h1', sidebar:false, launcher:false, category:'Sales & Billing' , hideForTech: true},
@@ -1351,12 +1371,10 @@ const CATEGORY_META = {
 };
 
 const SIDEBAR_GROUPS = [
-  {id:'daily',label:'Daily Work',keys:['jobs','calendar','customers']},
-  {id:'office',label:'Office & AI',keys:['office','ai_manager','followups']},
-  {id:'finance',label:'Finance',keys:['estimates','invoices','payments','banking','expenses']},
+  {id:'daily',label:'Daily Work',keys:['jobs','calendar','customers','office','followups']},
+  {id:'finance',label:'Finance',keys:['estimates','invoices','payments','banking']},
   {id:'team',label:'Team & Payroll',keys:['team','payroll','reports','earnings'],collapsed:true},
-  {id:'stock',label:'Products & Stock',keys:['products','inventory','suppliers'],collapsed:true},
-  {id:'gallery',label:'Gallery & Visualizer',keys:['gallery','visualizer'],collapsed:true}
+  {id:'gallery',label:'Gallery & Visualizer',keys:['gallery','visualizer','products'],collapsed:true}
 ];
 const sidebarGroupState = {};
 function sidebarNavItems() {
@@ -3213,8 +3231,8 @@ function renderCommunications(content, actions) {
           <button class="btn btn-sm" style="margin-top:8px" onclick="createLeadFromUnknownSms('${smsRec.id}')">Create Lead</button>
         </div></div>` : ''}
         ${smsRec.matchAmbiguous ? `<div class="panel" style="margin-bottom:12px;background:var(--paper-2)"><div class="panel-body pad" style="font-size:12.5px;color:var(--danger)">⚠️ Multiple records share this phone number — owner review needed. Not auto-linked.</div></div>` : ''}
-        <div style="max-height:340px;overflow-y:auto;margin-bottom:14px;display:flex;flex-direction:column;gap:8px">
-          ${thread.map(t => `<div style="align-self:${t.action==='sms'&&getOne('smsMessages',t.smsId)?.direction==='outbound'?'flex-end':'flex-start'};max-width:80%;background:${getOne('smsMessages',t.smsId)?.direction==='outbound'?'var(--orange)':'var(--paper-2)'};color:${getOne('smsMessages',t.smsId)?.direction==='outbound'?'#201400':'inherit'};padding:8px 12px;border-radius:10px">
+        <div class="ashley-message-thread" style="max-height:340px;overflow-y:auto;margin-bottom:14px;display:flex;flex-direction:column;gap:8px">
+          ${thread.map(t => `<div class="ashley-message-bubble ${getOne('smsMessages',t.smsId)?.direction==='outbound'?'is-outbound':'is-inbound'}" style="align-self:${t.action==='sms'&&getOne('smsMessages',t.smsId)?.direction==='outbound'?'flex-end':'flex-start'};max-width:80%;background:${getOne('smsMessages',t.smsId)?.direction==='outbound'?'var(--orange)':'var(--paper-2)'};color:${getOne('smsMessages',t.smsId)?.direction==='outbound'?'#201400':'inherit'};padding:8px 12px;border-radius:10px">
             <div style="font-size:13px">${esc(getOne('smsMessages',t.smsId)?.messageText||'')}</div>
             <div style="font-size:10px;opacity:0.7;margin-top:2px">${fmtDate(t.createdAt)} · ${t.status==='delivered'?'Carrier reported delivered':t.status==='sent'?'Sent to carrier':t.status==='delivery_unconfirmed'?'Delivery unconfirmed':labelize(t.status)}</div>
           </div>`).join('')}
@@ -8030,6 +8048,8 @@ function openAshleyChannel(channel) {
 }
 function renderAshleyChannel(body, actions) {
   const channel = receptionistState.subview;
+  body.className = 'ashley-messages';
+  body.dataset.channel = channel;
   searchTerms.commFilter = channel;
   if (!window.WhatsAppLinked) {
     body.innerHTML = '<p class="muted">Messaging is loading…</p><button class="btn" onclick="render()">Retry</button>';
