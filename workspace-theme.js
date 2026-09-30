@@ -15,7 +15,7 @@
   };
   const categoryTones = {
     'Sales & Billing': 'amber', 'Gallery & Visualizer': 'blue', 'Service & Stock': 'sage',
-    'AI Tools': 'violet', 'Team & Payroll': 'rose', 'Business Workspace': 'teal'
+    'Office & AI': 'violet', 'Team & Payroll': 'rose', 'Business Workspace': 'teal'
   };
   const meta = page => pages[page] || ['teal', '🧰'];
   const emoji = value => {
