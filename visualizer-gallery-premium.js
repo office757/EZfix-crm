@@ -63,7 +63,7 @@ function lightingField(canvas,regions=[],target=false){
   const i=(y*w+x)*4,lum=(rgba[i]+rgba[i+1]+rgba[i+2])/3,spread=Math.max(rgba[i],rgba[i+1],rgba[i+2])-Math.min(rgba[i],rgba[i+1],rgba[i+2]);
   const pane=regions.some(p=>x/w>=p.x&&x/w<=p.x+p.width&&y/h>=p.y&&y/h<=p.y+p.height);
   values[y*w+x]=lum;
-  if(!pane&&rgba[i+3]>200&&lum>12&&(!target||spread<Math.max(22,lum*.14))){valid[y*w+x]=1;if(y>h*.2&&y<h*.94){samples.push(lum);if(x%4===0&&y%4===0&&lum>80)for(let ch=0;ch<3;ch++)colors[ch].push(rgba[i+ch]/lum);}}
+  if(!pane&&rgba[i+3]>200&&lum>12&&(!target||spread<Math.max(22,lum*.14))){valid[y*w+x]=1;if(y>h*.2&&y<h*.94){samples.push(lum);if(x%4===0&&y%4===0)for(let ch=0;ch<3;ch++)colors[ch].push(rgba[i+ch]/lum);}}
  }
  samples.sort((a,b)=>a-b);const base=Math.max(18,samples[Math.floor(samples.length*.82)]||220),supported=!target||(samples.length>w*h*.2&&base>115);
  for(let y=0;y<h;y++){
@@ -86,7 +86,7 @@ function lightingField(canvas,regions=[],target=false){
   const broad=sum/((b-a)*(d-c))/base,original=values[y*w+x]/base,shadow=target&&valid[y*w+x]?clamp((.68-original)/.15,0,1,0):0;
   out[y*w+x]=supported?clamp(broad*(1-shadow)+original*shadow,.12,1.2,1):1;
  }
- return {width:w,height:h,data:out,base,supported,balance:colors.map(c=>clamp(median(c),.75,1.25,1))};
+ return {width:w,height:h,data:out,base,supported,balance:colors.map(c=>clamp(median(c),.15,2.7,1))};
 }
 const photoMaterialFields=new WeakMap(),photoSceneFields=new WeakMap();
 function photoSceneField(house,q,ratio){
@@ -108,11 +108,12 @@ function photographicTexture(img,d,scene,house,q){
  const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;const ctx=cv.getContext('2d');ctx.drawImage(img,0,0);
  let material=photoMaterialFields.get(img);if(!material){const small=document.createElement('canvas');small.width=Math.min(256,cv.width);small.height=Math.max(1,Math.round(small.width*cv.height/cv.width));small.getContext('2d').drawImage(img,0,0,small.width,small.height);material=lightingField(small,regions);photoMaterialFields.set(img,material);}
  let environment=null;try{environment=photoSceneField(house,q,cv.height/cv.width);}catch{}
- const frame=ctx.getImageData(0,0,cv.width,cv.height),pixels=frame.data,light=clamp(d.realism?.light,.65,1.25,1),shadows=clamp(d.realism?.shadows,0,1,1),balance=preview.originalFinish&&/^(White|Gray|Black)$/.test(preview.sourceFinish)?material.balance:[1,1,1];
+ const frame=ctx.getImageData(0,0,cv.width,cv.height),pixels=frame.data,light=clamp(d.realism?.light,.65,1.25,1),shadows=clamp(d.realism?.shadows,0,1,1),paintedOriginal=preview.originalFinish&&preview.sourceMaterial!=='wood',balance=/^(White|Gray|Black)$/.test(preview.sourceFinish)?[1,1,1]:material.balance;
  for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){
   const u=(x+.5)/cv.width,v=(y+.5)/cv.height,i=(y*cv.width+x)*4,pane=regions.some(p=>u>=p.x&&u<=p.x+p.width&&v>=p.y&&v<=p.y+p.height);
   const source=pane?1:fieldAt(material,u,v),target=1+(fieldAt(environment,u,v)-1)*shadows,gain=light*scene.gain*target/source;
-  pixels[i]=pixels[i]*gain*scene.red/(pane?1:balance[0]);pixels[i+1]=pixels[i+1]*gain/(pane?1:balance[1]);pixels[i+2]=pixels[i+2]*gain*scene.blue/(pane?1:balance[2]);
+  const lum=(pixels[i]+pixels[i+1]+pixels[i+2])/3,r=paintedOriginal&&!pane?lum*balance[0]:pixels[i],g=paintedOriginal&&!pane?lum*balance[1]:pixels[i+1],b=paintedOriginal&&!pane?lum*balance[2]:pixels[i+2];
+  pixels[i]=r*gain*scene.red;pixels[i+1]=g*gain;pixels[i+2]=b*gain*scene.blue;
  }
  ctx.putImageData(frame,0,0);
  const depth=clamp(d.realism?.depth,0,1,0);if(depth){const g=ctx.createLinearGradient(0,0,0,cv.height);g.addColorStop(0,'rgba(0,0,0,'+depth*.5+')');g.addColorStop(.07,'rgba(0,0,0,0)');g.addColorStop(.98,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,'+depth*.25+')');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);}
@@ -204,7 +205,7 @@ window.DoorRealism={valid,corners,project,inverse,warp,sceneLight,texture,reflec
 (() => {
 'use strict';
 
-function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZFIX_INSPIRATION_LIBRARY||[])].map(p=>{const sources=(window.PhotoDoor?.sources||[]).filter(s=>s.photoId===p.id).sort((a,b)=>a.opening-b.opening);return sources.length===p.openings?{...p,corners:sources.map(s=>s.corners)}:p;});}
+function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZFIX_INSPIRATION_LIBRARY||[])].map(p=>{const sources=(window.PhotoDoor?.sources||[]).filter(s=>s.photoId===p.id&&!s.panelFill).sort((a,b)=>a.opening-b.opening);return sources.length===p.openings?{...p,corners:sources.map(s=>s.corners)}:p;});}
 function preparedHomePhotos(){return homePhotos().filter(p=>p.corners?.length===visState.doorCount);}
 function homeReferenceUrl(id){return homePhotos().find(p=>p.id===id)?.url||'/assets/door-styles/'+id+'.png';}
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
