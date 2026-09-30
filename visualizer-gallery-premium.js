@@ -23,11 +23,11 @@ function project(q,u,v){
 const textureCache=new WeakMap();
 const scenePixels=new WeakMap();
 const median=values=>{const sorted=values.slice().sort((a,b)=>a-b);return sorted.length?sorted[Math.floor(sorted.length/2)]:null;};
+function photoPixels(house){let photo=scenePixels.get(house);if(!photo){const cv=document.createElement('canvas'),scale=256/Math.max(house.naturalWidth,house.naturalHeight);cv.width=Math.max(1,Math.round(house.naturalWidth*scale));cv.height=Math.max(1,Math.round(house.naturalHeight*scale));const ctx=cv.getContext('2d');ctx.drawImage(house,0,0,cv.width,cv.height);photo={width:cv.width,height:cv.height,data:ctx.getImageData(0,0,cv.width,cv.height).data};scenePixels.set(house,photo);}return photo;}
 function sceneLight(house,q){
  const neutral={gain:1,red:1,blue:1,across:0,down:0};if(!house)return neutral;
  try{
-  let photo=scenePixels.get(house);
-  if(!photo){const cv=document.createElement('canvas'),scale=256/Math.max(house.naturalWidth,house.naturalHeight);cv.width=Math.max(1,Math.round(house.naturalWidth*scale));cv.height=Math.max(1,Math.round(house.naturalHeight*scale));const ctx=cv.getContext('2d');ctx.drawImage(house,0,0,cv.width,cv.height);photo={width:cv.width,height:cv.height,data:ctx.getImageData(0,0,cv.width,cv.height).data};scenePixels.set(house,photo);}
+  const photo=photoPixels(house);
   const opening=q.map(p=>({x:p.x*photo.width,y:p.y*photo.height})),samples=[],left=[],right=[],top=[],bottom=[];
   // Broad neutral material samples only. Never transfer the old door's
   // panels, windows, color, or texture onto the selected replacement.
@@ -43,8 +43,20 @@ function sceneLight(house,q){
   return {gain:clamp(mid/220,.82,1.06,1),red:clamp(median(samples.map(s=>s.r)),.96,1.04,1),blue:clamp(median(samples.map(s=>s.b)),.96,1.04,1),across:slope(left,right),down:slope(top,bottom)};
  }catch{return neutral;} // Cross-origin/custom photos still render normally.
 }
-function texture(img,d,scene={gain:1,red:1,blue:1,across:0,down:0}){
- const key=JSON.stringify([d.realism||{},scene]),cached=textureCache.get(img);if(cached?.key===key)return cached.canvas;
+function reflectGlass(pixels,w,h,regions,photo,q){
+ if(!photo||!Array.isArray(regions)||!q)return;
+ const left=Math.min(...q.map(p=>p.x)),right=Math.max(...q.map(p=>p.x)),top=Math.max(0,Math.min(...q.map(p=>p.y)));
+ for(const pane of regions){if(![pane.x,pane.y,pane.width,pane.height].every(Number.isFinite)||pane.width<=0||pane.height<=0)continue;const x0=Math.max(0,Math.floor(pane.x*w)),x1=Math.min(w,Math.ceil((pane.x+pane.width)*w)),y0=Math.max(0,Math.floor(pane.y*h)),y1=Math.min(h,Math.ceil((pane.y+pane.height)*h));
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*w+x)*4,lum=(pixels[i]+pixels[i+1]+pixels[i+2])/3;
+   // Existing dark catalog panes only. White inserts, frames, clear highlights
+   // and frosted material retain their manufacturer appearance.
+   if(lum>=115||pixels[i+3]<200)continue;const u=x/w,v=(y-y0)/Math.max(1,y1-y0),sx=Math.round((left+(right-left)*u)*photo.width),sy=Math.round(top*(.12+.75*(1-v))*photo.height),j=(Math.max(0,Math.min(photo.height-1,sy))*photo.width+Math.max(0,Math.min(photo.width-1,sx)))*4,alpha=.09*(.4+.6*(1-v));if(photo.data[j+3]<200)continue;
+   for(let ch=0;ch<3;ch++)pixels[i+ch]=pixels[i+ch]*(1-alpha)+photo.data[j+ch]*alpha;
+  }
+ }
+}
+function texture(img,d,scene={gain:1,red:1,blue:1,across:0,down:0},house=null,q=null){
+ const regions=d.designPreview?.glassRegions,key=JSON.stringify([d.realism||{},scene,regions,q]);let entries=textureCache.get(img);if(!entries){entries=new Map();textureCache.set(img,entries);}const cached=entries.get(key);if(cached?.house===house)return cached.canvas;
  const cv=document.createElement('canvas');cv.width=Math.min(1600,Math.max(1000,img.naturalWidth));cv.height=Math.max(160,Math.round(cv.width*img.naturalHeight/img.naturalWidth));const ctx=cv.getContext('2d'),look=d.realism||{};
  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.filter='brightness('+clamp(look.light,.65,1.25,.96)+') contrast(1.025)';ctx.drawImage(img,0,0,cv.width,cv.height);ctx.filter='none';
  {
@@ -57,6 +69,7 @@ function texture(img,d,scene={gain:1,red:1,blue:1,across:0,down:0}){
    let grain=0;if(lum>110&&spread<24){let hash=(Math.imul(x+17,374761393)^Math.imul(y+29,668265263))>>>0;hash=Math.imul(hash^(hash>>>13),1274126177)>>>0;grain=((hash&1023)/1023-.5)*1.5;}
    pixels[i]=pixels[i]*gain*scene.red+grain;pixels[i+1]=pixels[i+1]*gain+grain;pixels[i+2]=pixels[i+2]*gain*scene.blue+grain;
   }
+  if(house&&regions?.length){try{reflectGlass(pixels,cv.width,cv.height,regions,photoPixels(house),q);}catch{}}
   ctx.putImageData(frame,0,0);
  }
  const depth=clamp(look.depth,0,1,.45),w=cv.width,h=cv.height;
@@ -64,7 +77,7 @@ function texture(img,d,scene={gain:1,red:1,blue:1,across:0,down:0}){
  const shade=(x0,y0,x1,y1,stops)=>{const g=ctx.createLinearGradient(x0,y0,x1,y1);stops.forEach(([at,color])=>g.addColorStop(at,color));ctx.fillStyle=g;ctx.fillRect(0,0,w,h);};
  shade(0,0,0,h,[[0,'rgba(0,0,0,'+(depth*.72)+')'],[.018,'rgba(0,0,0,'+(depth*.22)+')'],[.12,'rgba(0,0,0,0)'],[.97,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.42)+')']]);
  shade(0,0,w,0,[[0,'rgba(0,0,0,'+(depth*.38)+')'],[.035,'rgba(0,0,0,0)'],[.65,'rgba(255,255,255,.025)'],[.975,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,'+(depth*.28)+')']]);
- textureCache.set(img,{key,canvas:cv});return cv;
+ entries.set(key,{canvas:cv,house});if(entries.size>8)entries.delete(entries.keys().next().value);return cv;
 }
 function inverse(q){
  const [a,b,c,d]=q,dx=b.x-c.x,dy=b.y-c.y,ex=d.x-c.x,ey=d.y-c.y,sx=a.x-b.x+c.x-d.x,sy=a.y-b.y+c.y-d.y,det=dx*ey-ex*dy;
@@ -93,18 +106,30 @@ function warp(tex,q,w,h){
  }
  ctx.putImageData(frame,0,0);return {canvas:cv,left,top};
 }
+function foregroundStrokes(value){
+ if(!Array.isArray(value))return [];
+ return value.slice(0,64).map(s=>({radius:clamp(s?.radius,.2,5,1),points:Array.isArray(s?.points)?s.points.slice(0,200).filter(p=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)&&p.x>=0&&p.x<=100&&p.y>=0&&p.y<=100).map(p=>({x:p.x,y:p.y})):[]})).filter(s=>s.points.length);
+}
+function preserveForeground(ctx,d,w,h){
+ const strokes=foregroundStrokes(d.foreground);if(!strokes.length)return;
+ ctx.save();ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#000';ctx.fillStyle='#000';ctx.lineCap='round';ctx.lineJoin='round';
+ for(const stroke of strokes){const points=stroke.points,r=stroke.radius*w/100;ctx.lineWidth=r*2;ctx.beginPath();
+  if(points.length===1){ctx.arc(points[0].x*w/100,points[0].y*h/100,r,0,Math.PI*2);ctx.fill();}
+  else{points.forEach((p,i)=>ctx[i?'lineTo':'moveTo'](p.x*w/100,p.y*h/100));ctx.stroke();}
+ }ctx.restore();
+}
 function draw(output,img,d,w,h,house){
  const layer=document.createElement('canvas');layer.width=w;layer.height=h;const ctx=layer.getContext('2d');
- const q=corners(d,w,h,img.naturalHeight/img.naturalWidth),light=sceneLight(house,q.map(p=>({x:p.x/w,y:p.y/h}))),tex=texture(img,d,light),cut=clamp(d.realism?.cut,0,.22,0),uv=[[cut,0],[1-cut,0],[1,cut],[1,1],[0,1],[0,cut]];
+ const q=corners(d,w,h,img.naturalHeight/img.naturalWidth),normalized=q.map(p=>({x:p.x/w,y:p.y/h})),light=sceneLight(house,normalized),tex=texture(img,d,light,house,normalized),cut=clamp(d.realism?.cut,0,.22,0),uv=[[cut,0],[1-cut,0],[1,cut],[1,1],[0,1],[0,cut]];
  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  ctx.save();ctx.beginPath();uv.forEach(([u,v],i)=>{const p=project(q,u,v);ctx[i?'lineTo':'moveTo'](p.x,p.y);});ctx.closePath();ctx.clip();
  const [a,b,c,e]=q,affine=Math.hypot(a.x-b.x+c.x-e.x,a.y-b.y+c.y-e.y)<.05;
  if(affine){ctx.save();ctx.transform((b.x-a.x)/tex.width,(b.y-a.y)/tex.width,(e.x-a.x)/tex.height,(e.y-a.y)/tex.height,a.x,a.y);ctx.drawImage(tex,0,0);ctx.restore();}
  else{const mapped=warp(tex,q,w,h);if(mapped)ctx.drawImage(mapped.canvas,mapped.left,mapped.top);}
- ctx.restore();output.save();output.globalAlpha=clamp(d.pos?.opacity,.35,1,1);output.drawImage(layer,0,0);output.restore();
+ ctx.restore();preserveForeground(ctx,d,w,h);output.save();output.globalAlpha=clamp(d.pos?.opacity,.35,1,1);output.drawImage(layer,0,0);output.restore();
 }
 const images=new Map();function load(url){if(!images.has(url)){const task=window.DoorDesign.loadImage(url);images.set(url,task);task.catch(()=>images.delete(url));if(images.size>32)images.delete(images.keys().next().value);}return images.get(url);}
-window.DoorRealism={valid,corners,project,inverse,warp,sceneLight,texture,draw,clamp,load};
+window.DoorRealism={valid,corners,project,inverse,warp,sceneLight,texture,reflectGlass,draw,clamp,load,foregroundStrokes,preserveForeground};
 })();
 (() => {
 'use strict';
@@ -113,6 +138,39 @@ function homePhotos(){return [...(window.EZFIX_PHOTO_LIBRARY||[]),...(window.EZF
 function preparedHomePhotos(){return homePhotos().filter(p=>p.corners?.length===visState.doorCount);}
 function homeReferenceUrl(id){return homePhotos().find(p=>p.id===id)?.url||'/assets/door-styles/'+id+'.png';}
 const visCatalogState={search:'',manufacturer:'',collection:'',readyOnly:true,limit:12,tab:'models'};
+let visZoom=1,foregroundMode=false,foregroundRadius=1,comparisonMode='slider',comparisonPosition=50;
+const persistentDoors=doors=>JSON.parse(JSON.stringify(doors)).map(d=>{delete d.designPreview;return d;});
+function designSnapshot(){return {houseImage:visState.houseImage?{...visState.houseImage}:null,doors:persistentDoors(visState.doors.slice(0,visState.doorCount)),doorCount:visState.doorCount,activeDoor:visState.activeDoor};}
+let historyState=null,historyHome='',undoStack=[],redoStack=[],lastEditGroup='',lastEditTime=0;
+function syncHistory(){const home=visState.houseImage?.id||visState.houseImage?.url||'';if(historyState!==visState||home!==historyHome){historyState=visState;historyHome=home;undoStack=[];redoStack=[];lastEditGroup='';visZoom=1;foregroundMode=false;cornerFitDoor=-1;}}
+function editSnapshot(){return JSON.stringify({doors:persistentDoors(visState.doors),doorCount:visState.doorCount,activeDoor:visState.activeDoor,applyToAll:visState.applyToAll});}
+function checkpoint(group=''){
+ syncHistory();const now=Date.now();if(group&&group===lastEditGroup&&now-lastEditTime<700){lastEditTime=now;return;}
+ const snapshot=editSnapshot();if(undoStack.at(-1)!==snapshot){undoStack.push(snapshot);if(undoStack.length>30)undoStack.shift();}redoStack=[];lastEditGroup=group;lastEditTime=now;
+ const undo=document.getElementById('visUndoBtn'),redo=document.getElementById('visRedoBtn');if(undo)undo.disabled=!undoStack.length;if(redo)redo.disabled=true;
+}
+async function restoreHistory(redo=false){
+ syncHistory();const from=redo?redoStack:undoStack,to=redo?undoStack:redoStack;if(!from.length)return;if(dragCleanup)dragCleanup();to.push(editSnapshot());const saved=JSON.parse(from.pop());visState.doors=saved.doors;visState.doorCount=saved.doorCount;visState.activeDoor=saved.activeDoor;visState.applyToAll=!!saved.applyToAll;lastEditGroup='';
+ const target=visState;render();try{await Promise.all(target.doors.slice(0,target.doorCount).map(d=>window.DoorDesign?.prepare(d)));if(target===visState&&route.page==='visualizer')render();}catch(e){if(target===visState)toast(e.message,true);}
+}
+window.VisualizerEdits={checkpoint,snapshot:designSnapshot,persistentDoors,undo:()=>restoreHistory(),redo:()=>restoreHistory(true)};
+window.undoVisEdit=window.VisualizerEdits.undo;window.redoVisEdit=window.VisualizerEdits.redo;
+document.addEventListener('keydown',e=>{if(route.page!=='visualizer'||![3,4].includes(visState.step)||!(e.ctrlKey||e.metaKey)||e.altKey||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName)||e.target?.isContentEditable)return;if(e.key.toLowerCase()==='z'){e.preventDefault();(e.shiftKey?window.redoVisEdit:window.undoVisEdit)();}});
+window.setVisZoom=function(value){visZoom=window.DoorRealism.clamp(value,1,3,1);const stage=document.getElementById('visStage');if(stage)stage.style.width=visZoom*100+'%';};
+window.toggleVisForeground=function(){foregroundMode=!foregroundMode;window.__visForegroundMode=foregroundMode;if(foregroundMode)cornerFitDoor=-1;render();};
+window.clearVisForeground=function(){const d=visState.doors[visState.activeDoor];if(!d?.foreground?.length)return;checkpoint();delete d.foreground;render();};
+window.setVisBrushSize=function(value){foregroundRadius=window.DoorRealism.clamp(value,.2,3,1);};
+function editToolbar(){syncHistory();window.__visForegroundMode=foregroundMode;return '<div class="studio-edit-toolbar" role="group" aria-label="Preview editing tools"><button id="visUndoBtn" class="btn btn-sm" onclick="undoVisEdit()" '+(!undoStack.length?'disabled':'')+' aria-label="Undo last design change">↶ Undo</button><button id="visRedoBtn" class="btn btn-sm" onclick="redoVisEdit()" '+(!redoStack.length?'disabled':'')+' aria-label="Redo design change">↷ Redo</button><label>Zoom<select aria-label="Preview zoom" onchange="setVisZoom(this.value)">'+[1,1.5,2,3].map(n=>'<option value="'+n+'" '+(visZoom===n?'selected':'')+'>'+n*100+'%</option>').join('')+'</select></label><button class="btn btn-sm '+(foregroundMode?'btn-primary':'')+'" aria-pressed="'+foregroundMode+'" onclick="toggleVisForeground()">Keep foreground</button>'+(foregroundMode?'<label>Brush size<input type="range" aria-label="Foreground brush size" min=".2" max="3" step=".1" value="'+foregroundRadius+'" oninput="setVisBrushSize(this.value)"></label><button class="btn btn-sm" onclick="clearVisForeground()">Clear foreground</button><p>Brush over an object in front of the door to keep it visible. Undo restores your previous brush stroke.</p>':'')+'</div>';}
+window.startVisForegroundStroke=function(e,idx){
+ const d=visState.doors[idx],stage=document.getElementById('visStage');if(!foregroundMode||!d||!stage)return;
+ e.preventDefault();e.stopPropagation();if(dragCleanup)dragCleanup();if((d.foreground?.length||0)>=64)return toast('Use Undo or clear the foreground brush before adding more strokes.',true);
+ const r=stage.getBoundingClientRect(),id=e.pointerId,target=visState;if(!r.width||!r.height)return;checkpoint();let stroke={radius:foregroundRadius,points:[]};d.foreground=[...(d.foreground||[]),stroke];
+ const move=ev=>{if(ev.pointerId!==id||target!==visState)return;const p={x:(ev.clientX-r.left)/r.width*100,y:(ev.clientY-r.top)/r.height*100};if(p.x<0||p.x>100||p.y<0||p.y>100)return;const last=stroke.points.at(-1);if(last&&Math.hypot(last.x-p.x,last.y-p.y)<.12)return;if(stroke.points.length>=200){const next={radius:stroke.radius,points:[last,p]};if(d.foreground.length>=64)return;d.foreground.push(next);stroke=next;}else stroke.points.push(p);queueVisPaint();};
+ const cleanup=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);window.removeEventListener('blur',cleanup);dragCleanup=null;};
+ const end=ev=>{if(ev.pointerId!==id)return;move(ev);cleanup();if(target===visState&&route.page==='visualizer')render();};move(e);dragCleanup=cleanup;document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);window.addEventListener('blur',cleanup);
+};
+window.setVisComparison=function(value){comparisonPosition=window.DoorRealism.clamp(value,0,100,50);const after=document.getElementById('visCompareAfter'),line=document.getElementById('visCompareLine');if(after)after.style.clipPath='inset(0 0 0 '+comparisonPosition+'%)';if(line)line.style.left=comparisonPosition+'%';};
+window.setVisComparisonMode=function(value){comparisonMode=value==='side'?'side':'slider';render();};
 window.__visCatalogState=visCatalogState;
 const val=(p,key)=>key==='imageUrl'?(p?.imageAsset?.url||(window.DoorDesign?.profile(p)?window.DoorDesign.defaultImage(p):(p?.imageUrl||p?.appData?.imageUrl||p?.app_data?.image_url||''))):(p?.[key] ?? p?.appData?.[key] ?? p?.app_data?.[key] ?? '');
 // Reference models are intentionally inactive for normal sales/AI pricing.
@@ -180,22 +238,24 @@ async function paintVisDoors(){
   }catch(e){if(version===previewVersion){node.setAttribute('aria-label','Door preview could not load');toast(e.message,true);}}
  }));
 }
-window.setVisFit=function(idx,key,value){const n=Number(value),d=visState.doors[idx];if(!d||!['widthPct','heightPct'].includes(key)||!Number.isFinite(n))return;delete d.pos.corners;d.pos[key]=Math.max(5,Math.min(100,n));queueVisPaint();};
-window.setVisRealism=function(idx,key,value){const d=visState.doors[idx];if(!d||!['light','depth','cut'].includes(key))return;const n=Number(value);if(!Number.isFinite(n))return;d.realism={...d.realism,[key]:window.DoorRealism.clamp(n,key==='light'?.65:0,key==='light'?1.25:key==='cut'?.22:1,key==='light'?.96:0)};queueVisPaint();};
+window.setVisFit=function(idx,key,value){const n=Number(value),d=visState.doors[idx];if(!d||!['widthPct','heightPct'].includes(key)||!Number.isFinite(n))return;checkpoint('fit:'+idx+':'+key);delete d.pos.corners;d.pos[key]=Math.max(5,Math.min(100,n));queueVisPaint();};
+window.setVisRealism=function(idx,key,value){const d=visState.doors[idx];if(!d||!['light','depth','cut'].includes(key))return;const n=Number(value);if(!Number.isFinite(n))return;checkpoint('light:'+idx+':'+key);d.realism={...d.realism,[key]:window.DoorRealism.clamp(n,key==='light'?.65:0,key==='light'?1.25:key==='cut'?.22:1,key==='light'?.96:0)};queueVisPaint();};
 let cornerFitDoor=-1;
 window.toggleVisCornerFit=function(idx){
  const d=visState.doors[idx];if(!d)return;cornerFitDoor=cornerFitDoor===idx?-1:idx;
+ if(cornerFitDoor>=0){foregroundMode=false;window.__visForegroundMode=false;}
  if(cornerFitDoor>=0&&!window.DoorRealism.valid(d.pos.corners)){
+  checkpoint();
   const img=document.querySelector('#visStage .vis-house-img');const w=img?.naturalWidth||1000,h=img?.naturalHeight||750;
   d.pos.corners=window.DoorRealism.corners(d,w,h,Number(d.height||7)/Number(d.width||8)).map(p=>({x:Math.max(0,Math.min(100,p.x/w*100)),y:Math.max(0,Math.min(100,p.y/h*100))}));
  }render();
 };
 function cornerHandles(d,idx){if(cornerFitDoor!==idx||!window.DoorRealism.valid(d.pos.corners))return '';return d.pos.corners.map((p,k)=>'<button type="button" class="vis-corner" style="left:'+p.x+'%;top:'+p.y+'%" aria-label="Opening corner '+(k+1)+'; arrow keys to adjust" onpointerdown="startVisCornerDrag(event,'+idx+','+k+')" onkeydown="nudgeVisCorner(event,'+idx+','+k+')">'+(k+1)+'</button>').join('');}
-function changeCorner(idx,k,x,y){const d=visState.doors[idx],q=d.pos.corners.map(p=>({...p}));q[k]={x:Math.max(0,Math.min(100,x)),y:Math.max(0,Math.min(100,y))};if(!window.DoorRealism.valid(q))return;d.pos.corners=q;const handle=document.querySelectorAll('#visStage .vis-corner')[k];if(handle){handle.style.left=q[k].x+'%';handle.style.top=q[k].y+'%';}queueVisPaint();}
+function changeCorner(idx,k,x,y,record=true){const d=visState.doors[idx],q=d.pos.corners.map(p=>({...p}));q[k]={x:Math.max(0,Math.min(100,x)),y:Math.max(0,Math.min(100,y))};if(!window.DoorRealism.valid(q))return false;if(record)checkpoint('corner:'+idx+':'+k);d.pos.corners=q;const handle=document.querySelectorAll('#visStage .vis-corner')[k];if(handle){handle.style.left=q[k].x+'%';handle.style.top=q[k].y+'%';}queueVisPaint();return true;}
 window.nudgeVisCorner=function(e,idx,k){const moves={ArrowLeft:[-.2,0],ArrowRight:[.2,0],ArrowUp:[0,-.2],ArrowDown:[0,.2]},m=moves[e.key];if(!m)return;e.preventDefault();const p=visState.doors[idx].pos.corners[k];changeCorner(idx,k,p.x+m[0],p.y+m[1]);};
 window.startVisCornerDrag=function(e,idx,k){
  e.preventDefault();e.stopPropagation();if(dragCleanup)dragCleanup();const state=visState,r=document.getElementById('visStage').getBoundingClientRect(),id=e.pointerId;
- const move=ev=>{if(ev.pointerId!==id||state!==visState)return;changeCorner(idx,k,(ev.clientX-r.left)/r.width*100,(ev.clientY-r.top)/r.height*100);};
+ let recorded=false;const move=ev=>{if(ev.pointerId!==id||state!==visState)return;if(!recorded){checkpoint();recorded=true;}changeCorner(idx,k,(ev.clientX-r.left)/r.width*100,(ev.clientY-r.top)/r.height*100,false);};
  const cleanup=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);window.removeEventListener('blur',cleanup);dragCleanup=null;};
  const end=ev=>{if(ev.pointerId!==id)return;cleanup();};dragCleanup=cleanup;document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);window.addEventListener('blur',cleanup);
 };
@@ -203,16 +263,18 @@ window.startVisCornerDrag=function(e,idx,k){
 // Pointer cancellation and navigation must never leave a door drag active.
 let dragCleanup=null;
 startDoorDrag=function(event,idx){
+ if(foregroundMode)return window.startVisForegroundStroke(event,idx);
  if(dragCleanup)dragCleanup();
  const stage=document.getElementById('visStage'),target=visState,door=target.doors[idx];
  if(!stage||!door)return;
  const rect=stage.getBoundingClientRect();if(!rect.width||!rect.height)return;
  event.preventDefault();target.activeDoor=idx;
  const pointer=event.pointerId;
- const startX=event.clientX,startY=event.clientY,original=JSON.parse(JSON.stringify(door.pos));
+ const startX=event.clientX,startY=event.clientY,original=JSON.parse(JSON.stringify(door.pos));let recorded=false;
  const move=ev=>{if(target!==visState||route.page!=='visualizer'||(pointer!==undefined&&ev.pointerId!==pointer))return;
   const dx=(ev.clientX-(Number.isFinite(startX)?startX:rect.left+original.x/100*rect.width))/rect.width*100,dy=(ev.clientY-(Number.isFinite(startY)?startY:rect.top+original.y/100*rect.height))/rect.height*100;
   if(!Number.isFinite(dx)||!Number.isFinite(dy))return;
+  if(!recorded){checkpoint();recorded=true;}
   if(window.DoorRealism.valid(original.corners)){const minX=Math.min(...original.corners.map(p=>p.x)),maxX=Math.max(...original.corners.map(p=>p.x)),minY=Math.min(...original.corners.map(p=>p.y)),maxY=Math.max(...original.corners.map(p=>p.y));const mx=Math.max(-minX,Math.min(100-maxX,dx)),my=Math.max(-minY,Math.min(100-maxY,dy));door.pos.corners=original.corners.map(p=>({x:p.x+mx,y:p.y+my}));}
   else{door.pos.x=Math.max(0,Math.min(100,original.x+dx));door.pos.y=Math.max(0,Math.min(100,original.y+dy));}
   queueVisPaint();
@@ -228,6 +290,8 @@ freshDoorConfig=function(){
   return {...baseFresh(),referenceProductId:''};
 };
 window.freshDoorConfig=freshDoorConfig;
+const baseDoorCount=typeof setVisDoorCount==='function'?setVisDoorCount:null;
+if(baseDoorCount){setVisDoorCount=function(n){if(!Number.isInteger(n)||n<1||n>4||n===visState.doorCount)return;const photo=homePhotos().find(p=>p.id===visState.houseImage?.referenceId);if(visState.houseImage?.kind==='reference'||photo&&photo.openings!==n){visState.houseImage=null;++photoSelectionVersion;}baseDoorCount(n);};window.setVisDoorCount=setVisDoorCount;}
 
 function filteredReferenceDoors(){
   let items=referenceDoors();
@@ -256,13 +320,15 @@ function syncReferenceFields(d,p){
 }
 async function selectVisReferenceDoor(idx,id){
   const p=getOne('products',id); if(!p)return;
+  const target=visState;
+  checkpoint();
   syncReferenceFields(visState.doors[idx],p);
   visCatalogState.tab='design';
   if(visState.applyToAll){
     visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{if(i!==idx)syncReferenceFields(d,p)});
   }
   render();
-  try{await Promise.all(visState.doors.slice(0,visState.doorCount).map(d=>window.DoorDesign?.prepare(d)));if(route.page==='visualizer')render();}catch(e){toast(e.message,true);}
+  try{await Promise.all(target.doors.slice(0,target.doorCount).map(d=>window.DoorDesign?.prepare(d)));if(target===visState&&route.page==='visualizer')render();}catch(e){if(target===visState)toast(e.message,true);}
 }
 window.selectVisReferenceDoor=selectVisReferenceDoor;
 function visCatalogSearch(value){const el=document.activeElement,at=el?.selectionStart;visCatalogState.search=value;visCatalogState.limit=12;if(visCatalogState.tab==='design')visCatalogState.tab='models';render();const input=document.getElementById('visModelSearch');input?.focus();if(typeof at==='number')input?.setSelectionRange(at,at);}
@@ -281,6 +347,7 @@ window.showMoreVisDoors=showMoreVisDoors;
 function setVisOpacity(idx,value){
   const d=visState.doors[idx],opacity=Number(value);
   if(!d||!Number.isFinite(opacity))return;
+  checkpoint('opacity:'+idx);
   d.pos.opacity=Math.max(.35,Math.min(1,opacity));
   const overlay=document.querySelector('#visStage [data-dooridx="'+idx+'"]');
   paintVisDoors();
@@ -288,6 +355,7 @@ function setVisOpacity(idx,value){
 window.setVisOpacity=setVisOpacity;
 function setVisScale(idx,value){
  const d=visState.doors[idx],scale=Number(value);if(!d||!Number.isFinite(scale))return;
+ checkpoint('scale:'+idx);
  d.pos.scale=Math.max(.2,Math.min(3,scale));
  const overlay=document.querySelector('#visStage [data-dooridx="'+idx+'"]');
  delete d.pos.corners;paintVisDoors();
@@ -295,10 +363,11 @@ function setVisScale(idx,value){
 window.setVisScale=setVisScale;
 function resetVisPosition(){
   const d=visState.doors[visState.activeDoor];if(!d)return;
+  checkpoint();
   d.pos={...freshDoorConfig().pos};cornerFitDoor=-1;
   render();
 }
-window.resetVisPosition=resetVisPosition;const baseVisRotate=typeof nudgeVisRotation==='function'?nudgeVisRotation:()=>{};nudgeVisRotation=function(delta){delete visState.doors[visState.activeDoor].pos.corners;baseVisRotate(delta);};window.nudgeVisRotation=nudgeVisRotation;
+window.resetVisPosition=resetVisPosition;const baseVisRotate=typeof nudgeVisRotation==='function'?nudgeVisRotation:()=>{};nudgeVisRotation=function(delta){checkpoint();delete visState.doors[visState.activeDoor].pos.corners;baseVisRotate(delta);};window.nudgeVisRotation=nudgeVisRotation;
 
 async function uploadVisualizerOverlay(productId,input){
   if(!IS_OWNER)return toast('Owner access required',true);
@@ -349,10 +418,11 @@ async function resumeSavedVisualizerDesign(id){
  }
  const count=Math.max(1,Math.min(4,Math.trunc(Number(d.doorCount)||d.doors?.length||1)));
  const savedDoors=Array.isArray(d.doors)?d.doors:[];
- const doors=Array.from({length:count},(_,i)=>{const x=savedDoors[i]&&typeof savedDoors[i]==='object'?savedDoors[i]:{},base=freshDoorConfig(),pos={...base.pos,...x.pos};for(const [key,min,max] of [['x',0,100],['y',0,100],['scale',.2,3],['rotation',-360,360],['opacity',.35,1],['widthPct',5,100],['heightPct',5,100]]){if(pos[key]===undefined)continue;const n=Number(pos[key]);if(Number.isFinite(n))pos[key]=Math.max(min,Math.min(max,n));else if(base.pos[key]!==undefined)pos[key]=base.pos[key];else delete pos[key];}if(!window.DoorRealism.valid(pos.corners))delete pos.corners;return {...base,...x,pos};});
+ const doors=Array.from({length:count},(_,i)=>{const x=savedDoors[i]&&typeof savedDoors[i]==='object'?savedDoors[i]:{},base=freshDoorConfig(),pos={...base.pos,...x.pos};for(const [key,min,max] of [['x',0,100],['y',0,100],['scale',.2,3],['rotation',-360,360],['opacity',.35,1],['widthPct',5,100],['heightPct',5,100]]){if(pos[key]===undefined)continue;const n=Number(pos[key]);if(Number.isFinite(n))pos[key]=Math.max(min,Math.min(max,n));else if(base.pos[key]!==undefined)pos[key]=base.pos[key];else delete pos[key];}if(!window.DoorRealism.valid(pos.corners))delete pos.corners;const door={...base,...x,pos,foreground:window.DoorRealism.foregroundStrokes(x.foreground)};delete door.designPreview;return door;});
  if(selection!==photoSelectionVersion)return;
  visState={step:house?3:2,doorCount:count,doors,activeDoor:0,applyToAll:false,houseImage:house,presetCustomerId:d.customerId||'',presetLeadId:'',presetJobId:'',compareList:[],savedDesignId:d.id,designName:d.designName||''};
- visWorkspaceTab='designer';visCatalogState.tab=doors[0].referenceProductId?'design':'models';render();toast('Saved design loaded');
+ visWorkspaceTab='designer';visCatalogState.tab=doors[0].referenceProductId?'design':'models';const target=visState;render();
+ try{await Promise.all(doors.map(d=>window.DoorDesign?.prepare(d)));if(selection===photoSelectionVersion&&target===visState){render();toast('Saved design loaded');}}catch(e){if(selection===photoSelectionVersion&&target===visState)toast(e.message,true);}
 }
 window.resumeSavedVisualizerDesign=resumeSavedVisualizerDesign;
 
@@ -368,9 +438,11 @@ openSaveDesignModal=function(){
   showModal({title:'Save this design',body:'<label class="field"><span class="lbl">Design name</span><input id="f_visdesignname" value="'+esc(visState.designName||(defaultCustomer?defaultCustomer.name+' Garage Door Design':'Garage Door Design'))+'"></label><label class="field"><span class="lbl">Link to customer (optional)</span>'+customerPickerHtml(visState.presetCustomerId)+'</label><p class="muted" style="font-size:12px">The exact door selections, positions and home photo are saved so this design can be resumed later.</p>',onSave:async()=>{
     const customerId=document.getElementById('f_customer').value;
     const designName=document.getElementById('f_visdesignname').value.trim()||'Garage Door Design';
-    const previewUrl=await captureVisPreview();
-    const record={customerId:customerId||null,designName,houseImage:visState.houseImage,houseImageId:visState.houseImage?.id||null,houseImageUrl:visState.houseImage?.url||null,doorCount:visState.doorCount,doors:JSON.parse(JSON.stringify(visState.doors.slice(0,visState.doorCount))),previewImageUrl:previewUrl};
-    if(visState.savedDesignId)await dbSet('savedDesigns',visState.savedDesignId,record);else visState.savedDesignId=await dbAdd('savedDesigns',record);visState.designName=designName;
+    const target=visState,snapshot=designSnapshot(),savedId=target.savedDesignId;
+    const previewUrl=await captureVisPreview({snapshot});
+    const record={customerId:customerId||null,designName,houseImage:snapshot.houseImage,houseImageId:snapshot.houseImage?.id||null,houseImageUrl:snapshot.houseImage?.url||null,doorCount:snapshot.doorCount,doors:snapshot.doors,previewImageUrl:previewUrl};
+    const id=savedId?(await dbSet('savedDesigns',savedId,record),savedId):await dbAdd('savedDesigns',record);
+    if(target===visState){target.savedDesignId=id;target.designName=designName;}
     toast('Design saved'); closeModal();render();
   }});
 };
@@ -390,7 +462,7 @@ renderVisStep2=function(body){
   const file=e.target.files?.[0];if(!file)return;
   const selection=++photoSelectionVersion,target=visState;
   if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024)return toast('Choose a JPG, PNG or WebP photo smaller than 15 MB.',true);
-  try{const localUrl=URL.createObjectURL(file);try{await window.DoorDesign.loadImage(localUrl);}finally{URL.revokeObjectURL(localUrl);}if(selection!==photoSelectionVersion||target!==visState)return;toast('Uploading home photo…');const asset=await uploadAsset(file,'visualizer');if(selection!==photoSelectionVersion||target!==visState)return;visState.houseImage={...asset,name:file.name,kind:'customer'};visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};});render();}catch(err){if(selection===photoSelectionVersion&&target===visState)toast(err.message||'Home photo upload failed',true);}
+  try{const localUrl=URL.createObjectURL(file);try{await window.DoorDesign.loadImage(localUrl);}finally{URL.revokeObjectURL(localUrl);}if(selection!==photoSelectionVersion||target!==visState)return;toast('Uploading home photo…');const asset=await uploadAsset(file,'visualizer');if(selection!==photoSelectionVersion||target!==visState)return;visState.houseImage={...asset,name:file.name,kind:'customer'};visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{delete d.foreground;d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};});cornerFitDoor=-1;render();}catch(err){if(selection===photoSelectionVersion&&target===visState)toast(err.message||'Home photo upload failed',true);}
  };
  document.getElementById('f_houseimg').addEventListener('change',upload);
  document.getElementById('f_housecamera').addEventListener('change',upload);
@@ -403,7 +475,7 @@ window.selectVisReferenceImage=async function(id){
    if(photo.openings!==visState.doorCount)return toast('Choose a photo with the same number of openings.',true);
    await window.DoorDesign.loadImage(photo.url);if(selection!==photoSelectionVersion||target!==visState)return;
    visState.houseImage={url:photo.url,kind:photo.aiGenerated?'inspiration':'installation',referenceId:id,name:photo.name};
-   visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};if(window.DoorRealism.valid(photo.corners?.[i]))d.pos.corners=photo.corners[i].map(p=>({...p}));d.realism={light:.96,depth:.45,cut:photo.cut||0};});cornerFitDoor=-1;render();return;
+   visState.doors.slice(0,visState.doorCount).forEach((d,i)=>{delete d.foreground;d.pos={...freshDoorConfig().pos,x:(i+.5)*100/visState.doorCount,widthPct:Math.min(60,80/visState.doorCount)};if(window.DoorRealism.valid(photo.corners?.[i]))d.pos.corners=photo.corners[i].map(p=>({...p}));d.realism={light:.96,depth:.45,cut:photo.cut||0};});cornerFitDoor=-1;render();return;
   }
   const count=visState.doorCount,cols=count===1?1:2,rows=Math.ceil(count/cols),url='/assets/door-styles/'+id+'.png';
   let background=url;
@@ -411,7 +483,7 @@ window.selectVisReferenceImage=async function(id){
   if(selection!==photoSelectionVersion||target!==visState)return;
   visState.houseImage={url:background,kind:'reference',referenceId:id,name:ref[1]+' · EZfix reference'};
   const single=id.startsWith('single-');
-  visState.doors.slice(0,count).forEach((d,i)=>{d.pos={x:(i%cols*100+50)/cols,y:(Math.floor(i/cols)*100+(single?50:48))/rows,widthPct:(single?62.5:88)/cols,heightPct:(single?75:60)/rows,scale:1,rotation:0,opacity:1};});
+  visState.doors.slice(0,count).forEach((d,i)=>{delete d.foreground;d.pos={x:(i%cols*100+50)/cols,y:(Math.floor(i/cols)*100+(single?50:48))/rows,widthPct:(single?62.5:88)/cols,heightPct:(single?75:60)/rows,scale:1,rotation:0,opacity:1};});cornerFitDoor=-1;
   render();
  }catch(err){if(selection===photoSelectionVersion&&target===visState)toast(err.message||'Reference image could not be loaded.',true);}
 };
@@ -426,7 +498,7 @@ renderVisStep3=function(body){
   body.innerHTML=`<div class="vg-layout">
     <section class="vg-canvas-card">
       <div class="vg-stage-head"><div><b>${visState.houseImage.kind==='reference'?'Your EZfix reference':'Your home. Your new door.'}</b><span>Drag to position · use Fit 4 corners for angled photos</span></div><button class="btn btn-sm" onclick="visState.step=2;render()">Change image</button></div>
-      <div class="vis-stage vg-stage" id="visStage"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Home preview">${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}${cornerHandles(d,i)}${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door from the collection panel to preview it here.</div>':''}</div>
+      ${editToolbar()}<div class="studio-viewport" aria-label="Scrollable home preview"><div class="vis-stage vg-stage ${foregroundMode?'studio-brush-mode':''}" id="visStage" style="width:${visZoom*100}%" onpointerdown="if(window.__visForegroundMode)startVisForegroundStroke(event,visState.activeDoor)"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" crossorigin="anonymous" alt="Home preview" draggable="false">${visState.doors.slice(0,visState.doorCount).map((dd,idx)=>visImg(dd,idx,idx===i)).join('')}${cornerHandles(d,i)}${!overlayUrl(d)?'<div class="vg-stage-empty">Choose a Visualizer Ready door from the collection panel to preview it here.</div>':''}</div></div>
       <details class="studio-fit-panel"><summary>Fit door ${i+1} to the opening <span>${d.width} × ${d.height} ft</span></summary><div class="studio-fit-tools"><label>Width<input aria-label="Opening width" type="range" min="5" max="100" step=".5" value="${d.pos.widthPct||30}" oninput="setVisFit(${i},'widthPct',this.value)"></label><label>Height<input aria-label="Opening height" type="range" min="5" max="100" step=".5" value="${d.pos.heightPct||40}" oninput="setVisFit(${i},'heightPct',this.value)"></label><div><button class="btn btn-sm" onclick="nudgeVisRotation(-2)" aria-label="Rotate counterclockwise">↶</button><button class="btn btn-sm" onclick="nudgeVisRotation(2)" aria-label="Rotate clockwise">↷</button><button class="btn btn-sm" onclick="resetVisPosition()">Reset position</button></div><button type="button" class="btn btn-sm" onclick="toggleVisCornerFit(${i})">${cornerFitDoor===i?'Done fitting corners':'Fit 4 corners'}</button><p class="muted">Place corners 1–4 inside the door frame, clockwise from top left.</p><label>Natural light<input aria-label="Door lighting" type="range" min=".65" max="1.25" step=".01" value="${d.realism?.light??.96}" oninput="setVisRealism(${i},'light',this.value)"></label><label>Recess & shadow<input aria-label="Door recess shadow" type="range" min="0" max="1" step=".02" value="${d.realism?.depth??.45}" oninput="setVisRealism(${i},'depth',this.value)"></label><label>Angled upper corners<input aria-label="Angled opening corners" type="range" min="0" max=".22" step=".01" value="${d.realism?.cut??0}" oninput="setVisRealism(${i},'cut',this.value)"></label><details><summary>Transparency</summary><input aria-label="Door opacity" type="range" min=".35" max="1" step=".05" value="${d.pos.opacity}" oninput="setVisOpacity(${i},this.value)"></details></div></details>
       <p class="studio-preview-note">${visState.houseImage.kind==='reference'?'EZfix style illustration. ':''}Layout and finish preview · confirm final color and details against manufacturer samples.</p>
     </section>
@@ -449,24 +521,35 @@ function summaryCard(d,idx){
  const img=overlayUrl(d)||val(refDoor(d),'imageUrl');
  return '<article class="vg-summary-card studio-spec-card"><header><b>Door '+(idx+1)+'</b><button class="btn btn-sm" aria-label="Edit Door '+(idx+1)+'" onclick="visState.activeDoor='+idx+';visState.step=3;visPickerTab(\'design\')">Edit</button></header>'+(img?'<img src="'+esc(img)+'" alt="Configured door '+(idx+1)+'">':'')+'<dl>'+designSpecRows(d).map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl></article>';
 }
+function reviewComparison(doors){
+ const home=esc(visState.houseImage.url),after=doors.map((d,idx)=>visImg(d,idx)).join('');
+ return '<div class="studio-compare-controls" role="group" aria-label="Before and after view"><button class="btn btn-sm '+(comparisonMode==='slider'?'btn-primary':'')+'" aria-pressed="'+(comparisonMode==='slider')+'" onclick="setVisComparisonMode(\'slider\')">Slide to compare</button><button class="btn btn-sm '+(comparisonMode==='side'?'btn-primary':'')+'" aria-pressed="'+(comparisonMode==='side')+'" onclick="setVisComparisonMode(\'side\')">Side by side</button></div><div class="studio-comparison '+(comparisonMode==='slider'?'show-slider':'show-side')+'"><section class="studio-compare-slider"><div class="studio-compare-image" onpointerdown="startVisComparisonDrag(event)"><img src="'+home+'" class="vis-house-img" crossorigin="anonymous" alt="Original home photo" draggable="false"><div id="visCompareAfter" class="studio-compare-after" style="clip-path:inset(0 0 0 '+comparisonPosition+'%)"><img src="'+home+'" class="vis-house-img" crossorigin="anonymous" alt="Home with selected door" draggable="false">'+after+'</div><span class="studio-compare-label before">Before</span><span class="studio-compare-label after">After</span><div id="visCompareLine" class="studio-compare-line" style="left:'+comparisonPosition+'%"><span aria-hidden="true">↔</span></div></div><label class="studio-compare-adjust">Slide to compare<input id="visCompareRange" type="range" aria-label="Before and after split" min="0" max="100" step=".1" value="'+comparisonPosition+'" oninput="setVisComparison(this.value)"></label></section><div class="studio-beforeafter"><section><h3>Before</h3><div class="studio-review-image"><img src="'+home+'" class="vis-house-img" crossorigin="anonymous" alt="Before the door design"></div></section><section><h3>After</h3><div class="studio-review-image" id="visBaWrap"><img src="'+home+'" class="vis-house-img" crossorigin="anonymous" alt="After design background">'+after+'</div></section></div></div>';
+}
+window.startVisComparisonDrag=function(e){
+ if(e.button>0)return;const bounds=e.currentTarget.getBoundingClientRect(),id=e.pointerId;if(!bounds.width)return;e.preventDefault();if(dragCleanup)dragCleanup();
+ const move=ev=>{if(ev.pointerId!==id)return;window.setVisComparison((ev.clientX-bounds.left)/bounds.width*100);const input=document.getElementById('visCompareRange');if(input)input.value=comparisonPosition;};
+ const cleanup=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);window.removeEventListener('blur',cleanup);dragCleanup=null;};
+ const end=ev=>{if(ev.pointerId!==id)return;move(ev);cleanup();};move(e);dragCleanup=cleanup;document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);window.addEventListener('blur',cleanup);
+};
 renderVisStep4=function(body){
  const doors=visState.doors.slice(0,visState.doorCount),configured=doors.every(d=>d.referenceProductId||d.modelId);
- body.innerHTML=`<section class="studio-review"><div class="studio-review-heading"><span>04 / REVIEW & SAVE</span><h2>Your new garage door</h2><p>Review the image and the full specification before saving or creating an estimate.</p></div><div class="studio-beforeafter"><section><h3>Before</h3><div class="studio-review-image"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="Before the door design"></div></section><section><h3>After</h3><div class="studio-review-image" id="visBaWrap"><img src="${esc(visState.houseImage.url)}" class="vis-house-img" alt="After design background">${doors.map((d,idx)=>visImg(d,idx)).join('')}</div></section></div><p class="studio-preview-note">Preview colors and proportions may vary from the installed door.${doors.some(d=>{const c=window.DoorDesign?.choice(d);return c?.glass||c?.hardware;})?' Selected glass and hardware are listed below. Their appearance in the preview remains as shown in the original catalog image.':''}</p><div class="vg-review-actions studio-review-actions"><button class="btn" onclick="visState.step=3;render()">← Edit design</button><button class="btn" onclick="openSaveDesignModal()">Save Design</button><button class="btn" onclick="downloadVisPdf()">Save as PDF</button><button class="btn" onclick="window.print()">Print</button><button class="btn" onclick="shareDesign()">Share</button><button class="btn btn-primary" ${configured?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button></div><div class="studio-spec-grid">${doors.map(summaryCard).join('')}</div></section>`;
+ body.innerHTML=`<section class="studio-review"><div class="studio-review-heading"><span>04 / REVIEW & SAVE</span><h2>Your new garage door</h2><p>Review the image and the full specification before saving or creating an estimate.</p></div>${reviewComparison(doors)}<p class="studio-preview-note">Preview colors and proportions may vary from the installed door.${doors.some(d=>{const c=window.DoorDesign?.choice(d);return c?.glass||c?.hardware;})?' Selected glass and hardware are listed below. Their appearance in the preview remains as shown in the original catalog image.':''}</p><div class="vg-review-actions studio-review-actions"><button class="btn" onclick="visState.step=3;render()">← Edit design</button><button class="btn" onclick="openSaveDesignModal()">Save Design</button><button class="btn" onclick="downloadVisPdf()">Save as PDF</button><button class="btn" id="visDownloadImage" onclick="downloadVisImage()">Download HD image</button><button class="btn" onclick="window.print()">Print</button><button class="btn" onclick="shareDesign()">Share</button><button class="btn btn-primary" ${configured?'':'disabled'} onclick="createEstimateFromDesign()">Create Estimate</button></div><div class="studio-spec-grid">${doors.map(summaryCard).join('')}</div></section>`;
 };
 const renderRealismStep4=renderVisStep4;renderVisStep4=function(body){renderRealismStep4(body);queueVisPaint();};window.renderVisStep4=renderVisStep4;
 window.downloadVisPdf=async function(){
  if(!window.jspdf)return toast('PDF tools are still loading. Please try again.',true);
  try{
-  const after=await captureVisPreview(),house=await window.DoorDesign.loadImage(visState.houseImage.url),cv=document.createElement('canvas');cv.width=1000;cv.height=Math.round(1000*house.naturalHeight/house.naturalWidth);cv.getContext('2d').drawImage(house,0,0,cv.width,cv.height);
+  const snapshot=designSnapshot(),name=visState.designName||'Your door selection';
+  const after=await captureVisPreview({snapshot}),house=await window.DoorDesign.loadImage(snapshot.houseImage.url),cv=document.createElement('canvas');cv.width=Math.min(1600,house.naturalWidth);cv.height=Math.round(cv.width*house.naturalHeight/house.naturalWidth);cv.getContext('2d').drawImage(house,0,0,cv.width,cv.height);
   const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter'}),margin=36,w=258,ratio=house.naturalHeight/house.naturalWidth,iw=Math.min(w,290/ratio),h=iw*ratio;
-  pdf.setFont('helvetica','bold');pdf.setFontSize(21);pdf.text('EZfix | Garage door design',margin,46);pdf.setFontSize(10);pdf.setTextColor(105);pdf.text(visState.designName||'Your door selection',margin,66);
-  pdf.text('BEFORE',margin,94);pdf.text('AFTER',318,94);pdf.addImage(cv.toDataURL('image/jpeg',.85),'JPEG',margin+(w-iw)/2,106,iw,h);pdf.addImage(after,'JPEG',318+(w-iw)/2,106,iw,h);
+  pdf.setFont('helvetica','bold');pdf.setFontSize(21);pdf.text('EZfix | Garage door design',margin,46);pdf.setFontSize(10);pdf.setTextColor(105);pdf.text(name,margin,66);
+  pdf.text('BEFORE',margin,94);pdf.text('AFTER',318,94);pdf.addImage(cv.toDataURL('image/jpeg',.95),'JPEG',margin+(w-iw)/2,106,iw,h);pdf.addImage(after,'JPEG',318+(w-iw)/2,106,iw,h);
   let y=125+h;pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.text('Layout preview. Confirm colors, glass and hardware against manufacturer samples.',margin,y);y+=28;
-  for(const [idx,d] of visState.doors.slice(0,visState.doorCount).entries()){
+  for(const [idx,d] of snapshot.doors.entries()){
    if(y>620){pdf.addPage();y=44;}pdf.setTextColor(30);pdf.setFont('helvetica','bold');pdf.setFontSize(13);pdf.text('Door '+(idx+1),margin,y);y+=20;pdf.setFontSize(10);
    for(const [label,value] of designSpecRows(d)){const lines=pdf.splitTextToSize(String(value).replace(/×/g,'x'),390);if(y+lines.length*12>745){pdf.addPage();y=44;}pdf.setFont('helvetica','normal');pdf.setTextColor(110);pdf.text(label,margin,y);pdf.setTextColor(30);pdf.text(lines,155,y);y+=Math.max(18,lines.length*12+5);}y+=20;
   }
-  pdf.save((visState.designName||'EZfix-door-design').replace(/[^a-z0-9_-]/gi,'-')+'.pdf');
+  pdf.save(name.replace(/[^a-z0-9_-]/gi,'-')+'.pdf');
  }catch(err){toast(err.message||'The design PDF could not be created.',true);}
 };
 
@@ -486,19 +569,23 @@ seeSimilarInstallations=function(){
 };
 window.seeSimilarInstallations=seeSimilarInstallations;
 
-captureVisPreview=async function(){
-  if(!visState.houseImage)return null;
-  const snapshot=JSON.parse(JSON.stringify({houseImage:visState.houseImage,doors:visState.doors.slice(0,visState.doorCount)}));
+captureVisPreview=async function(options={}){
+  const snapshot=options.snapshot?JSON.parse(JSON.stringify(options.snapshot)):designSnapshot();if(!snapshot.houseImage)return null;
   await Promise.all(snapshot.doors.map(d=>window.DoorDesign?.prepare(d)));
   const house=await window.DoorDesign.loadImage(snapshot.houseImage.url);
-  const canvas=document.createElement('canvas');const resize=Math.min(1,2048/Math.max(house.naturalWidth,house.naturalHeight));canvas.width=Math.max(1,Math.round(house.naturalWidth*resize));canvas.height=Math.max(1,Math.round(house.naturalHeight*resize));const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';ctx.drawImage(house,0,0,canvas.width,canvas.height);
+  const maxEdge=window.DoorRealism.clamp(options.maxEdge,512,4096,2048),canvas=document.createElement('canvas');const resize=Math.min(1,maxEdge/Math.max(house.naturalWidth,house.naturalHeight));canvas.width=Math.max(1,Math.round(house.naturalWidth*resize));canvas.height=Math.max(1,Math.round(house.naturalHeight*resize));const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(house,0,0,canvas.width,canvas.height);
   for(const d of snapshot.doors){
     const src=overlayUrl(d);if(!src)continue;
     try{const img=await window.DoorDesign.loadImage(src);window.DoorRealism.draw(ctx,img,d,canvas.width,canvas.height,house);}catch(e){throw new Error('The selected door image could not be included. Please retry before saving.');}
   }
-  return canvas.toDataURL('image/jpeg',.95);
+  return options.format==='png'?canvas.toDataURL('image/png'):canvas.toDataURL('image/jpeg',.95);
 };
 window.captureVisPreview=captureVisPreview;
+let imageExportBusy=false;
+window.downloadVisImage=async function(){
+ if(imageExportBusy)return;const snapshot=designSnapshot();if(!snapshot.houseImage)return toast('Choose a home photo first.',true);const name=(visState.designName||'EZfix-door-design').replace(/[^a-z0-9_-]/gi,'-'),button=document.getElementById('visDownloadImage');imageExportBusy=true;if(button)button.disabled=true;
+ try{toast('Preparing high-resolution image…');const url=await captureVisPreview({snapshot,maxEdge:4096,format:'png'}),a=document.createElement('a');a.href=url;a.download=name+'.png';a.click();toast('High-resolution PNG is ready');}catch(e){toast(e.message||'The image could not be downloaded. Please try again.',true);}finally{imageExportBusy=false;if(button?.isConnected)button.disabled=false;}
+};
 
 createEstimateFromDesign=async function(){
   const doors=visState.doors.slice(0,visState.doorCount).filter(d=>d.referenceProductId||d.modelId);
@@ -521,12 +608,13 @@ createEstimateFromDesign=async function(){
 window.createEstimateFromDesign=createEstimateFromDesign;
 
 const baseApplyAll=toggleVisApplyToAll;
-toggleVisApplyToAll=function(checked){
+toggleVisApplyToAll=async function(checked){
+ checkpoint();
  const selected=visState.doors[visState.activeDoor];
  if(!selected?.referenceProductId)return baseApplyAll(checked);
  visState.applyToAll=!!checked;
  if(checked)visState.doors.slice(0,visState.doorCount).forEach(d=>{if(d!==selected){syncReferenceFields(d,refDoor(selected));d.visualDesign=selected.visualDesign?{...selected.visualDesign}:undefined;d.visualDesignOverride=!!selected.visualDesignOverride;delete d.designPreview;}});
- render();
+ const target=visState;render();if(checked)try{await Promise.all(target.doors.slice(0,target.doorCount).map(d=>window.DoorDesign?.prepare(d)));if(target===visState&&route.page==='visualizer')render();}catch(e){if(target===visState)toast(e.message,true);}
 };
 window.toggleVisApplyToAll=toggleVisApplyToAll;
 
