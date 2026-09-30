@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 // Keep Vercel's buildCommand short while retaining every existing release gate.
 // Run sequentially: failed tests stop the build, and transforms keep their order.
 const scripts = [
+  'build-app-icons.mjs',
   'test-notification-alerts.mjs',
   'test-owner-phone-alerts.mjs',
   'build-notification-alerts.mjs',
