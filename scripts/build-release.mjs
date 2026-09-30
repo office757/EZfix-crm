@@ -81,12 +81,14 @@ const scripts = [
   'audit-door-design-library.mjs',
   'audit-door-config-options.mjs',
   'build-door-gallery.mjs',
-  'audit-door-gallery.mjs'
+  'audit-door-gallery.mjs',
+  ['crm-safety-audit.mjs', '--strict']
 ];
 const root = fileURLToPath(new URL('../', import.meta.url));
-for (const script of scripts) {
-  console.log(`\nRelease step: ${script}`);
-  execFileSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url))], {
+for (const step of scripts) {
+  const [script, ...args] = Array.isArray(step) ? step : [step];
+  console.log(`\nRelease step: ${[script, ...args].join(' ')}`);
+  execFileSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url)), ...args], {
     cwd: root,
     stdio: 'inherit'
   });
