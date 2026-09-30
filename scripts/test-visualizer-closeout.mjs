@@ -56,7 +56,7 @@ test('preview export preserves detail up to 2048 pixels without distorting propo
  h.c.window.DoorDesign.loadImage=async()=>({naturalWidth:6000,naturalHeight:8000});await h.c.captureVisPreview();assert.equal(h.canvases[2].width,1536);assert.equal(h.canvases[2].height,2048);
 });
 test('pointer cancellation releases drag listeners and ignores a second pointer',()=>{
- const h=harness(),overlay={style:{}};h.nodes.set('visStage',{getBoundingClientRect:()=>({left:0,top:0,width:100,height:100}),querySelector:()=>overlay});h.c.startDoorDrag({pointerId:1,preventDefault:()=>{}},0);h.events.get('pointermove')({pointerId:2,clientX:90,clientY:90});assert.equal(h.c.visState.doors[0].pos.x,50);h.events.get('pointermove')({pointerId:1,clientX:90,clientY:90});assert.equal(h.c.visState.doors[0].pos.x,90);h.events.get('pointercancel')({pointerId:1});assert.equal(h.events.size,0);
+ const h=harness(),overlay={style:{}};h.nodes.set('visStage',{getBoundingClientRect:()=>({left:0,top:0,width:100,height:100}),querySelector:()=>overlay});h.c.startDoorDrag({pointerId:1,preventDefault:()=>{}},0);h.events.get('pointermove')({pointerId:2,clientX:90,clientY:90});assert.equal(h.c.visState.doors[0].pos.x,50);h.events.get('pointermove')({pointerId:1,clientX:90,clientY:90});assert.equal(h.c.visState.doors[0].pos.x,90);h.events.get('pointercancel')({pointerId:1});assert.equal(h.events.has('pointermove'),false);assert.equal(h.events.has('pointerup'),false);assert.equal(h.events.has('pointercancel'),false);assert.equal(h.events.has('window:blur'),false);assert.equal(h.events.has('keydown'),true,'the permanent undo shortcut remains available');
 });
 
 test('real homes preserve one original photo and a separate fitted opening for each door',async()=>{
@@ -66,4 +66,40 @@ test('real homes preserve one original photo and a separate fitted opening for e
 });
 test('wrong opening count never silently replaces the selected home',async()=>{
  const h=harness();h.c.visState.houseImage={url:'existing.jpg'};h.c.window.EZFIX_PHOTO_LIBRARY=[{id:'twin',name:'Twin',url:'twin.jpg',openings:2}];await h.c.window.selectVisReferenceImage('twin');assert.equal(h.c.visState.houseImage.url,'existing.jpg');assert.match(h.messages[0],/same number/);
+});
+test('undo and redo restore a full edit, coalesce sliders and discard stale redo',async()=>{
+ const h=harness(),c=h.c;c.visState.houseImage={url:'home.jpg'};c.visState.doors[0].designPreview={key:'old',url:'large-cache'};
+ c.window.setVisRealism(0,'light',.75);c.window.setVisRealism(0,'light',.8);await c.window.undoVisEdit();assert.equal(c.visState.doors[0].realism,undefined);assert.equal(c.visState.doors[0].designPreview,undefined);
+ await c.window.redoVisEdit();assert.equal(c.visState.doors[0].realism.light,.8);await c.window.undoVisEdit();c.window.setVisRealism(0,'depth',.6);await c.window.redoVisEdit();assert.equal(c.visState.doors[0].realism.light,undefined);assert.equal(c.visState.doors[0].realism.depth,.6);
+});
+test('undo history belongs to its home and cannot restore a previous customer photo',async()=>{
+ const h=harness(),c=h.c;c.visState.houseImage={url:'first.jpg'};c.window.setVisFit(0,'widthPct',60);c.visState.houseImage={url:'second.jpg'};await c.window.undoVisEdit();assert.equal(c.visState.doors[0].pos.widthPct,60);
+ c.window.setVisFit(0,'heightPct',50);c.visState={...c.visState,doors:[c.freshDoorConfig()]};await c.window.undoVisEdit();assert.equal(c.visState.doors[0].pos.heightPct,undefined);
+});
+test('foreground strokes use photo coordinates at zoom and undo restores the door',async()=>{
+ const h=harness(),c=h.c;c.visState.houseImage={url:'home.jpg'};h.nodes.set('visStage',{style:{},getBoundingClientRect:()=>({left:40,top:20,width:400,height:200})});c.window.toggleVisForeground();
+ c.window.startVisForegroundStroke({pointerId:3,clientX:140,clientY:70,preventDefault(){},stopPropagation(){}},0);h.events.get('pointermove')({pointerId:4,clientX:340,clientY:170});h.events.get('pointermove')({pointerId:3,clientX:340,clientY:170});h.events.get('pointercancel')({pointerId:3,clientX:340,clientY:170});
+ assert.deepEqual(JSON.parse(JSON.stringify(c.visState.doors[0].foreground[0].points)),[{x:25,y:25},{x:75,y:75}]);assert.equal(h.events.has('pointermove'),false);await c.window.undoVisEdit();assert.equal(c.visState.doors[0].foreground,undefined);await c.window.redoVisEdit();assert.equal(c.visState.doors[0].foreground[0].points.length,2);
+});
+test('saving captures one immutable image and specification and omits derived preview caches',async()=>{
+ const h=harness(),c=h.c;let modal,complete,record,requested;c.showModal=m=>modal=m;c.closeModal=()=>{};c.customerPickerHtml=()=>'';c.dbAdd=async(col,r)=>{record=r;return 'saved'};h.nodes.set('f_customer',{value:'customer'});h.nodes.set('f_visdesignname',{value:'Front door'});
+ c.visState.houseImage={url:'home-a.jpg'};c.visState.doors[0].width=16;c.visState.doors[0].foreground=[{radius:1,points:[{x:30,y:40}]}];c.visState.doors[0].designPreview={url:'derived-megabytes',key:'old'};c.captureVisPreview=options=>{requested=options.snapshot;return new Promise(r=>complete=r)};
+ c.window.openSaveDesignModal();const saving=modal.onSave();c.visState.houseImage.url='home-b.jpg';c.visState.doors[0].width=8;c.visState.doors[0].foreground[0].points[0].x=90;complete('image-of-home-a');await saving;
+ assert.equal(requested.houseImage.url,'home-a.jpg');assert.equal(record.houseImageUrl,'home-a.jpg');assert.equal(record.doors[0].width,16);assert.equal(record.doors[0].foreground[0].points[0].x,30);assert.equal(record.doors[0].designPreview,undefined);assert.equal(record.previewImageUrl,'image-of-home-a');assert.equal(c.visState.savedDesignId,'saved');
+});
+test('lossless export supports source resolution up to 4K and never uses later edits',async()=>{
+ const h=harness(),c=h.c;const requested=[];c.visState.houseImage={url:'original.jpg'};const snapshot=c.window.VisualizerEdits.snapshot();c.visState.houseImage.url='later.jpg';c.window.DoorDesign.loadImage=async url=>{requested.push(url);return {naturalWidth:6000,naturalHeight:4000}};
+ await c.captureVisPreview({snapshot,maxEdge:4096,format:'png'});assert.equal(requested[0],'original.jpg');assert.equal(h.canvases[0].width,4096);assert.equal(h.canvases[0].height,2731);
+});
+test('comparison movement is bounded and the undo shortcut does not hijack form editing',()=>{
+ const h=harness(),c=h.c;h.nodes.set('visCompareAfter',{style:{}});h.nodes.set('visCompareLine',{style:{}});c.window.setVisComparison(150);assert.equal(h.nodes.get('visCompareLine').style.left,'100%');c.window.setVisComparison(-10);assert.equal(h.nodes.get('visCompareAfter').style.clipPath,'inset(0 0 0 0%)');
+ c.visState.step=3;let prevented=0;h.events.get('keydown')({ctrlKey:true,key:'z',target:{tagName:'INPUT'},preventDefault:()=>prevented++});assert.equal(prevented,0);
+});
+test('foreground belongs to its photo and is cleared when another photo is selected',async()=>{
+ const h=harness(),c=h.c;c.visState.houseImage={url:'old.jpg'};c.visState.doors[0].foreground=[{radius:1,points:[{x:30,y:40}]}];await c.window.selectVisReferenceImage('single-test');assert.equal(c.visState.doors[0].foreground,undefined);
+ c.visState.doors[0].foreground=[{radius:1,points:[{x:30,y:40}]}];c.renderVisStep2({innerHTML:''});await h.nodes.get('f_houseimg').change({target:{files:[{name:'new.jpg',type:'image/jpeg',size:100}]}});assert.equal(c.visState.doors[0].foreground,undefined);
+});
+test('apply-to-all prepares every finish immediately and preserves independent opening fits',async()=>{
+ const h=harness(),c=h.c;const id='model';c.STORE.products=[{id}];c.visState.houseImage={url:'twin.jpg'};c.visState.doorCount=2;c.visState.doors=[{...c.freshDoorConfig(),referenceProductId:id,visualDesign:{finish:'black'},visualDesignOverride:true},{...c.freshDoorConfig(),pos:{...c.freshDoorConfig().pos,x:75}}];let prepared=0;c.window.DoorDesign.normalize=()=>{};c.window.DoorDesign.prepare=async d=>{prepared++;d.designPreview={key:'black',url:'prepared-black'}};
+ await c.window.toggleVisApplyToAll(true);assert.equal(prepared,2);assert.equal(c.visState.doors[1].visualDesign.finish,'black');assert.equal(c.visState.doors[1].designPreview.url,'prepared-black');assert.equal(c.visState.doors[1].pos.x,75);await c.window.undoVisEdit();assert.equal(c.visState.doors[1].referenceProductId,'');assert.equal(c.visState.applyToAll,false);
 });
