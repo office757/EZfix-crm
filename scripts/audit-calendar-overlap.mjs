@@ -40,7 +40,7 @@ check('All original inline event-handler attributes remain identical',()=>assert
 check('Built classic application scripts still parse',()=>{for(const m of built.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)){if(!/\bsrc=|\btype\s*=\s*["'](?:module|application\/ld\+json)/i.test(m[1])&&m[2].trim())new vm.Script(m[2]);}});
 const before=renderCalendarFixture(source), after=renderCalendarFixture(built);
 const cards=html=>[...html.matchAll(/<button class="cal-hour-job\b[^>]*>/g)].map(x=>x[0]);
-const findCard=(html,id)=>cards(html).find(x=>x.includes("go('jobs','"+id+"')"));
+const findCard=(html,id)=>cards(html).find(x=>x.includes("openCalendarJobPreview('"+id+"')"));
 check('Actual renderer previously squeezed the lone afternoon job',()=>assert.match(findCard(before,'demo-c'),/width:calc\(50% - 8px\)/));
 check('Actual renderer now gives the lone afternoon job full width',()=>assert.match(findCard(after,'demo-c'),/width:calc\(100% - 8px\)/));
 check('Actual overlapping morning jobs remain split',()=>assert.match(findCard(after,'demo-a'),/width:calc\(50% - 8px\)/));
@@ -49,7 +49,7 @@ check('Actual short appointments cannot visually cover each other',()=>assert.ma
 check('Every timed job still appears exactly once',()=>{assert.equal(cards(after).length,11);assert.equal(cards(after).length,cards(before).length);});
 check('Original time, height, status color and drag permissions are unchanged',()=>{
   for(const old of cards(before)){
-    const id=old.match(/go\('jobs','([^']+)'\)/)[1], next=findCard(after,id);
+    const id=old.match(/openCalendarJobPreview\('([^']+)'\)/)[1], next=findCard(after,id);
     for(const pattern of [/top:[^;]+;/,/height:[^;]+;/,/--cal-accent:[^";]+/,/draggable="[^"]*"/,/ondragstart="[^"]*"/])assert.equal(next.match(pattern)[0],old.match(pattern)[0]);
   }
 });
@@ -58,11 +58,11 @@ check('Short cards receive a compact presentation class',()=>assert.match(findCa
 check('Full descriptions safely escape names with quotes and markup',()=>{const card=findCard(after,'demo-quote');assert.match(card,/title="Demo &quot;Long Name&quot; &lt;Family&gt; &amp; Sons/);assert.match(card,/aria-label="Demo &quot;Long Name&quot; &lt;Family&gt; &amp; Sons/);});
 check('Technician-only visible card set and drag restrictions are preserved',()=>{
   const old=cards(renderCalendarFixture(source,{technician:true})), next=cards(renderCalendarFixture(built,{technician:true}));
-  assert.deepEqual(next.map(x=>x.match(/go\('jobs','[^']+'\)/)[0]),old.map(x=>x.match(/go\('jobs','[^']+'\)/)[0]));
+  assert.deepEqual(next.map(x=>x.match(/openCalendarJobPreview\('[^']+'\)/)[0]),old.map(x=>x.match(/openCalendarJobPreview\('[^']+'\)/)[0]));
   for(const c of next)assert.match(c,/draggable="false"/);
 });
 check('Technician filter still shows the same assigned jobs',()=>{
-  const ids=html=>cards(html).map(x=>x.match(/go\('jobs','[^']+'\)/)[0]);
+  const ids=html=>cards(html).map(x=>x.match(/openCalendarJobPreview\('[^']+'\)/)[0]);
   assert.deepEqual(ids(renderCalendarFixture(built,{filter:'tech-b'})),ids(renderCalendarFixture(source,{filter:'tech-b'})));
 });
 console.log(`Calendar overlap audit: ${passed}/${passed} PASS`);
