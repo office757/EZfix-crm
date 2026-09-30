@@ -3,12 +3,13 @@ function workspacePageSection(page) {
   if(IS_OWNER&&['communications','calls','ai_manager','ai_system'].includes(page))page='receptionist';
   
   const sections = [
-    {id:'work',title:'Daily Work',description:'Leads, scheduled work and customer history.',keys:['leads','jobs','calendar','customers','office','followups']},
+    {id:'work',title:'Daily Work',description:'Leads and scheduled work.',keys:['leads','jobs','calendar',...(isTechnicianView()||isMarketingManager()?['customers']:[])]},
+    {id:'operations',title:'Office',description:'Customers, follow-ups and daily tasks.',keys:['office','customers','followups']},
     {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['receptionist','ai_manager','attention'],aliases:{ai_system:'ai_manager'}},
     {id:'finance',title:'Finance',description:'Estimates, invoices, payments and business expenses.',keys:['quickpay','estimates','invoices','payments','banking']},
     {id:'team',title:'Team & Payroll',description:'People, commissions and performance.',keys:['team','payroll','reports','earnings']},
-    {id:'stock',title:'Products & Stock',description:'Products, inventory and supplier orders.',keys:['products','inventory','suppliers']},
-    {id:'gallery',title:'Gallery & Visualizer',description:'Project photos and door design tools.',keys:['gallery','visualizer','products'],aliases:{viscatalog:'visualizer'}},
+    {id:'stock',title:'Products & Stock',description:'Products, inventory and supplier orders.',keys:['inventory','suppliers']},
+    {id:'gallery',title:'Useful Tools',description:'Project photos and door design tools.',keys:['gallery','visualizer','products'],aliases:{viscatalog:'visualizer'}},
     {id:'communications',title:'Communications',description:'Email, calls, SMS and WhatsApp in one place.',keys:['communications'],aliases:{calls:'communications',walog:'communications',inbox:'communications'}},
     {id:'marketing',title:'Marketing',description:'Social posts and the project photos behind them.',keys:['socialposts'],related:['gallery']},
     {id:'system',title:'Settings & History',description:'Business settings and recorded activity.',keys:['settings','auditlog'],aliases:{checklist:'settings'}}
@@ -39,7 +40,7 @@ function workspacePageSection(page) {
     settings: ['teal', '⚙️'], auditlog: ['teal', '🕒'], checklist: ['teal', '📋'], walog: ['teal', '💬']
   };
   const categoryTones = {
-    'Sales & Billing': 'amber', 'Gallery & Visualizer': 'blue', 'Service & Stock': 'sage',
+    'Sales & Billing': 'amber', 'Useful Tools': 'blue', 'Service & Stock': 'sage',
     'Office & AI': 'violet', 'Team & Payroll': 'rose', 'Business Workspace': 'teal'
   };
   const meta = page => pages[page] || ['teal', '🧰'];
