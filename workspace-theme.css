@@ -162,3 +162,34 @@
   }
   @media (max-width:360px) {.workspace-screen .stat-grid {grid-template-columns:minmax(0,1fr)}}
 }
+
+/* Shared organization across workspace pages; card and icon designs stay intact. */
+@media screen {
+  .workspace-page-navigation{margin:22px 24px 0;padding:17px 18px 12px;border:1px solid var(--ws-line);border-radius:17px;background:var(--ws-surface);color:var(--ws-ink);min-width:0}
+  .workspace-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}
+  .workspace-section-heading b{font-size:13px;line-height:1.5}
+  .workspace-section-heading p{margin:3px 0 0;color:var(--ws-muted);font-size:12px;line-height:1.5}
+  .workspace-all-tools{border:0;background:none;color:var(--ws-accent-text);font:inherit;font-size:12px;font-weight:700;white-space:nowrap;padding:7px;cursor:pointer;min-height:36px}
+  .workspace-section-tabs{display:flex;align-items:center;gap:7px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding:3px 2px 6px}
+  .workspace-section-tab{display:flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;min-height:42px;padding:9px 13px;border:1px solid var(--ws-line);border-radius:10px;background:var(--ws-surface);color:var(--ws-ink);font:inherit;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}
+  .workspace-section-tab .workspace-emoji{font-size:18px}
+  .workspace-section-tab:hover{border-color:var(--ws-accent);background:var(--ws-soft)}
+  .workspace-section-tab.is-current{border-color:var(--ws-accent);background:var(--ws-tint);color:var(--ws-accent-text)}
+  .workspace-section-tab:focus-visible,.workspace-all-tools:focus-visible{outline:2px solid var(--ws-accent);outline-offset:2px}
+  .workspace-section-divider{height:24px;border-left:1px solid var(--ws-line);margin:0 3px}
+  body[data-workspace-section='work'] .workspace-screen .work-navigation{display:none}
+  .workspace-page-navigation+.content{padding-top:18px}
+  .workspace-screen>.toolbar:first-child,.workspace-screen>.stat-grid:first-child{margin-top:0}
+  .workspace-screen .office-section>h3{display:flex;align-items:center;gap:12px}
+  .workspace-screen .office-section>h3:after{content:'';flex:1;border-top:1px solid var(--ws-line)}
+  @media(max-width:680px){
+    .workspace-page-navigation{margin:12px 12px 0;padding:13px 12px 8px;border-radius:14px}
+    .workspace-section-heading{gap:8px;margin-bottom:9px}
+    .workspace-section-heading p{font-size:11px;max-width:34ch}
+    .workspace-section-tab{min-height:44px;padding:9px 11px}
+    .workspace-page-navigation+.content{padding-top:13px}
+    body[data-workspace-section] #topActions{gap:8px;flex-wrap:wrap}
+    body[data-workspace-section] #topActions>.btn{min-height:44px;flex:1 1 auto}
+  }
+}
+@media print{#workspacePageNavigation{display:none!important}}
