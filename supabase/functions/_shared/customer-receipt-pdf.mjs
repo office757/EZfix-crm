@@ -1,5 +1,5 @@
 
-import {jsPDF} from "npm:jspdf@3.0.3";
+import {jsPDF} from "npm:jspdf@2.5.1";
 // Use the existing invoice PDF renderer so archived receipts retain the approved branding.
 export async function renderReceiptPdf(inv,customer,logoDataUrl){
  const doc={...inv,customerId:inv.customer_id,customerName:inv.customer_name||customer?.name||'',customerAddress:inv.customer_address||customer?.address||'',customerPhone:inv.customer_phone||customer?.phone||'',dueTerm:inv.due_term,taxRate:inv.tax_rate,depositRequired:inv.deposit_required};
