@@ -7,5 +7,6 @@ if(!html.includes(mark)){
  html=html.replace(anchor,mark+'<script src="/door-design-data.js"></script><script src="/door-design-library.js"></script>\n'+anchor);
 }
 if(!html.includes('src="/door-config-options.js"'))html=html.replace('<script src="/door-design-library.js">','<script src="/door-config-options.js"></script><script src="/door-design-library.js">');
+if(!html.includes('src="/photo-door-library.js"'))html=html.replace('<script src="/door-design-library.js"></script>','<script src="/door-design-library.js"></script><script src="/photo-door-library.js"></script>');
 if(html!==readFileSync(p,'utf8'))writeFileSync(p,html);
 console.log('Manufacturer door design library installed.');
