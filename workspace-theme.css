@@ -193,3 +193,35 @@
   }
 }
 @media print{#workspacePageNavigation{display:none!important}}
+
+/* Phone spacing for More and Calendar, without changing calendar time geometry. */
+@media screen and (max-width:680px){
+ body[data-workspace-page="more"] .launcher{grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
+ body[data-workspace-page="more"] .launcher-cat{min-width:0}
+ body[data-workspace-page="more"] .launcher-cat-head{padding:13px;font-size:14px;line-height:1.4}
+ body[data-workspace-page="more"] .launcher-tiles{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px;gap:8px}
+ body[data-workspace-page="more"] .launcher-tile{min-width:0;min-height:72px;padding:11px 8px;gap:8px}
+ body[data-workspace-page="more"] .launcher-tile-label{min-width:0;font-size:13px;line-height:1.4;word-break:normal;overflow-wrap:break-word}
+ body[data-workspace-page="calendar"] #topActions{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+ body[data-workspace-page="calendar"] #topActions .doc-tabbar{display:flex!important;flex:1 0 100%;width:100%!important;min-width:0}
+ body[data-workspace-page="calendar"] #topActions .doc-tab{flex:1;min-width:0;min-height:44px;padding:10px 8px}
+ body[data-workspace-page="calendar"] #topActions>.btn{min-height:44px;flex:1}
+ body[data-workspace-page="calendar"] .cal-friendly-toolbar>div:first-child{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;gap:8px!important}
+ body[data-workspace-page="calendar"] .cal-friendly-toolbar h3{grid-column:1/-1;grid-row:1;font-size:18px!important;line-height:1.4;margin-bottom:4px!important}
+ body[data-workspace-page="calendar"] .cal-friendly-toolbar>.select-compact,body[data-workspace-page="calendar"] .cal-friendly-toolbar>select{width:100%!important;max-width:none;min-width:0;min-height:44px;font-size:16px}
+ body[data-workspace-page="calendar"] .cal-filter-block{display:grid;grid-template-columns:minmax(0,1fr);width:100%}
+ body[data-workspace-page="calendar"] .cal-filter-block select{width:100%!important;min-width:0;max-width:none;min-height:44px;font-size:16px}
+ body[data-workspace-page="calendar"] .cal-nav-group .btn{min-height:44px;min-width:44px}
+ body[data-workspace-page="calendar"] .cal-month-layout{grid-template-columns:minmax(0,1fr);min-width:0}
+ body[data-workspace-page="calendar"] .cal-month-shell{min-width:0;max-width:100%;margin-inline:0;overflow-x:auto;overscroll-behavior-x:contain}
+ body[data-workspace-page="calendar"] .cal-agenda{position:static;min-width:0}
+ body[data-workspace-page="calendar"] .cal-agenda-head{flex-wrap:wrap}
+ body[data-workspace-page="calendar"] .cal-day-job{min-width:0;overflow-wrap:anywhere}
+ body[data-workspace-page="calendar"] .cal-day-side{flex-wrap:wrap}
+}
+@media screen and (max-width:420px){
+ body[data-workspace-page="more"] .launcher-tiles-paired{grid-template-columns:minmax(0,1fr)}
+}
+@media screen and (max-width:360px){
+ body[data-workspace-page="more"] .launcher-tiles{grid-template-columns:minmax(0,1fr)}
+}
