@@ -1378,7 +1378,7 @@ const SIDEBAR_GROUPS = [
 ];
 const sidebarGroupState = {};
 function sidebarNavItems() {
-  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','receptionist','dashboard','communications',...SIDEBAR_GROUPS.flatMap(g=>g.keys),'socialposts','settings'];
+  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','receptionist','dashboard','communications',...SIDEBAR_GROUPS.flatMap(g=>g.keys),...(IS_OWNER?[]:['socialposts','settings'])];
   return keys.map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)&&(!n.hideForTech||!isTechnicianView())&&(!isTechnicianView()||technicianAllowedPage(n.key)));
 }
 function isSidebarItemActive(n) {
@@ -2057,7 +2057,7 @@ function dashboardModuleCategories() {
   if(!isTechnicianView()&&!isMarketingManager()){
     const office=NAV.find(n=>n.key==='office');
     if(office&&canAccessWorkspaceNav(office))groups['Office & AI']=[{...office,fullWidth:true},...(groups['Office & AI']||[])];
-    groups['Business Workspace']=['banking','socialposts'].map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n));
+    groups['Business Workspace']=(IS_OWNER?['banking']:['banking','socialposts']).map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n));
   }
   return order.filter(c=>groups[c]).map(c => ({ name: c, items: groups[c] }));
 }
@@ -8015,7 +8015,9 @@ function renderAiReceptionist(content, actions) {
       <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
       <button class="doc-tab ${receptionistState.subview==='phone'?'active':''}" onclick="receptionistState.subview='phone'; render()">📞 Phone Connection</button>
       ${[['all','All messages'],['unread','Unread'],['whatsapp','WhatsApp'],['email','Gmail'],['sms','SMS']].map(([key,label])=>`<button class="doc-tab ${receptionistState.subview===key?'active':''}" onclick="openAshleyChannel('${key}')">${ashleyChannelIcon(key)} ${label}</button>`).join('')}
-      <button class="doc-tab ${receptionistState.subview==='settings'?'active':''}" onclick="receptionistState.subview='settings'; render()">⚙️ Settings</button>
+      <button class="doc-tab" onclick="go('socialposts')">📣 Social Media</button>
+      <button class="doc-tab" onclick="go('settings')">⚙️ Business Settings</button>
+      <button class="doc-tab ${receptionistState.subview==='settings'?'active':''}" onclick="receptionistState.subview='settings'; render()">🎧 Ashley Settings</button>
     </div>
     <div style="margin-top:16px" id="receptionistBody"></div>
   `;
