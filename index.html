@@ -7974,16 +7974,49 @@ function renderAiReceptionist(content, actions) {
       <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
       <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
       <button class="doc-tab ${receptionistState.subview==='phone'?'active':''}" onclick="receptionistState.subview='phone'; render()">📞 Phone Connection</button>
+      ${[['whatsapp','WhatsApp'],['email','Gmail'],['sms','SMS']].map(([key,label])=>`<button class="doc-tab ${receptionistState.subview===key?'active':''}" onclick="openAshleyChannel('${key}')">${ashleyChannelIcon(key)} ${label}</button>`).join('')}
       <button class="doc-tab ${receptionistState.subview==='settings'?'active':''}" onclick="receptionistState.subview='settings'; render()">⚙️ Settings</button>
     </div>
     <div style="margin-top:16px" id="receptionistBody"></div>
   `;
   const body = document.getElementById('receptionistBody');
+  if (['whatsapp','email','sms'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
   if (receptionistState.subview==='test') return renderReceptionistChat(body, 'test');
   if (receptionistState.subview==='assistant') return renderReceptionistChat(body, 'assistant');
   if (receptionistState.subview==='phone') return renderPhoneConnection(body);
   if (receptionistState.subview==='calls') return renderCallHistory(body);
   return renderReceptionistSettings(body);
+}
+function ashleyChannelIcon(channel) {
+  const paths = channel === 'email'
+    ? '<path fill="#4285f4" d="M2 6v13h4V9z"/><path fill="#34a853" d="M18 9v10h4V6z"/><path fill="#ea4335" d="m2 6 10 8L22 6V3l-10 8L2 3z"/><path fill="#fbbc04" d="m18 6 4-3v6l-4 3z"/><path fill="#c5221f" d="M2 3v6l4 3V6z"/>'
+    : channel === 'whatsapp'
+    ? '<path fill="#25d366" d="M12 1a11 11 0 0 0-9.5 16.5L1 23l5.6-1.5A11 11 0 1 0 12 1z"/><path fill="white" d="M8 6c-.5-.5-1.5 0-2 1-.6 2 1.5 5.5 4 7.5s5 2.5 6 1.5l1-2-3-1.5-1 1c-2-1-3.5-2.5-4-4l1-1z"/>'
+    : '<rect x="1" y="3" width="22" height="16" rx="6" fill="#4285f4"/><path d="m6 17-2 6 8-5" fill="#4285f4"/><path d="M6 9h12M6 13h8" stroke="white" stroke-width="2" stroke-linecap="round"/>';
+  return '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" style="vertical-align:middle;flex-shrink:0">' + paths + '</svg>';
+}
+function openAshleyChannel(channel) {
+  if (!IS_OWNER || !['whatsapp','email','sms'].includes(channel)) return;
+  receptionistState.subview = channel;
+  searchTerms.commFilter = channel;
+  searchTerms.commSelected = null;
+  searchTerms.commSearch = '';
+  render();
+}
+function renderAshleyChannel(body, actions) {
+  const channel = receptionistState.subview;
+  searchTerms.commFilter = channel;
+  if (!window.WhatsAppLinked) {
+    body.innerHTML = '<p class="muted">Messaging is loading…</p><button class="btn" onclick="render()">Retry</button>';
+    return;
+  }
+  renderCommunications(body, actions);
+  const channelTabs = body.querySelector('.toolbar > div');
+  if (channelTabs) channelTabs.remove();
+  if (channel === 'sms') {
+    const customers = (STORE.customers || []).filter(customer => customer.phone);
+    body.insertAdjacentHTML('afterbegin', `<label class="field"><span class="lbl">💬 New SMS — choose a customer</span><select onchange="if(this.value)openCustomerSmsComposer(this.value);this.value=''"><option value="">Choose customer…</option>${customers.map(customer=>`<option value="${esc(customer.id)}">${esc(customer.name || customer.phone)} · ${esc(customer.phone)}</option>`).join('')}</select></label>`);
+  }
 }
 function renderPhoneConnection(body) {
   const statusLabel = { not_configured:'⚪ Not Configured', setup_required:'🟡 Setup Required', connecting:'🟡 Connecting', connected:'🟢 Connected', error:'🔴 Error' };
