@@ -30,6 +30,7 @@ const scripts = [
   'audit-ashley-setup.mjs',
   'audit-job-assignment.mjs',
   'job-completion-signature-audit.mjs',
+  'audit-job-completion-refresh.mjs',
   'audit-office-role.mjs',
   'audit-whatsapp-linked-device.mjs',
   'audit-invoice-contact.mjs',

@@ -2444,6 +2444,9 @@ async function signJobCompletion(jobId) {
     logAudit('job_completed', `Job "${j.title}" completed for ${j.customerName}`, 'jobs', jobId);
     toast('Job completed and signed');
     closeModal();
+    // Refresh the visible job/calendar immediately after the confirmed save.
+    // Realtime can arrive later; it must not leave Sign & close visible here.
+    render();
     setTimeout(() => promptWarrantyForJob(jobId), 200);
   });
 }
