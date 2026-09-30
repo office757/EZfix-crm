@@ -30,7 +30,7 @@ async function prepare(d){
  const key=c.key;
  let promise=cache.get(key);
  if(!promise){promise=(async()=>{
-  const img=await loadImage(source(c));const cv=document.createElement('canvas');cv.width=800;cv.height=Math.round(800*Math.min(2,Math.max(.25,c.height/c.width)));const ctx=cv.getContext('2d');
+  const img=await loadImage(source(c));const cv=document.createElement('canvas');cv.width=Math.min(1600,Math.max(800,img.naturalWidth));cv.height=Math.round(cv.width*Math.min(2,Math.max(.25,c.height/c.width)));const ctx=cv.getContext('2d');
   ctx.drawImage(img,0,0,cv.width,cv.height);
   if(c.finish!=='original'){
    const pixels=ctx.getImageData(0,0,cv.width,cv.height),rgba=pixels.data;
