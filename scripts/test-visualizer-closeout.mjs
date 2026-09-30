@@ -11,6 +11,31 @@ function harness(){
  vm.createContext(c);vm.runInContext(source,c);c.visState.doors=[c.freshDoorConfig()];
  return {c,nodes,events,canvases,messages};
 }
+test('inactive reference models remain searchable, selectable and configurable',async()=>{
+ const h=harness(),c=h.c;
+ c.document.querySelectorAll=()=>[];
+ c.visState.houseImage={url:'home.jpg'};
+ c.STORE.products=[
+  {id:'catalog_door_amarr_li1000_lincoln',name:'Amarr LI1000 - Lincoln',manufacturer:'Amarr',active:false,catalogKind:'garage_door_model'},
+  {id:'unready',name:'Amarr reference only',manufacturer:'Amarr',active:false,catalogKind:'garage_door_model'},
+  {id:'spring',name:'Amarr spring',manufacturer:'Amarr',active:false,catalogKind:'spring_size'}
+ ];
+ vm.runInContext(readFileSync(new URL('../door-design-data.js',import.meta.url),'utf8'),c);
+ vm.runInContext(readFileSync(new URL('../door-design-library.js',import.meta.url),'utf8'),c);
+ c.window.DoorDesign.prepare=async()=>{};
+ c.window.__visCatalogState.search='Amarr';
+ const body={innerHTML:''};c.window.renderVisStep3(body);
+ assert.match(body.innerHTML,/1 matching models/);
+ assert.match(body.innerHTML,/Amarr LI1000 - Lincoln/);
+ assert.doesNotMatch(body.innerHTML,/data-product-id="unready"|data-product-id="spring"/);
+ c.window.visCatalogReadyOnly(false);c.window.renderVisStep3(body);
+ assert.match(body.innerHTML,/2 matching models/);
+ await c.window.selectVisReferenceDoor(0,c.STORE.products[0].id);
+ assert.equal(c.visState.doors[0].referenceProductId,c.STORE.products[0].id);
+ assert.ok(c.window.DoorDesign.choice(c.visState.doors[0]));
+ c.window.renderVisStep3(body);assert.match(body.innerHTML,/Window design/);
+ assert.equal(c.STORE.products[0].active,false,'reference status remains isolated from sales');
+});
 test('saved designs recover missing doors and invalid positions without crashing',async()=>{
  const h=harness();h.c.STORE.savedDesigns=[{id:'broken',doorCount:4,houseImageUrl:'home.jpg',doors:[{pos:{x:1000,y:-4,scale:'bad'}}]}];
  await h.c.window.resumeSavedVisualizerDesign('broken');assert.equal(h.c.visState.doors.length,4);assert.equal(h.c.visState.doorCount,4);assert.equal(h.c.visState.doors[0].pos.x,100);assert.equal(h.c.visState.doors[0].pos.y,0);assert.equal(h.c.visState.doors[0].pos.scale,1);
