@@ -43,6 +43,19 @@ function workspaceActivityLink(a){
  const page=aliases[a.entityType]||a.entityType;
  return a.entityId&&NAV.some(n=>n.key===page&&canAccessWorkspaceNav(n))?workspaceAction(page,a.entityId):'';
 }
+let workspaceScheduleDate = '';
+function moveWorkspaceSchedule(offset){
+ workspaceScheduleDate=offset===0?todayISO():addDays(workspaceScheduleDate||todayISO(),offset);
+ render();
+}
+function workspaceScheduleJobs(day){
+ return STORE.jobs.filter(j=>!j.deletedAt&&j.scheduledDate===day&&j.status!=='cancelled').sort(calendarJobTimeOrder);
+}
+function renderWorkspaceSchedule(){
+ const day=workspaceScheduleDate||todayISO(),jobs=workspaceScheduleJobs(day);
+ const controls=`<div class="overview-schedule-controls"><button class="btn btn-sm" onclick="moveWorkspaceSchedule(-1)" aria-label="Previous day">‹</button><button class="btn btn-sm" onclick="moveWorkspaceSchedule(0)">Today</button><button class="btn btn-sm" onclick="moveWorkspaceSchedule(1)" aria-label="Next day">›</button><b>${esc(workspaceRelativeDate(day))}</b></div>`;
+ return controls+(jobs.length?'<div class="overview-list overview-schedule-list">'+jobs.map(j=>`<button type="button" class="overview-list-row overview-schedule-row" onclick="${workspaceAction('jobs',j.id)}"><span class="overview-schedule-time">${esc(j.appointmentWindow||'Time TBD')}</span><span class="overview-schedule-marker" style="--schedule-accent:${jobStatusAccent(j.status)}" aria-hidden="true"></span><span class="overview-row-copy"><b>${esc(j.title||'Garage door service')}</b><small>${esc(j.customerName||'Customer')}</small><small>${esc(j.technician||'Unassigned')}</small></span><span class="overview-status ${['scheduled','technician_assigned','accepted'].includes(j.status)?'overview-status-scheduled':j.status==='work_in_progress'?'overview-status-progress':''}">${esc(labelize(String(j.status||'').replace(/_/g,' ')))}</span><span class="overview-row-arrow" aria-hidden="true">›</span></button>`).join('')+'</div>':`<div class="overview-empty"><b>No appointments for this day</b><p>Use the arrows to check another day.</p><button class="overview-link" onclick="openCalendarDay('${day}')">Open calendar ↗</button></div>`);
+}
 function renderWorkspaceOverview(content,actions,d){
  const today=todayISO(),m=workspaceMetric,stat=workspaceStat;
  const plural=(n,word)=>`${n} ${word}${n===1?'':'s'}`;
@@ -80,7 +93,7 @@ function renderWorkspaceOverview(content,actions,d){
   <section class="overview-panel overview-work" aria-labelledby="workOverviewTitle">
    <header class="overview-panel-heading"><div><span class="overview-eyebrow">YOUR DAY, ORGANIZED</span><h2 id="workOverviewTitle">Work Overview</h2><p class="overview-panel-description">Pick up where your team left off.</p></div><div class="overview-quick-actions"><button class="btn btn-sm" onclick="openEstimateModal()">+ Estimate</button><button class="btn btn-sm" onclick="openInvoiceModal()">+ Invoice</button><button class="btn btn-sm overview-create-job" onclick="openJobModal()">+ New job</button></div></header>
    <div class="overview-feed-grid">
-    ${section('overviewJobsTitle','Upcoming jobs','Next scheduled visits','calendar',view('calendar','Calendar'),d.nextJobs.length?'<div class="overview-list">'+d.nextJobs.map(j=>`<button type="button" class="overview-list-row" onclick="${workspaceAction('jobs',j.id)}">${workspaceDateTile(j.scheduledDate)}<span class="overview-row-copy"><b>${esc(j.title||'Garage door service')}</b><small>${esc(j.customerName||'Customer')}${j.appointmentWindow?' · '+esc(j.appointmentWindow):''}</small></span><span class="overview-status ${['scheduled','technician_assigned','accepted'].includes(j.status)?'overview-status-scheduled':j.status==='work_in_progress'?'overview-status-progress':''}">${esc(labelize(String(j.status||'').replace(/_/g,' ')))}</span><span class="overview-row-arrow" aria-hidden="true">›</span></button>`).join('')+'</div>':empty('Your calendar is clear','Schedule a job to plan the next visit.','calendar','Schedule a job','openJobModal()'))}
+    ${section('overviewJobsTitle','Daily schedule','Appointments in time order','calendar',view('calendar','Full calendar'),renderWorkspaceSchedule())}
     <div id="overviewFollowUps" class="overview-followups-wrap" tabindex="-1">${section('overviewFollowUpsTitle','Follow-ups',followUps.length?plural(followUps.length,'customer')+' ready for contact':'All customer follow-ups are up to date','followups',view('leads','View leads'),followUps.length?'<div class="overview-list">'+followUps.slice(0,5).map(l=>`<button type="button" class="overview-list-row" onclick="${workspaceAction('leads',l.id)}"><span class="overview-contact-avatar" aria-hidden="true">${esc((l.name||'?').trim().slice(0,1).toUpperCase())}</span><span class="overview-row-copy"><b>${esc(l.name||'Customer')}</b><small>${esc(l.phone||l.email||'Open lead details')}</small></span><span class="overview-followup-date"><span class="overview-due ${l.nextFollowUp<today?'is-overdue':''}">${l.nextFollowUp<today?'Overdue':'Today'}</span><small>${esc(workspaceDate(l.nextFollowUp))}</small></span><span class="overview-row-arrow" aria-hidden="true">›</span></button>`).join('')+'</div>':empty('You’re all caught up','Your next customer follow-up will appear here.','followups','Open leads',"go('leads')"))}</div>
     ${section('overviewPaymentsTitle','Recent payments','Latest recorded payments','payments',view('payments','Payments'),d.recentPayments.length?'<div class="overview-list">'+d.recentPayments.map(p=>`<button type="button" class="overview-list-row" onclick="${workspaceAction('invoices',p.invoiceId)}"><span class="overview-payment-icon">${workspaceOverviewEmoji('payments')}</span><span class="overview-row-copy"><b>${esc(p.customerName||p.invoiceNumber||'Payment')}</b><small>${esc(p.invoiceNumber||'Invoice')} · ${esc(workspaceRelativeDate(p.date))}</small></span><span class="overview-payment"><b>${money(paymentAppliedAmount(p))}</b><small>${esc(p.method||'Payment')}</small></span><span class="overview-row-arrow" aria-hidden="true">›</span></button>`).join('')+'</div>':empty('No payments recorded yet','Recorded payments will appear here.','payments','Open payments',"go('payments')"))}
     ${section('overviewActivityTitle','Recent activity','Latest team updates','auditlog',IS_OWNER?view('auditlog','History'):'',d.recentEvents.length?'<div class="overview-activity">'+d.recentEvents.map(a=>{const action=workspaceActivityLink(a),tag=action?'button':'div',summary=a.summary||labelize(a.action);return `<${tag} class="overview-activity-row" ${action?`type="button" onclick="${action}"`:''}><span class="overview-activity-dot" aria-hidden="true"></span><span class="overview-activity-copy"><b title="${esc(summary)}">${esc(summary)}</b><small>${esc(workspaceActivityDate(a.createdAt))}</small></span>${action?'<span class="overview-row-arrow" aria-hidden="true">›</span>':''}</${tag}>`;}).join('')+'</div>':empty('A fresh start','Your team’s updates will appear as work gets done.','auditlog','',''))}
@@ -120,7 +133,7 @@ function workspaceToolCategories(){
   'Sales & Billing':{tone:'amber',emoji:'💳'},
   'Gallery & Visualizer':{tone:'blue',emoji:'🖼️'},
   'Service & Stock':{tone:'sage',emoji:'🧰'},
-  'AI Tools':{tone:'violet',emoji:'✨'},
+  'Office & AI':{tone:'violet',emoji:'✨'},
   'Team & Payroll':{tone:'rose',emoji:'👥'},
   'Business Workspace':{tone:'teal',emoji:'🏢'}
  };

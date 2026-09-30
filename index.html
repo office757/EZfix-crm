@@ -1296,25 +1296,42 @@ const NAV = [
 const CATEGORY_META = {
   'Sales & Billing': { emoji:'💳', header:'#242424', paired:true, centered:true },
   'Gallery & Visualizer': { emoji:'🖼️', header:'#242424', paired:true, centered:true },
-  'AI Tools': { emoji:'✨', header:'#242424', paired:true, centered:true },
+  'Office & AI': { emoji:'✨', header:'#242424', paired:true, centered:true },
   'Service & Stock': { emoji:'🧰', header:'#242424', paired:true, centered:true },
   'Team & Payroll': { emoji:'👥', header:'#242424', paired:true, centered:true },
   'Business Workspace': { emoji:'▦', header:'#242424', paired:true, centered:true },
 };
 
+const SIDEBAR_GROUPS = [
+  {id:'daily',label:'Daily Work',keys:['jobs','calendar','customers']},
+  {id:'office',label:'Office & AI',keys:['office','ai_manager','followups']},
+  {id:'finance',label:'Finance',keys:['estimates','invoices','payments','banking','expenses']},
+  {id:'team',label:'Team & Payroll',keys:['team','payroll','reports','earnings'],collapsed:true},
+  {id:'stock',label:'Products & Stock',keys:['products','inventory','suppliers'],collapsed:true},
+  {id:'gallery',label:'Gallery & Visualizer',keys:['gallery','visualizer'],collapsed:true}
+];
+const sidebarGroupState = {};
 function sidebarNavItems() {
-  return NAV.filter(n => (n.sidebar!==false || (isMarketingManager() && n.key==='leads')) && canAccessWorkspaceNav(n) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || ['dashboard','leads','customers'].includes(n.key)));
+  const keys=isMarketingManager()?['dashboard','leads','customers']:['quickpay','dashboard','communications',...SIDEBAR_GROUPS.flatMap(g=>g.keys),'socialposts','settings'];
+  return keys.map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)&&(!n.hideForTech||!isTechnicianView())&&(!isTechnicianView()||technicianAllowedPage(n.key)));
 }
 function isSidebarItemActive(n) {
-  return route.page===n.key || (n.key==='jobs' && route.page==='leads');
+  return route.page===n.key || (n.key==='jobs' && route.page==='leads') || (n.key==='ai_manager' && ['receptionist','ai_system'].includes(route.page));
 }
 function renderNav() {
   const el = document.getElementById('navList');
-  el.innerHTML = sidebarNavItems().map(n => `
-    <button class="nav-item ${n.key==='banking'?'nav-workspace-start':''} ${isSidebarItemActive(n)?'active':''}" data-workspace-nav="${n.key}" onclick="go('${n.key}')" ${isSidebarItemActive(n)?'aria-current="page"':''}>
-      ${window.EZFIXWorkspaceTheme ? window.EZFIXWorkspaceTheme.navIcon(n.key) : `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>`}
-      ${n.label}${n.key==='attention'&&typeof workspaceAttention==='function'&&workspaceAttention().length?'<span class="nav-attention-count">'+workspaceAttention().reduce((sum,x)=>sum+x.count,0)+'</span>':''}
-    </button>`).join('');
+  const items=sidebarNavItems();
+  const item=n=>`<button class="nav-item ${n.key==='quickpay'?'nav-quick-payment':''} ${isSidebarItemActive(n)?'active':''}" data-workspace-nav="${n.key}" onclick="go('${n.key}')" ${isSidebarItemActive(n)?'aria-current="page"':''}>
+    ${window.EZFIXWorkspaceTheme ? window.EZFIXWorkspaceTheme.navIcon(n.key) : `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg>`}${n.label}</button>`;
+  if(isTechnicianView()||isMarketingManager())el.innerHTML=items.map(item).join('');
+  else {
+    const select=keys=>keys.map(k=>items.find(n=>n.key===k)).filter(Boolean);
+    el.innerHTML=select(['quickpay','dashboard','communications']).map(item).join('')+SIDEBAR_GROUPS.map(g=>{
+      const entries=select(g.keys);if(!entries.length)return '';
+      const active=entries.some(isSidebarItemActive),open=active||(sidebarGroupState[g.id]??!g.collapsed);
+      return `<details class="nav-feature-group" ${open?'open':''} ontoggle="sidebarGroupState['${g.id}']=this.open"><summary>${esc(g.label)}<span aria-hidden="true">⌄</span></summary>${entries.map(item).join('')}</details>`;
+    }).join('')+select(['socialposts','settings']).map(item).join('');
+  }
   renderViewAsOptions();
 }
 function openSidebar(){
@@ -1956,10 +1973,14 @@ function renderTechnicianDashboard(content, actions) {
 }
 function dashboardModuleCategories() {
   const secondary = NAV.filter(n => n.launcher!==false && n.sidebar===false && canAccessWorkspaceNav(n) && (!n.hideForTech || !isTechnicianView()) && (!isMarketingManager() || marketingAllowedPage(n.key)));
-  const order = ['Sales & Billing','Gallery & Visualizer','Service & Stock','AI Tools','Team & Payroll','Business Workspace'];
+  const order = ['Sales & Billing','Office & AI','Team & Payroll','Service & Stock','Gallery & Visualizer','Business Workspace'];
   const groups = {};
-  secondary.forEach(n => { (groups[n.category||'Other'] = groups[n.category||'Other']||[]).push(n); });
-  if(!isTechnicianView()&&!isMarketingManager())groups['Business Workspace']=['banking','socialposts','office'].map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n)).map(n=>({...n,fullWidth:n.key==='office'}));
+  secondary.forEach(n => { const category=n.category==='AI Tools'?'Office & AI':n.category||'Other'; (groups[category] = groups[category]||[]).push(n); });
+  if(!isTechnicianView()&&!isMarketingManager()){
+    const office=NAV.find(n=>n.key==='office');
+    if(office&&canAccessWorkspaceNav(office))groups['Office & AI']=[{...office,fullWidth:true},...(groups['Office & AI']||[])];
+    groups['Business Workspace']=['banking','socialposts'].map(key=>NAV.find(n=>n.key===key)).filter(n=>n&&canAccessWorkspaceNav(n));
+  }
   return order.filter(c=>groups[c]).map(c => ({ name: c, items: groups[c] }));
 }
 function renderModuleLauncherHtml() {
