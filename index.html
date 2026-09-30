@@ -1293,7 +1293,7 @@ async function deductInventoryForItems(items) {
 function isOfficeRole(){return CURRENT_TEAM_MEMBER?.role==='office';}
 function canOperateOffice(){return !isTechnicianView()&&(IS_OWNER||isOfficeRole());}
 function officeAllowedPage(page){return ['dashboard','more','office','attention','banking','communications','calls','jobs','leads','customers','calendar','estimates','invoices','quickpay','payments','products','inventory','suppliers','expenses','followups','warranties','team','payroll','reports','gallery','socialposts','visualizer'].includes(page);}
-function canAccessWorkspaceNav(n){return (!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
+function canAccessWorkspaceNav(n){return !(IS_OWNER&&n.key==='communications')&&(!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
 const NAV = [
   {key:'calls',label:'Calls & recordings',icon:'M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4c0 2-3 2-5 1C9 17 5 13 3 6c-1-2 0-3 2-3z',sidebar:false,launcher:false,hideForTech:true},
   { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales & Billing' },
@@ -1405,6 +1405,10 @@ function technicianOwnsLead(lead) {
 function isMarketingManager(){ return CURRENT_TEAM_MEMBER?.role==='marketing_manager'; }
 function marketingAllowedPage(page){ return ['dashboard','leads','customers','more'].includes(page); }
 function go(page, id) {
+  if (IS_OWNER && !isTechnicianView() && page==='communications') {
+    receptionistState.subview = ['email','sms','whatsapp','unread'].includes(searchTerms.commFilter) ? searchTerms.commFilter : 'all';
+    page='receptionist';
+  }
   if(page==='lead_offers'){page='leads';id=null;}
   if(isOfficeRole()&&!officeAllowedPage(page)){toast('This section is managed by the owner.',true);page='office';id=null;}
   if (isMarketingManager() && !marketingAllowedPage(page)) {
@@ -1432,6 +1436,10 @@ window.go = go; window.openSidebar = openSidebar; window.closeSidebar = closeSid
 
 /* ---------- render root ---------- */
 function render() {
+  if (IS_OWNER && !isTechnicianView() && route.page==='communications') {
+    receptionistState.subview = ['email','sms','whatsapp','unread'].includes(searchTerms.commFilter) ? searchTerms.commFilter : 'all';
+    route.page='receptionist';
+  }
   if(isOfficeRole()&&!officeAllowedPage(route.page))route={page:'office',id:null};
   renderNav();
   refreshNotifBadge();
@@ -3084,7 +3092,7 @@ function startCommunicationsPolling() {
   if (_commPollInterval) return; // already running — this is what makes it safe to call from every render() without restarting or re-firing
   pollAndIngestInkboxEvents(); // fetch immediately on first open only
   _commPollInterval = setInterval(() => {
-    if (route.page !== 'communications') { clearInterval(_commPollInterval); _commPollInterval = null; return; } // stop cleanly once the user has navigated away
+    if (route.page !== 'communications' && !(route.page==='receptionist' && ['all','unread','email','sms','whatsapp'].includes(receptionistState.subview))) { clearInterval(_commPollInterval); _commPollInterval = null; return; } // stop cleanly once the user has navigated away
     if (!document.hidden) pollAndIngestInkboxEvents();
   }, 20000); // polled, not realtime — labeled as such in the UI
 }
@@ -7974,13 +7982,13 @@ function renderAiReceptionist(content, actions) {
       <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
       <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
       <button class="doc-tab ${receptionistState.subview==='phone'?'active':''}" onclick="receptionistState.subview='phone'; render()">📞 Phone Connection</button>
-      ${[['whatsapp','WhatsApp'],['email','Gmail'],['sms','SMS']].map(([key,label])=>`<button class="doc-tab ${receptionistState.subview===key?'active':''}" onclick="openAshleyChannel('${key}')">${ashleyChannelIcon(key)} ${label}</button>`).join('')}
+      ${[['all','All messages'],['unread','Unread'],['whatsapp','WhatsApp'],['email','Gmail'],['sms','SMS']].map(([key,label])=>`<button class="doc-tab ${receptionistState.subview===key?'active':''}" onclick="openAshleyChannel('${key}')">${ashleyChannelIcon(key)} ${label}</button>`).join('')}
       <button class="doc-tab ${receptionistState.subview==='settings'?'active':''}" onclick="receptionistState.subview='settings'; render()">⚙️ Settings</button>
     </div>
     <div style="margin-top:16px" id="receptionistBody"></div>
   `;
   const body = document.getElementById('receptionistBody');
-  if (['whatsapp','email','sms'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
+  if (['whatsapp','email','sms','all','unread'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
   if (receptionistState.subview==='test') return renderReceptionistChat(body, 'test');
   if (receptionistState.subview==='assistant') return renderReceptionistChat(body, 'assistant');
   if (receptionistState.subview==='phone') return renderPhoneConnection(body);
@@ -7988,6 +7996,8 @@ function renderAiReceptionist(content, actions) {
   return renderReceptionistSettings(body);
 }
 function ashleyChannelIcon(channel) {
+  if(channel==='all')return '📥';
+  if(channel==='unread')return '🔔';
   const paths = channel === 'email'
     ? '<path fill="#4285f4" d="M2 6v13h4V9z"/><path fill="#34a853" d="M18 9v10h4V6z"/><path fill="#ea4335" d="m2 6 10 8L22 6V3l-10 8L2 3z"/><path fill="#fbbc04" d="m18 6 4-3v6l-4 3z"/><path fill="#c5221f" d="M2 3v6l4 3V6z"/>'
     : channel === 'whatsapp'
@@ -7996,7 +8006,7 @@ function ashleyChannelIcon(channel) {
   return '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" style="vertical-align:middle;flex-shrink:0">' + paths + '</svg>';
 }
 function openAshleyChannel(channel) {
-  if (!IS_OWNER || !['whatsapp','email','sms'].includes(channel)) return;
+  if (!IS_OWNER || !['whatsapp','email','sms','all','unread'].includes(channel)) return;
   receptionistState.subview = channel;
   searchTerms.commFilter = channel;
   searchTerms.commSelected = null;
@@ -8012,7 +8022,7 @@ function renderAshleyChannel(body, actions) {
   }
   renderCommunications(body, actions);
   const channelTabs = body.querySelector('.toolbar > div');
-  if (channelTabs) channelTabs.remove();
+  if (channelTabs) channelTabs.innerHTML = '<button class="btn btn-sm" onclick="openCallAudioHistory()">🎧 Call History &amp; Audio</button>';
   if (channel === 'sms') {
     const customers = (STORE.customers || []).filter(customer => customer.phone);
     body.insertAdjacentHTML('afterbegin', `<label class="field"><span class="lbl">💬 New SMS — choose a customer</span><select onchange="if(this.value)openCustomerSmsComposer(this.value);this.value=''"><option value="">Choose customer…</option>${customers.map(customer=>`<option value="${esc(customer.id)}">${esc(customer.name || customer.phone)} · ${esc(customer.phone)}</option>`).join('')}</select></label>`);
