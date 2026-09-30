@@ -1,6 +1,7 @@
 /* Related workspaces reuse the existing routes and permission checks. */
 function workspacePageSection(page) {
-  if(IS_OWNER&&['communications','calls'].includes(page))page='receptionist';
+  if(IS_OWNER&&['communications','calls','ai_manager','ai_system'].includes(page))page='receptionist';
+  if(IS_OWNER&&page==='followups')page='office';
   const sections = [
     {id:'work',title:'Daily Work',description:'Leads, scheduled work and customer history.',keys:['leads','jobs','calendar','customers']},
     {id:'office',title:'Office & AI',description:'Daily operations, Ashley and follow-ups.',keys:['office','receptionist','ai_manager','followups','attention'],aliases:{ai_system:'ai_manager'}},

@@ -1302,7 +1302,7 @@ async function deductInventoryForItems(items) {
 function isOfficeRole(){return CURRENT_TEAM_MEMBER?.role==='office';}
 function canOperateOffice(){return !isTechnicianView()&&(IS_OWNER||isOfficeRole());}
 function officeAllowedPage(page){return ['dashboard','more','office','attention','banking','communications','calls','jobs','leads','customers','calendar','estimates','invoices','quickpay','payments','products','inventory','suppliers','expenses','followups','warranties','team','payroll','reports','gallery','socialposts','visualizer'].includes(page);}
-function canAccessWorkspaceNav(n){return !(IS_OWNER&&n.key==='communications')&&(!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
+function canAccessWorkspaceNav(n){return !(IS_OWNER&&['communications','ai_manager','followups'].includes(n.key))&&(!n.techOnly||isTechnicianView())&&(!n.ownerOnly||IS_OWNER||(n.officeAccess&&isOfficeRole()))&&(!isOfficeRole()||officeAllowedPage(n.key));}
 const NAV = [
   {key:'calls',label:'Calls & recordings',icon:'M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4c0 2-3 2-5 1C9 17 5 13 3 6c-1-2 0-3 2-3z',sidebar:false,launcher:false,hideForTech:true},
   { key:'quickpay', label:'Quick Payment', emoji:'💳', icon:'M3 6h18v12H3zM3 10h18M7 15h4', sidebar:false, category:'Sales & Billing' },
@@ -1414,6 +1414,8 @@ function technicianOwnsLead(lead) {
 function isMarketingManager(){ return CURRENT_TEAM_MEMBER?.role==='marketing_manager'; }
 function marketingAllowedPage(page){ return ['dashboard','leads','customers','more'].includes(page); }
 function go(page, id) {
+  if(IS_OWNER&&!isTechnicianView()&&page==='ai_manager'){receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';page='receptionist';}
+
   if (IS_OWNER && !isTechnicianView() && page==='communications') {
     receptionistState.subview = ['email','sms','whatsapp','unread'].includes(searchTerms.commFilter) ? searchTerms.commFilter : 'all';
     page='receptionist';
@@ -1445,6 +1447,8 @@ window.go = go; window.openSidebar = openSidebar; window.closeSidebar = closeSid
 
 /* ---------- render root ---------- */
 function render() {
+  if(IS_OWNER&&!isTechnicianView()&&route.page==='ai_manager'){receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';route.page='receptionist';}
+
   if (IS_OWNER && !isTechnicianView() && route.page==='communications') {
     receptionistState.subview = ['email','sms','whatsapp','unread'].includes(searchTerms.commFilter) ? searchTerms.commFilter : 'all';
     route.page='receptionist';
@@ -1880,7 +1884,7 @@ function renderAiManager(content,actions){
       <button class="doc-tab ${aiManagerState.subview==='google_ads'?'active':''}" onclick="aiManagerState.subview='google_ads';render()">Google Ads</button>
       <button class="doc-tab ${aiManagerState.subview==='approvals'?'active':''}" onclick="aiManagerState.subview='approvals';render()">Approvals</button>
       <button class="doc-tab ${aiManagerState.subview==='activity'?'active':''}" onclick="aiManagerState.subview='activity';render()">Activity</button>
-      <button class="doc-tab ${aiManagerState.subview==='receptionist'?'active':''}" onclick="aiManagerState.subview='receptionist';render()">Ashley / AI Receptionist</button>
+      <button class="doc-tab ${aiManagerState.subview==='receptionist'?'active':''}" onclick="receptionistState.subview='test';go('receptionist')">Ashley / AI Receptionist</button>
     </div>
     <div id="aiManagerBody"></div>`;
   const b=document.getElementById('aiManagerBody');
@@ -7987,6 +7991,7 @@ function renderAiReceptionist(content, actions) {
       </div>
     </div>
     <div class="doc-tabbar ashley-tool-grid">
+      <button class="doc-tab ${receptionistState.subview==='manager'?'active':''}" onclick="receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';render()">🧠 AI Manager</button>
       <button class="doc-tab ${receptionistState.subview==='test'?'active':''}" onclick="receptionistState.subview='test'; render()">🧪 Test Simulator</button>
       <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
       <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
@@ -7997,6 +8002,7 @@ function renderAiReceptionist(content, actions) {
     <div style="margin-top:16px" id="receptionistBody"></div>
   `;
   const body = document.getElementById('receptionistBody');
+  if(receptionistState.subview==='manager'){if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';return renderAiManager(body,actions);}
   if (['whatsapp','email','sms','all','unread'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
   if (receptionistState.subview==='test') return renderReceptionistChat(body, 'test');
   if (receptionistState.subview==='assistant') return renderReceptionistChat(body, 'assistant');
