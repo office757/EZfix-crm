@@ -20,3 +20,5 @@ David additionally requested moving the owner's Social Media and business Settin
 David additionally requested Customers and Follow-Ups & Tasks inside Office, removing their duplicate owner/office sidebar entries. Keep technician and marketing customer access. Rename Gallery & Visualizer to Useful Tools and place it above Team & Payroll in both navigation and tool launchers (September 29, 2026).
 
 David requested Team Performance and Tech Payroll inside Team, Payments inside Banking, and a permanently open sidebar without category headings or collapsible groups. Keep existing role permissions and nested page links (September 29, 2026).
+
+David requested Calendar in the Office related tools row, owner sidebar order Quick Payment, Dashboard, Ashley, Calendar, Office, Invoices, Estimates, Door Visualizer, Gallery, Products & Services, Banking, Team, Settings. Remove owner Jobs & Leads sidebar entry; retain its pages via Calendar and preserve staff role permissions (September 29, 2026).

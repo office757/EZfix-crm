@@ -10,9 +10,9 @@ function fixture(role='owner'){
 }
 let n=0;function check(name,fn){fn();n++;console.log('PASS '+name);}
 check('Owner sidebar stays open with nested Team and Banking tools',()=>{
- const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','receptionist','dashboard','jobs','calendar','office','estimates','invoices','banking','gallery','visualizer','products','team']);
+ const f=fixture();assert.deepEqual(f.run('sidebarNavItems().map(n=>n.key)'),['quickpay','dashboard','receptionist','calendar','office','invoices','estimates','visualizer','gallery','products','banking','team','settings']);
  f.context.route.page='receptionist';assert.equal(f.run("isSidebarItemActive({key:'receptionist'})"),true);assert.equal(f.run("isSidebarItemActive({key:'ai_manager'})"),false);
- f.context.route.page='leads';assert.equal(f.run("isSidebarItemActive({key:'jobs'})"),true);
+ for(const page of ['jobs','leads']){f.context.route.page=page;assert.equal(f.run("isSidebarItemActive({key:'calendar'})"),true);}
  for(const page of ['payroll','reports']){f.context.route.page=page;assert.equal(f.run("isSidebarItemActive({key:'team'})"),true);}
  f.context.route.page='payments';assert.equal(f.run("isSidebarItemActive({key:'banking'})"),true);
  const nav={innerHTML:''};f.context.document={getElementById:()=>nav};f.context.window={};f.context.renderViewAsOptions=()=>{};
@@ -24,7 +24,7 @@ check('Ashley owns business tool entry points without changing staff access',()=
  for(const key of ['socialposts','settings'])assert.ok(ashley.includes(`onclick="go('${key}')"`));
  assert.ok(ashley.includes('Ashley Settings'));
  assert.ok(fixture('office').run('sidebarNavItems().map(n=>n.key)').includes('socialposts'));
- for(const role of ['owner','technician','marketing'])for(const key of ['socialposts','settings'])assert.ok(!fixture(role).run('sidebarNavItems().map(n=>n.key)').includes(key));
+ assert.equal(fixture('owner').run('sidebarNavItems().map(n=>n.key).at(-1)'), 'settings');assert.ok(!fixture('owner').run('sidebarNavItems().map(n=>n.key)').includes('socialposts'));for(const role of ['technician','marketing'])for(const key of ['socialposts','settings'])assert.ok(!fixture(role).run('sidebarNavItems().map(n=>n.key)').includes(key));
 });
 check('Both work tabs keep their existing routes and selected state',()=>{
  const f=fixture();assert.match(f.run('renderWorkNavigation()'),/onclick="go\('jobs'\)"/);assert.match(f.run('renderWorkNavigation()'),/onclick="go\('leads'\)"/);
