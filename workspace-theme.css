@@ -196,12 +196,12 @@
 
 /* Phone spacing for More and Calendar, without changing calendar time geometry. */
 @media screen and (max-width:680px){
- body[data-workspace-page="more"] .launcher{grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
+ body[data-workspace-page="more"] .launcher{grid-template-columns:minmax(0,1fr);gap:18px;min-width:0}
  body[data-workspace-page="more"] .launcher-cat{min-width:0}
  body[data-workspace-page="more"] .launcher-cat-head{padding:13px;font-size:14px;line-height:1.4}
- body[data-workspace-page="more"] .launcher-tiles{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px;gap:8px}
- body[data-workspace-page="more"] .launcher-tile{min-width:0;min-height:72px;padding:11px 8px;gap:8px}
- body[data-workspace-page="more"] .launcher-tile-label{min-width:0;font-size:13px;line-height:1.4;word-break:normal;overflow-wrap:break-word}
+ body[data-workspace-page="more"] .launcher-tiles{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}
+ body[data-workspace-page="more"] .launcher-tile{min-width:0;min-height:60px;padding:13px 14px;gap:12px;justify-content:flex-start}
+ body[data-workspace-page="more"] .launcher-tile-label{min-width:0;font-size:14px;line-height:1.4;word-break:normal;overflow-wrap:break-word}
  body[data-workspace-page="calendar"] #topActions{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
  body[data-workspace-page="calendar"] #topActions .doc-tabbar{display:flex!important;flex:1 0 100%;width:100%!important;min-width:0}
  body[data-workspace-page="calendar"] #topActions .doc-tab{flex:1;min-width:0;min-height:44px;padding:10px 8px}
@@ -224,4 +224,15 @@
 }
 @media screen and (max-width:360px){
  body[data-workspace-page="more"] .launcher-tiles{grid-template-columns:minmax(0,1fr)}
+}
+
+/* Slightly tighter phone agenda spacing; time-grid measurements stay unchanged. */
+@media screen and (max-width:680px){
+ body[data-workspace-page="calendar"] .cal-agenda-head{padding:11px 13px}
+ body[data-workspace-page="calendar"] .cal-agenda-body{padding:6px 9px 10px}
+ body[data-workspace-page="calendar"] .cal-agenda-job{padding:8px 10px;margin-top:6px}
+ body[data-workspace-page="calendar"] .cal-agenda-actions{margin-top:6px}
+ body[data-workspace-page="calendar"] .cal-day-job{padding:11px 13px;gap:6px}
+ body[data-workspace-page="calendar"] .cal-side-body{padding:10px 12px}
+ body[data-workspace-page="calendar"] .cal-today-row{padding:8px 0}
 }
