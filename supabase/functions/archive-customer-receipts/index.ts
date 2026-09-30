@@ -50,7 +50,7 @@ Deno.serve(async req=>{
   if(error)throw error;
   let processed=0,failed=0;
   for(const job of jobs||[]){
-   let path='';
+   let path='',finalizationAttempted=false;
    try{
     const {data:inv,error:readError}=await db.from('invoices').select('*').eq('id',job.invoice_id).maybeSingle();
     if(readError)throw readError;
@@ -63,12 +63,13 @@ Deno.serve(async req=>{
     path='receipts/customer/'+crypto.randomUUID()+'.pdf';
     const {error:uploadError}=await db.storage.from('crm-assets').upload(path,bytes,{contentType:'application/pdf',upsert:false});if(uploadError)throw uploadError;
     const asset={id:'crm-assets/'+path,path,sourceHash:job.source_hash,createdAt:new Date().toISOString(),filename:'Receipt-'+String(inv.number||inv.id).replace(/[^a-zA-Z0-9._-]/g,'_')+'.pdf'};
+    finalizationAttempted=true;
     const {data:done,error:finishError}=await db.rpc('finish_customer_receipt',{p_invoice_id:job.invoice_id,p_source_hash:job.source_hash,p_lease_token:job.lease_token,p_asset:asset,p_skipped:false});
     if(finishError)throw finishError;
     if(!done){await db.storage.from('crm-assets').remove([path]);continue;}
     processed++;
    }catch(e){
-    if(path)await db.storage.from('crm-assets').remove([path]);
+    if(path&&!finalizationAttempted)await db.storage.from('crm-assets').remove([path]);
     const reason=String(e instanceof Error?e.message:'Receipt generation failed').slice(0,180);
     await db.from('customer_receipt_jobs').update({status:'pending',lease_until:new Date(Date.now()+60000).toISOString(),last_error:reason}).eq('invoice_id',job.invoice_id).eq('lease_token',job.lease_token);
     console.error('Customer receipt archive failed',job.invoice_id,reason);failed++;
