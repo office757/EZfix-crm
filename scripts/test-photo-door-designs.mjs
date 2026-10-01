@@ -95,7 +95,27 @@ test('repainting preserves photographed glazing, bright reflections, hardware an
  P.paint(rgba,w,h,c,panes);assert.deepEqual(Array.from(rgba.slice(at(15,10),at(15,10)+4)),Array.from(before.slice(at(15,10),at(15,10)+4)));assert.deepEqual(Array.from(rgba.slice(at(50,40),at(50,40)+4)),[22,22,22,255]);assert(rgba[at(50,60)]<50);assert(rgba[at(50,70)]<rgba[at(50,60)]);for(let i=3;i<rgba.length;i+=4)assert.equal(rgba[i],255);
 });
 test('native finish retains the exact photograph while a new finish changes its cache key',()=>{
- const {P}=harness(),d=door(),img=picture(),before=img.data.slice();P.paint(img.data,96,96,P.choice(d),[]);assert.deepEqual(img.data,before);const original=P.choice(d).key;d.visualDesign.finish='white';P.paint(img.data,96,96,P.choice(d),[]);assert.deepEqual(img.data,before);d.visualDesign.finish='black';assert.notEqual(P.choice(d).key,original);
+ const {P}=harness(),d=door(),img=picture(),before=img.data.slice();P.paint(img.data,96,96,P.choice(d),[]);assert.deepEqual(img.data,before);const original=P.choice(d).key;d.visualDesign.finish='white';P.paint(img.data,96,96,P.choice(d),[]);assert.notDeepEqual(img.data,before);assert.notEqual(P.choice(d).key,original);d.visualDesign.finish='black';assert.notEqual(P.choice(d).key,original);
+});
+test('named and custom colors have the same diffuse RGB across native white, black, gray, blue and green photographs',()=>{
+ const {P}=harness(),native=[['photo-101-0',[220,220,220]],['photo-097-0',[32,32,32]],['photo-139-0',[165,165,165]],['photo-090-0',[30,75,140]],['photo-037-0',[50,90,55]]];let checked=0;
+ for(const [id,rgb] of native)for(const finish of P.palette.filter(x=>x.id!=='original').map(x=>x.id)){
+  const d=door(P.sources.find(s=>s.id===id).family,id,finish),lum=rgb.reduce((a,b)=>a+b)/3;d.visualDesign.customColor='#6d8195';const c=P.choice(d),field={width:1,height:1,data:[1],base:lum},raw=picture(20,20,()=>[...rgb,255]).data,profile=P.paintProfile(raw,20,20,c,[],field),pixel=new Float64Array([...rgb,255]);assert(profile,id+' '+finish);P.paintPixel(pixel,0,.3,.6,c.source,[],profile);const target=c.color.hex.slice(1).match(/../g).map(x=>parseInt(x,16));for(let ch=0;ch<3;ch++)assert(Math.abs(pixel[ch]-target[ch])<1,id+' '+finish+' '+Array.from(pixel));checked++;
+ }assert.equal(checked,60);
+});
+test('custom color validation, snapshots, estimate descriptions and design switching preserve the selected finish',async()=>{
+ const {P,D,c}=harness(),d=door();c.visState.doors=[d];await c.window.setVisPhotoOption(0,'customColor','#6d8');assert.equal(d.visualDesign.customColor,'#66dd88');assert.equal(d.visualDesign.finish,'custom');assert.match(P.description(d),/#66DD88/);const saved=JSON.parse(JSON.stringify(d)),key=P.choice(d).key;assert.equal(P.choice(saved).key,key);
+ await c.window.setVisPhotoOption(0,'customColor','#bad<script');assert.equal(P.choice(d).key,key);assert.match(D.controls(d,0),/Custom paint hex/);assert.doesNotMatch(D.controls(d,0),/bad<script/);
+ await c.window.selectVisPhotoDesign(0,'square-long','photo-036-0');assert.equal(d.visualDesign.finish,'custom');assert.equal(d.visualDesign.customColor,'#66dd88');assert.equal((await P.prepare(d)).originalFinish,false);
+ await c.window.selectVisPhotoDesign(0,'wood-carriage','photo-086-0');assert.equal(d.visualDesign.finish,'original');assert.equal(P.choice(d).colors.length,1);
+});
+test('left and right window stacks mirror native pixels, retain physical width and survive save/reopen',async()=>{
+ const {P,R,c}=harness(),d=door('flush','photo-099-0','original',9);c.visState.doors=[d];const right=P.choice(d),raw={width:100,height:100,q:[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}],data:picture(100,100,(x,y)=>[x*2,y*2,80,255]).data};await c.window.setVisPhotoOption(0,'windowSide','left');const left=P.choice(d);assert(left.source.mirrored);assert.notEqual(right.key,left.key);assert.equal((await P.prepare(d)).nativeGeometry,false);
+ for(const width of [9,16]){d.width=width;const s=P.choice(d).source,panes=P.paneRegions(s,raw.data,100,100),normal={...s,mirrored:false},original=P.paneRegions(normal,raw.data,100,100);for(let i=0;i<4;i++){assert(Math.abs(panes[i].x-(1-original[i].x-original[i].width))<1e-9);assert.equal(panes[i].width,original[i].width);}const a=new Float64Array(4),b=new Float64Array(4);P.sampleSource(raw,s,.12,.2,a,0);P.sampleSource(raw,normal,.88,.2,b,0);assert.deepEqual(a,b);}
+ const reopened=JSON.parse(JSON.stringify(d));assert.equal(P.normalize(reopened).windowSide,'left');assert.match(P.description(reopened),/Windows on left/);assert(R.valid(P.choice(reopened).source.corners));
+});
+test('transferred flush photographs remove gray foreground stems without changing adjacent steel',()=>{
+ const {P}=harness(),s=P.adaptSource(P.sources.find(s=>s.id==='photo-099-0'),9),raw={width:100,height:100,q:[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}],data:picture(100,100,(x,y)=>x<17&&y>84?[180,180,180,255]:[30,30,30,255]).data},pixel=new Float64Array(4);P.sampleSource(raw,s,.1,.9,pixel,0);assert.equal(pixel[0],30);P.sampleSource(raw,s,.5,.9,pixel,0);assert.equal(pixel[0],30);
 });
 test('neutral paint loses the source blue cast without changing photographed pane reflections',()=>{
  const {R}=harness(),img=picture(96,96,(x,y)=>x>9&&x<28&&y<20?[18,45,85,255]:[180,210,230,255]),d={designPreview:{photographic:true,originalFinish:true,sourceFinish:'White',glassRegions:[{x:.09,y:0,width:.22,height:.22}]},realism:{light:1,depth:0}},tex=R.texture(img,d),pixels=tex.getContext('2d').getImageData(0,0,96,96).data,body=(60*96+60)*4,pane=(10*96+15)*4;
