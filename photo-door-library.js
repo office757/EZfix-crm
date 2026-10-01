@@ -77,11 +77,13 @@
     'grid-second': 'Four-lite grid · second section'
   };
   const palette = [
-    ['original','As photographed',''],['white','White','#eeeae4'],['black','Black','#292a2b'],
+    ['original','As photographed',''],['white','White','#eeeeee'],['black','Black','#292a2b'],
     ['charcoal','Charcoal','#505254'],['gray','Gray','#959896'],['almond','Almond','#dccfb9'],
     ['sandstone','Sandstone','#bcb09a'],['brown','Brown','#735345'],['bronze','Bronze','#625647'],
-    ['navy','Navy','#354e64'],['forest','Forest green','#425541'],['red','Deep red','#803f35']
+    ['navy','Navy','#354e64'],['forest','Forest green','#425541'],['red','Deep red','#803f35'],
+    ['custom','Custom color','#eeeeee']
   ].map(([id,label,hex])=>({id,label,hex}));
+  function colorHex(value){const text=String(value||'').trim();if(/^#[a-f0-9]{6}$/i.test(text))return text.toLowerCase();if(/^#[a-f0-9]{3}$/i.test(text))return '#'+text.slice(1).split('').map(x=>x+x).join('').toLowerCase();return null;}
   const sources = records.map(([photo,opening,family,layout,finish,columns,sections,xy,band,panelFill]) => ({
     id:'photo-'+photo+'-'+opening+(panelFill?'-closed':''), photoId:'installation-'+photo, opening, family, layout, finish, columns, sections,panelFill,
     url:'/assets/installation-photos/installation-'+photo+'.jpg',
@@ -106,17 +108,18 @@
     const conf=d.visualDesign||{},width=window.DoorRealism.clamp(d.customSize?d.customWidth:d.width,4,30,9),height=window.DoorRealism.clamp(d.customSize?d.customHeight:d.height,4,20,7);
     const available=sources.filter(s=>s.family===family.id);
     const selected=adaptSource(available.find(s=>s.id===conf.sourceId)||available.find(s=>isWide(s)===(width>=12))||available[0],width);
-    const colors=selected.colorable?palette:[palette[0]];
+    const windowSide=selected.layout==='side-stack'&&conf.windowSide==='left'?'left':'right';selected.mirrored=windowSide==='left';
+    const customColor=colorHex(conf.customColor)||'#eeeeee',colors=selected.colorable?palette.map(x=>x.id==='custom'?{...x,hex:customColor,label:'Custom '+customColor.toUpperCase()}:x):[palette[0]];
     const color=colors.find(x=>x.id===conf.finish)||palette[0];
     const variants=available.map(s=>({id:s.id,label:layouts[s.layout],source:s,placement:s.layout==='closed'?'Closed':s.layout==='side-stack'?'Side':s.layout.includes('second')?'Second section':s.layout==='double-sunburst'?'Two sections':'Top'}));
     const variant=variants.find(v=>v.id===selected.id);
     return {photographic:true,f:family,p:null,panel:{id:family.id,label:family.label,variants},variant,source:selected,
-      width,height,colors,color,finish:color.id,glass:null,hardware:selected.hardware?{label:'As photographed'}:null,
-      key:['photo-v2',selected.id,color.id,width,height].join('|')};
+      width,height,colors,color,finish:color.id,customColor,windowSide,glass:null,hardware:selected.hardware?{label:'As photographed'}:null,
+      key:['photo-v3',selected.id,color.id,color.id==='custom'?customColor:'',windowSide,width,height].join('|')};
   }
   function normalize(d) {
     const c=choice(d);if(!c)return null;
-    d.visualDesign={type:'photographic',sourceId:c.source.id,panel:c.f.id,window:c.source.id,finish:c.finish};
+    d.visualDesign={type:'photographic',sourceId:c.source.id,panel:c.f.id,window:c.source.id,finish:c.finish,customColor:c.customColor,windowSide:c.windowSide};
     return c;
   }
   const photos=new Map(),previews=new Map(),thumbs=new Map(),rasters=new WeakMap(),surfaces=new WeakMap();
@@ -148,6 +151,7 @@
     'photo-106-1':[[.09,.064,.363,.215],[.56,.064,.369,.215]]
   };
   function sourceCoordinates(s,x,v){
+    if(s.mirrored)x=1-x;
     const unit=(x*(s.repeat||1))%1,bodyScale=s.bodyScale||1,split=1-.3/bodyScale,sourceU=bodyScale>1?(unit<split?unit*.7/split:.7+(unit-split)*bodyScale):unit;
     const originalU=Math.max(s.cut?.04:.002,Math.min(s.cut?.96:.998,sourceU)),header=s.cut&&v<.2&&!headerFrames[s.id]?.some(([x,y,w,h])=>sourceU>=x&&sourceU<=x+w&&v>=y&&v<=y+h),u=header?.5+Math.min(.025,Math.abs(sourceU-.5)*.05):originalU;
     // Extend the photographed blank center stile across the header at the
@@ -161,7 +165,7 @@
     // The source's white diagonal jamb can overlap the outer molding crop.
     // Remove that trim while retaining every white insert inside the glass.
     if(s.cut&&y<.2&&(out[i]+out[i+1]+out[i+2])/3>80&&!windowBounds[s.id]?.some(([u,v,w,h])=>(x*(s.repeat||1))%1>=u&&(x*(s.repeat||1))%1<=u+w&&y>=v&&y<=v+h)){const clean=window.DoorRealism.project(raw.q,.515,uv.v);sample(raw.data,raw.width,raw.height,clean.x,clean.y,out,i);}
-    if(s.photoId==='installation-099'&&uv.u<.11&&y>.74&&out[i+1]>out[i]+7&&out[i+1]>out[i+2]+10){const clean=window.DoorRealism.project(raw.q,.22,uv.v);sample(raw.data,raw.width,raw.height,clean.x,clean.y,out,i);}
+    if(s.photoId==='installation-099'&&uv.u<.19&&y>.8){const clean=window.DoorRealism.project(raw.q,.27,uv.v);sample(raw.data,raw.width,raw.height,clean.x,clean.y,headerPixel,0);const blend=Math.min(1,(.19-uv.u)/.03,(y-.8)/.03);for(let ch=0;ch<3;ch++)out[i+ch]=out[i+ch]*(1-blend)+headerPixel[ch]*blend;}
   }
   function rectify(img,s,maxWidth=4096,ratio,raw=raster(img,s)) {
     const q=raw.q;
@@ -179,7 +183,7 @@
   }
   function paneRegions(s,rgba,w,h) {
     if(!s.band)return [];
-    if(s.layout==='side-stack')return [0,1,2,3].map(i=>({x:1-(1-.77)/(s.bodyScale||1),y:.055+i*.231,width:.155/(s.bodyScale||1),height:.155}));
+    if(s.layout==='side-stack')return [0,1,2,3].map(i=>{const width=.155/(s.bodyScale||1),x=1-(1-.77)/(s.bodyScale||1);return {x:s.mirrored?1-x-width:x,y:.055+i*.231,width,height:.155};});
     const native=byId.get(s.id)||s,count=['carriage-short','grooved-short','carriage-vertical'].includes(s.family)?native.columns/2:native.columns;
     // A dark-pixel flood fill splits reflected sky and divided glass into
     // unrelated rectangles. Protect each complete photographed window.
@@ -202,28 +206,19 @@
     return (Math.abs(x-.5)<.075&&y>.35&&y<.62)||(x<.24||x>.76)&&(s.hardwareRows||[.25,.51,.73,.91]).some(v=>Math.abs(y-v)<(s.hardwareBand||.025));
   }
   function paintProfile(rgba,w,h,c,panes,field) {
-    if(c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase())return null;
+    if(c.finish==='original')return null;
     const rgb=c.color.hex.slice(1).match(/../g).map(x=>parseInt(x,16)),targetLum=(rgb[0]+rgb[1]+rgb[2])/3,samples=[];
     for(let y=Math.floor(h*.25);y<h*.94;y+=Math.max(1,Math.floor(h/80)))for(let x=0;x<w;x+=Math.max(1,Math.floor(w/100))){const i=(y*w+x)*4,lum=(rgba[i]+rgba[i+1]+rgba[i+2])/3;if(!protectedPixel(c.source,panes,x/w,y/h,lum))samples.push(lum);}
-    samples.sort((a,b)=>a-b);const base=Math.max(20,samples[Math.floor(samples.length*.78)]||200);
+    samples.sort((a,b)=>a-b);const base=Math.max(20,field?.base||samples[Math.floor(samples.length*.78)]||200);
     return {rgb,targetLum,base,field};
   }
   function paintPixel(rgba,i,x,y,s,panes,profile){
     if(!profile)return;const lum=(rgba[i]+rgba[i+1]+rgba[i+2])/3,{rgb,targetLum,base,field}=profile;
     const broad=field?window.DoorRealism.fieldAt(field,x,y)*field.base:base;if(protectedPixel(s,panes,x,y,lum,Math.min(80,broad*.4)))return;
-    if(base<110&&targetLum>base*1.4){
-      // A black coat contains bright, almost colorless reflections. Scaling
-      // those by white albedo turns its subtle grain into clipped stripes.
-      // Change the diffuse coat while retaining bounded photographed relief.
-      const diffuse=Math.max(.025,broad/base),detail=(lum-broad)*Math.min(1.5,targetLum/base);
-      for(let ch=0;ch<3;ch++)rgba[i+ch]=Math.max(0,rgb[ch]*diffuse+detail);
-      return;
-    }
-    const shade=Math.max(.025,Math.min(1.3,lum/base));
-    // Dielectric highlights survive a dark coat. Multiplying every bright
-    // bevel by black albedo erased the photographed relief and satin finish.
-    const spec=Math.max(0,lum-base)*(.18+.75*(1-targetLum/255)),relief=Math.max(0,lum-broad)*.55*(1-targetLum/255);
-    for(let ch=0;ch<3;ch++)rgba[i+ch]=Math.max(0,rgb[ch]*shade+Math.max(spec,relief));
+    // Separate diffuse color from the photograph's satin reflections. Never
+    // count a reflection twice or scale black-source grain by white albedo.
+    const ratio=targetLum/base,detail=lum-broad,scale=Math.min(1.5,ratio),diffuse=broad/base+Math.min(0,detail)*scale/Math.max(1,targetLum),reflection=Math.max(0,detail)*(ratio<1?ratio+(1-ratio)*(.18+.75*(1-targetLum/255)):scale);
+    for(let ch=0;ch<3;ch++)rgba[i+ch]=Math.max(0,rgb[ch]*diffuse+reflection);
   }
   function paint(rgba,w,h,c,panes,profile=paintProfile(rgba,w,h,c,panes)) {
     if(!profile)return;
@@ -242,7 +237,7 @@
       paint(frame.data,cv.width,cv.height,c,panes,painting);ctx.putImageData(frame,0,0);
       const preview={key:c.key,url:cv.toDataURL('image/png'),label:[c.f.label,c.variant.label,c.color.label].join(' · '),photographic:true,
         sourceId:c.source.id,sourcePhotoUrl:c.source.url,sourceCorners:c.source.corners,sourceFinish:c.source.finish,sourceMaterial:c.source.colorable?'painted-steel':'wood',
-        originalFinish:c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase(),nativeGeometry:(c.source.repeat||1)===1&&(c.source.bodyScale||1)===1&&!c.source.panelFill,glassRegions:panes,columns:c.source.columns,sections:c.source.sections,nativeWidth:cv.width,nativeHeight:cv.height};
+        originalFinish:c.finish==='original',nativeGeometry:(c.source.repeat||1)===1&&(c.source.bodyScale||1)===1&&!c.source.panelFill&&!c.source.mirrored,glassRegions:panes,windowSide:c.windowSide,columns:c.source.columns,sections:c.source.sections,nativeWidth:cv.width,nativeHeight:cv.height};
       // Non-serialized native pixels let the compositor sample the original
       // photograph once, instead of rectifying then blurring it a second time.
       surfaces.set(preview,{raw,source:c.source,panes,painting,material});return preview;
@@ -262,7 +257,9 @@
     const available=sources.filter(s=>s.family===c.f.id),selected=c.source;
     const unique=[...new Set(available.map(s=>s.layout))],option=(value,label,active)=>'<option value="'+esc(value)+'" '+(active?'selected':'')+'>'+esc(label)+'</option>';
     let body=window.DoorDesign.optionSection('Windows & inserts',c.variant.label,'<select id="visWindowSelect" aria-label="Photographed windows" onchange="setVisPhotoOption('+idx+',\'layout\',this.value)">'+unique.map(l=>option(l,layouts[l],l===selected.layout)).join('')+'</select><div class="vd-choice-grid vd-windows">'+unique.map(l=>{const s=available.find(s=>s.layout===l);return '<button type="button" class="vd-choice '+(l===selected.layout?'active':'')+'" data-layout="'+l+'" aria-pressed="'+(l===selected.layout)+'" onclick="setVisPhotoOption('+idx+',\'layout\',this.dataset.layout)"><img data-photo-thumb="'+s.id+'" alt=""><span>'+esc(layouts[l])+'</span></button>';}).join('')+'</div>');
-    body+=window.DoorDesign.optionSection('Color',c.finish==='original'?selected.finish+' · as photographed':c.color.label,'<select id="visColorSelect" aria-label="Door finish" onchange="setVisPhotoOption('+idx+',\'finish\',this.value)">'+c.colors.map(x=>option(x.id,x.label,x.id===c.finish)).join('')+'</select><div class="vd-choice-grid studio-color-grid">'+c.colors.map(x=>'<button type="button" class="vd-choice '+(x.id===c.finish?'active':'')+'" data-finish="'+x.id+'" aria-pressed="'+(x.id===c.finish)+'" onclick="setVisPhotoOption('+idx+',\'finish\',this.dataset.finish)"><i class="studio-color-chip" style="background:'+(x.hex||'#e0ddd6')+'"></i><span>'+esc(x.label)+'</span></button>').join('')+'</div>');
+    const colorEditor=selected.colorable?'<div class="photo-color-editor"><label for="visCustomColor">Custom paint color</label><input id="visCustomColor" type="color" aria-label="Custom paint color" value="'+c.customColor+'" onchange="setVisPhotoOption('+idx+',\'customColor\',this.value)"><input aria-label="Custom paint hex" value="'+c.customColor.toUpperCase()+'" maxlength="7" spellcheck="false" onchange="setVisPhotoOption('+idx+',\'customColor\',this.value)"></div>':'';
+    body+=window.DoorDesign.optionSection('Color',c.finish==='original'?selected.finish+' · as photographed':c.color.label,'<select id="visColorSelect" aria-label="Door finish" onchange="setVisPhotoOption('+idx+',\'finish\',this.value)">'+c.colors.map(x=>option(x.id,x.label,x.id===c.finish)).join('')+'</select><div class="vd-choice-grid studio-color-grid">'+c.colors.map(x=>'<button type="button" class="vd-choice '+(x.id===c.finish?'active':'')+'" data-finish="'+x.id+'" aria-pressed="'+(x.id===c.finish)+'" onclick="setVisPhotoOption('+idx+',\'finish\',this.dataset.finish)"><i class="studio-color-chip" style="background:'+(x.hex||'#e0ddd6')+'"></i><span>'+esc(x.label)+'</span></button>').join('')+'</div>'+colorEditor);
+    if(selected.layout==='side-stack')body+=window.DoorDesign.optionSection('Window side',c.windowSide==='left'?'Left side':'Right side','<select aria-label="Window side" onchange="setVisPhotoOption('+idx+',\'windowSide\',this.value)">'+option('right','Right side',c.windowSide==='right')+option('left','Left side',c.windowSide==='left')+'</select>');
     body+=window.DoorDesign.optionSection('Photographed reference',selected.finish+' · '+selected.columns+' × '+selected.sections,'<p class="muted">Choose a real installation with the panel proportions and details you want.</p><div class="vd-choice-grid">'+available.filter(s=>s.layout===selected.layout).map(s=>photoTile(s,s.id===selected.id,idx)).join('')+'</div>');
     body+='<label class="photo-product-label"><span>Product name for estimate (optional)</span><input aria-label="Product name for estimate" maxlength="160" placeholder="Your product or manufacturer name" value="'+esc(d.productDescription||'')+'" onchange="setVisPhotoOption('+idx+',\'description\',this.value)"></label>';
     return '<section class="vd-config">'+body+'<p class="vd-disclosure">Real installation photograph. Windows, inserts and hardware appear as photographed. Painted colors are previews; confirm the supplied product and finish.</p></section>';
@@ -291,7 +288,8 @@
     const d=visState.doors[idx];if(!d||!families.some(f=>f.id===family))return;
     const source=id&&byId.get(id)?.family===family?byId.get(id):preferred(family,d);if(!source)return;
     window.VisualizerEdits?.checkpoint();const target=visState;
-    const fresh={photoDesignId:family,visualDesign:{sourceId:source.id,finish:'original'},productDescription:d.productDescription};copyDesign(fresh,d);
+    const previous=choice(d),finish=source.colorable&&palette.some(x=>x.id===previous?.finish)?previous.finish:'original';
+    const fresh={photoDesignId:family,visualDesign:{sourceId:source.id,finish,customColor:previous?.customColor,windowSide:source.layout==='side-stack'?previous?.windowSide:'right'},productDescription:d.productDescription};copyDesign(fresh,d);
     d.realism={...d.realism,light:1,depth:0,shadows:1};
     if(visState.applyToAll)visState.doors.slice(0,visState.doorCount).forEach(x=>{if(x!==d){copyDesign(d,x);const own=preferred(family,x,source.layout);if(own)x.visualDesign.sourceId=own.id;x.realism={...x.realism,light:1,depth:0,shadows:1};}});
     if(window.__visCatalogState)window.__visCatalogState.tab='design';await refresh(target);
@@ -302,17 +300,19 @@
     if(key==='source'){const s=byId.get(value);if(!s||s.family!==c.f.id)return;selected=s;}
     else if(key==='layout'){selected=preferred(c.f.id,d,value);if(!selected)return;}
     else if(key==='finish'){if(!c.colors.some(x=>x.id===value))return;}
+    else if(key==='customColor'){value=colorHex(value);if(!value||!c.source.colorable){toast('Enter a color such as #6D8195.',true);return;}}
+    else if(key==='windowSide'){if(c.source.layout!=='side-stack'||!['left','right'].includes(value))return;}
     else if(key==='description'){value=String(value).slice(0,160);}
     else return;
     window.VisualizerEdits?.checkpoint();const target=visState;normalize(d);
     if(key==='source'||key==='layout')d.visualDesign.sourceId=selected.id;
-    else if(key==='finish')d.visualDesign.finish=value;else d.productDescription=value;
+    else if(key==='finish')d.visualDesign.finish=value;else if(key==='customColor'){d.visualDesign.customColor=value;d.visualDesign.finish='custom';}else if(key==='windowSide')d.visualDesign.windowSide=value;else d.productDescription=value;
     delete d.designPreview;normalize(d);
     if(visState.applyToAll)visState.doors.slice(0,visState.doorCount).forEach(x=>{if(x!==d){copyDesign(d,x);if(key==='layout'){const own=preferred(c.f.id,x,selected.layout);if(own)x.visualDesign.sourceId=own.id;}}});
     await refresh(target);
   }
   function description(d) {
-    const c=choice(d);return c?[c.f.label,c.variant.label,c.finish==='original'?c.source.finish+' · as photographed':c.color.label+' finish',c.source.columns+' panels across',c.source.sections+' sections',c.source.hardware?'Hardware as photographed':''].filter(Boolean).join(' · '):'';
+    const c=choice(d);return c?[c.f.label,c.variant.label,c.source.layout==='side-stack'?(c.windowSide==='left'?'Windows on left':'Windows on right'):'',c.finish==='original'?c.source.finish+' · as photographed':c.color.label+' finish',c.source.columns+' panels across',c.source.sections+' sections',c.source.hardware?'Hardware as photographed':''].filter(Boolean).join(' · '):'';
   }
   const legacy=window.DoorDesign;
   const original={};for(const key of ['choice','normalize','prepare','overlay','controls','description'])original[key]=legacy[key];
