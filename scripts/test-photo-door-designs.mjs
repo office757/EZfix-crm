@@ -10,7 +10,7 @@ function canvas(){
  let pixels=new Uint8ClampedArray();const cv={width:1,height:1};
  const ctx={
   createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
-  drawImage(img){pixels=new Uint8ClampedArray(cv.width*cv.height*4);for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){const sx=Math.min(img.naturalWidth-1,Math.floor(x*img.naturalWidth/cv.width)),sy=Math.min(img.naturalHeight-1,Math.floor(y*img.naturalHeight/cv.height));pixels.set(img.data.slice((sy*img.naturalWidth+sx)*4,(sy*img.naturalWidth+sx)*4+4),(y*cv.width+x)*4);}},
+  drawImage(img,...args){const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,raw=img.data||img.getContext('2d').getImageData(0,0,iw,ih).data;const [left,top,sw,sh]=args.length===8?args:[0,0,iw,ih];pixels=new Uint8ClampedArray(cv.width*cv.height*4);for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){const sx=Math.min(iw-1,Math.floor(left+x*sw/cv.width)),sy=Math.min(ih-1,Math.floor(top+y*sh/cv.height));pixels.set(raw.slice((sy*iw+sx)*4,(sy*iw+sx)*4+4),(y*cv.width+x)*4);}},
   getImageData:()=>({data:pixels.slice()}),putImageData:f=>{pixels=f.data.slice();},
   createLinearGradient:()=>({addColorStop(){}}),fillRect(){}
  };
@@ -49,12 +49,35 @@ test('vertical windows keep their physical width when a flush door is widened',(
  const panes=P.paneRegions(s,img.data,96,96);assert.equal(panes.length,4);assert.equal(panes[0].width,.155/2);assert.equal(panes[0].x,1-.23/2);assert.equal(panes[0].height,.155);
 });
 test('unknown saved selections and corrupt dimensions fall back to a usable real design',()=>{
- const {P}=harness(),d=door();d.width='not-a-number';d.height=Infinity;d.visualDesign={sourceId:'unknown',finish:'neon'};const c=P.normalize(d);assert.equal(c.width,8);assert.equal(c.height,7);assert.equal(c.finish,'original');assert.equal(d.visualDesign.type,'photographic');assert(P.sources.some(s=>s.id===d.visualDesign.sourceId));assert.equal(P.choice({photoDesignId:'invented'}),null);
+ const {P}=harness(),d=door();d.width='not-a-number';d.height=Infinity;d.visualDesign={sourceId:'unknown',finish:'neon'};const c=P.normalize(d);assert.equal(c.width,9);assert.equal(c.height,7);assert.equal(c.finish,'original');assert.equal(d.visualDesign.type,'photographic');assert(P.sources.some(s=>s.id===d.visualDesign.sourceId));assert.equal(P.choice({photoDesignId:'invented'}),null);
  const wood=P.choice(door('wood-carriage','photo-086-0','black',16));assert.equal(wood.finish,'original');assert.equal(wood.colors.length,1);
 });
 test('preparation returns a door-only lossless overlay and never displays the whole source home',async()=>{
  const {P,D}=harness(),d=door();assert.equal(D.overlay(d),'');assert(!d.designPreview);const p=await P.prepare(d);assert(p.url.startsWith('data:image/png'));assert.equal(D.overlay(d),p.url);assert.equal(p.sourcePhotoUrl,'/assets/installation-photos/installation-101.jpg');assert.equal(p.nativeGeometry,true);assert.equal(p.columns,4);assert.equal(p.sections,4);
  const widened=door('square-short','photo-101-0','original',16);assert.equal((await P.prepare(widened)).nativeGeometry,false);
+});
+test('narrowing a double door preserves its native vertical resolution',async()=>{
+ const {P,D}=harness();D.loadImage=async()=>picture(400,700);const d=door('square-short','photo-015-0','original',9),s=P.choice(d).source,q=s.corners.map(p=>({x:p.x*4,y:p.y*7}));
+ const preview=await P.prepare(d),height=Math.max(Math.hypot(q[3].x-q[0].x,q[3].y-q[0].y),Math.hypot(q[2].x-q[1].x,q[2].y-q[1].y));
+ assert(Math.abs(preview.nativeHeight-height)<1);assert(preview.nativeHeight>preview.nativeWidth*2);assert(P.surface(preview));assert(!JSON.stringify(preview).includes('painting'));
+});
+test('dark paint retains photographic satin highlights without painting glass or hardware',()=>{
+ const {P}=harness(),w=80,h=80,d=door('carriage-short','photo-057-0','black'),c=P.choice(d),rgba=picture(w,h,(x,y)=>x<16&&y<16?[45,65,90,255]:x===40&&y===40?[22,22,22,255]:y===60?[244,244,244,255]:y===61?[160,160,160,255]:[220,220,220,255]).data,panes=[{x:0,y:0,width:.2,height:.2}],field={width:1,height:1,data:[1],base:220},profile=P.paintProfile(rgba,w,h,c,panes,field),at=(x,y)=>(y*w+x)*4;
+ P.paint(rgba,w,h,c,panes,profile);assert(rgba[at(60,60)]>rgba[at(60,50)]+12);assert(rgba[at(60,61)]<rgba[at(60,50)]);assert.deepEqual(Array.from(rgba.slice(at(8,8),at(8,8)+4)),[45,65,90,255]);assert.deepEqual(Array.from(rgba.slice(at(40,40),at(40,40)+4)),[22,22,22,255]);
+});
+test('light paint on a dark photograph retains relief without amplifying satin grain',()=>{
+ const {P}=harness(),w=80,h=80,d=door('carriage-vertical','photo-106-0','white',9),c=P.choice(d),panes=[{x:0,y:0,width:.2,height:.2}],rgba=picture(w,h,(x,y)=>x<16&&y<16?[18,45,90,255]:x===40&&y===40?[2,2,2,255]:y===60?[48,48,48,255]:y===61?[12,12,12,255]:[36,36,36,255]).data,field={width:1,height:1,data:[1],base:36},profile=P.paintProfile(rgba,w,h,c,panes,field),at=(x,y)=>(y*w+x)*4;
+ P.paint(rgba,w,h,c,panes,profile);const body=rgba[at(60,50)],highlight=rgba[at(60,60)],recess=rgba[at(60,61)];assert(body>225);assert(highlight>body&&highlight-body<=20);assert(recess<body&&body-recess<=40);assert.deepEqual(Array.from(rgba.slice(at(8,8),at(8,8)+4)),[18,45,90,255]);assert.deepEqual(Array.from(rgba.slice(at(40,40),at(40,40)+4)),[2,2,2,255]);
+ const native=P.sources.find(s=>s.id==='photo-106-0'),regions=P.paneRegions(native,rgba,w,h);assert(regions.every(p=>p.y+p.height>=.276),'protect the real bottom grid and glass');
+});
+test('extending a photographed chamfer cannot cover the actual outer window lites',()=>{
+ const {P,R}=harness(),s=P.adaptSource(P.sources.find(s=>s.id==='photo-106-0'),9),raw={width:100,height:100,q:[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}],data:picture(100,100,(x,y)=>[x*2,y*2,80,255]).data};
+ for(const [u,v] of [[.935,.085],[.104,.09]]){const actual=new Float64Array(4),expected=new Float64Array(4),q=R.project(raw.q,u,v);P.sampleSource(raw,s,u,v,actual,0);P.sample(raw.data,raw.width,raw.height,q.x,q.y,expected,0);assert.deepEqual(actual,expected);}
+});
+test('the direct compositor samples fine photographic detail without an intermediate resized texture',()=>{
+ const {P,R}=harness(),w=96,h=80,raw={width:w,height:h,q:[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}],data:picture(w,h,x=>{const l=x%2?235:25;return [l,l,l,255]}).data},surface={raw,source:{repeat:1},panes:[],painting:null,material:{width:1,height:1,data:[1],base:220,balance:[1,1,1]}},d={designPreview:{photographic:true,originalFinish:true,sourceFinish:'White',sourceMaterial:'painted-steel'},realism:{light:1,depth:0,shadows:1}},q=[{x:3,y:8},{x:109,y:3},{x:112,y:91},{x:7,y:94}],scene={gain:1,red:1,blue:1};
+ const result=R.warpPhotograph({naturalWidth:w,naturalHeight:h},surface,d,q,120,100,scene,null),pixels=result.canvas.getContext('2d').getImageData(0,0,result.canvas.width,result.canvas.height).data,m=R.inverse(q);let checked=0;
+ for(let y=10;y<result.canvas.height-10;y++)for(let x=10;x<result.canvas.width-10;x++){const px=result.left+x+.5,py=result.top+y+.5,den=m[6]*px+m[7]*py+m[8],u=(m[0]*px+m[1]*py+m[2])/den,v=(m[3]*px+m[4]*py+m[5])/den;if(u<.05||u>.95||v<.05||v>.95)continue;const a=new Float64Array(4);P.sampleSource(raw,surface.source,u,v,a,0);assert(Math.abs(pixels[(y*result.canvas.width+x)*4]-a[0])<1);checked++;}assert(checked>4000);
 });
 test('closed long panels use the photographed solid section and cannot retain the glass row',async()=>{
  const {P,D}=harness(),closed=P.sources.find(s=>s.id==='photo-017-0-closed');assert.equal(closed.panelFill,'closed-top');assert.equal(closed.photoId,'installation-017');assert.equal(closed.layout,'closed');assert.equal(closed.band,null);
