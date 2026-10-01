@@ -68,6 +68,8 @@
 
 /* Installed doors sit within the jamb; no floating drop shadow. */
 .vis-door-overlay.vis-realistic{filter:none!important;touch-action:none;object-fit:fill;}
+.studio-home-examples .studio-reference-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:760px){.studio-home-examples .studio-reference-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .vis-corner{position:absolute;z-index:8;width:34px;height:34px;transform:translate(-50%,-50%);border:2px solid white;border-radius:50%;background:#1d4ed8;color:white;font-weight:700;box-shadow:0 1px 6px #0006;touch-action:none;cursor:crosshair;}
 .vis-corner:focus-visible{outline:3px solid #fbbf24;outline-offset:3px;}
 @media print{.vis-corner{display:none;}}

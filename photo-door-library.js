@@ -86,7 +86,9 @@
     id:'photo-'+photo+'-'+opening+(panelFill?'-closed':''), photoId:'installation-'+photo, opening, family, layout, finish, columns, sections,panelFill,
     url:'/assets/installation-photos/installation-'+photo+'.jpg',
     corners:Array.from({length:4},(_,i)=>({x:xy[i*2],y:xy[i*2+1]})), band,
-    hardware: ['carriage-short','grooved-short','carriage-vertical'].includes(family)||['038','062','086','106','134'].includes(photo),
+    hardware: photo!=='097'&&(['carriage-short','grooved-short','carriage-vertical'].includes(family)||['038','062','086','106','134'].includes(photo)),
+    hardwareRows:({'057':[.22,.75],'105':[.18,.74],'107':[.18,.74],'106':[.322,.682]})[photo],
+    hardwareBand:photo==='106'?.014:.025,
     cut:photo==='106'?.16:0,
     colorable: family!=='wood-carriage'
   }));
@@ -97,11 +99,11 @@
     if(wide===isWide(s))return {...s,repeat:1};
     if(wide)return {...s,repeat:2,columns:s.columns*2};
     const q=s.corners,cols=Math.ceil(s.columns/2),span=cols/s.columns,corners=[[0,0],[span,0],[span,1],[0,1]].map(([u,v])=>window.DoorRealism.project(q,u,v));
-    return {...s,repeat:1,columns:cols,corners};
+    return {...s,repeat:1,columns:cols,corners,cropSpan:span};
   }
   function choice(d) {
     const family=families.find(f=>f.id===d?.photoDesignId);if(!family)return null;
-    const conf=d.visualDesign||{},width=window.DoorRealism.clamp(d.customSize?d.customWidth:d.width,4,30,8),height=window.DoorRealism.clamp(d.customSize?d.customHeight:d.height,4,20,7);
+    const conf=d.visualDesign||{},width=window.DoorRealism.clamp(d.customSize?d.customWidth:d.width,4,30,9),height=window.DoorRealism.clamp(d.customSize?d.customHeight:d.height,4,20,7);
     const available=sources.filter(s=>s.family===family.id);
     const selected=adaptSource(available.find(s=>s.id===conf.sourceId)||available.find(s=>isWide(s)===(width>=12))||available[0],width);
     const colors=selected.colorable?palette:[palette[0]];
@@ -110,14 +112,14 @@
     const variant=variants.find(v=>v.id===selected.id);
     return {photographic:true,f:family,p:null,panel:{id:family.id,label:family.label,variants},variant,source:selected,
       width,height,colors,color,finish:color.id,glass:null,hardware:selected.hardware?{label:'As photographed'}:null,
-      key:['photo-v1',selected.id,color.id,width,height].join('|')};
+      key:['photo-v2',selected.id,color.id,width,height].join('|')};
   }
   function normalize(d) {
     const c=choice(d);if(!c)return null;
     d.visualDesign={type:'photographic',sourceId:c.source.id,panel:c.f.id,window:c.source.id,finish:c.finish};
     return c;
   }
-  const photos=new Map(),previews=new Map(),thumbs=new Map();
+  const photos=new Map(),previews=new Map(),thumbs=new Map(),rasters=new WeakMap(),surfaces=new WeakMap();
   function load(url) {
     if(!photos.has(url)){const task=window.DoorDesign.loadImage(url);photos.set(url,task);task.catch(()=>photos.delete(url));if(photos.size>8)photos.delete(photos.keys().next().value);}
     return photos.get(url);
@@ -127,59 +129,123 @@
     const a=(iy*w+ix)*4,b=(iy*w+Math.min(w-1,ix+1))*4,c=(Math.min(h-1,iy+1)*w+ix)*4,d=(Math.min(h-1,iy+1)*w+Math.min(w-1,ix+1))*4;
     for(let ch=0;ch<4;ch++)out[i+ch]=rgba[a+ch]*(1-fx)*(1-fy)+rgba[b+ch]*fx*(1-fy)+rgba[c+ch]*(1-fx)*fy+rgba[d+ch]*fx*fy;
   }
-  function rectify(img,s,maxWidth=1600,ratio) {
-    const original=document.createElement('canvas');original.width=img.naturalWidth;original.height=img.naturalHeight;
-    const oc=original.getContext('2d');oc.drawImage(img,0,0);const raw=oc.getImageData(0,0,original.width,original.height).data;
-    const q=s.corners.map(p=>({x:p.x*original.width/100,y:p.y*original.height/100}));
-    const ew=(Math.hypot(q[1].x-q[0].x,q[1].y-q[0].y)+Math.hypot(q[2].x-q[3].x,q[2].y-q[3].y))/2;
-    const eh=(Math.hypot(q[3].x-q[0].x,q[3].y-q[0].y)+Math.hypot(q[2].x-q[1].x,q[2].y-q[1].y))/2;
-    const repeats=s.repeat||1,cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(Math.min(maxWidth,ew*repeats*(s.bodyScale||1))));cv.height=Math.max(1,Math.round(cv.width*(ratio||eh/(ew*repeats))));
+  function raster(img,s) {
+    let entries=rasters.get(img);if(!entries){entries=new Map();rasters.set(img,entries);}
+    const key=JSON.stringify(s.corners);if(entries.has(key))return entries.get(key);
+    const original=s.corners.map(p=>({x:p.x*img.naturalWidth/100,y:p.y*img.naturalHeight/100}));
+    const left=Math.max(0,Math.floor(Math.min(...original.map(p=>p.x)))-2),top=Math.max(0,Math.floor(Math.min(...original.map(p=>p.y)))-2);
+    const right=Math.min(img.naturalWidth,Math.ceil(Math.max(...original.map(p=>p.x)))+2),bottom=Math.min(img.naturalHeight,Math.ceil(Math.max(...original.map(p=>p.y)))+2);
+    // Read only the native opening, not a full 12-megapixel house on a phone.
+    const cv=document.createElement('canvas');cv.width=Math.max(1,right-left);cv.height=Math.max(1,bottom-top);const ctx=cv.getContext('2d');ctx.drawImage(img,left,top,cv.width,cv.height,0,0,cv.width,cv.height);
+    const result={data:ctx.getImageData(0,0,cv.width,cv.height).data,width:cv.width,height:cv.height,q:original.map(p=>({x:p.x-left,y:p.y-top}))};entries.set(key,result);if(entries.size>4)entries.delete(entries.keys().next().value);return result;
+  }
+  const headerFrames={
+    'photo-106-0':[[.071,.053,.419,.252],[.556,.052,.413,.252]],
+    'photo-106-1':[[.058,.045,.426,.252],[.528,.047,.431,.252]]
+  };
+  const windowBounds={
+    'photo-106-0':[[.091,.073,.363,.205],[.583,.073,.36,.205]],
+    'photo-106-1':[[.09,.064,.363,.215],[.56,.064,.369,.215]]
+  };
+  function sourceCoordinates(s,x,v){
+    const unit=(x*(s.repeat||1))%1,bodyScale=s.bodyScale||1,split=1-.3/bodyScale,sourceU=bodyScale>1?(unit<split?unit*.7/split:.7+(unit-split)*bodyScale):unit;
+    const originalU=Math.max(s.cut?.04:.002,Math.min(s.cut?.96:.998,sourceU)),header=s.cut&&v<.2&&!headerFrames[s.id]?.some(([x,y,w,h])=>sourceU>=x&&sourceU<=x+w&&v>=y&&v<=y+h),u=header?.5+Math.min(.025,Math.abs(sourceU-.5)*.05):originalU;
+    // Extend the photographed blank center stile across the header at the
+    // same height. Preserve the native window molding and divided glass.
+    return {u,v:s.panelFill==='closed-top'&&v<.25?v+.25:s.cut?Math.max(.04,v):v,originalU,blend:header?Math.min(1,(.2-v)/.08):1};
+  }
+  const headerPixel=new Float64Array(4);
+  function sampleSource(raw,s,x,y,out,i){
+    const uv=sourceCoordinates(s,x,y),p=window.DoorRealism.project(raw.q,uv.u,uv.v);sample(raw.data,raw.width,raw.height,p.x,p.y,out,i);
+    if(uv.blend<1){const p=window.DoorRealism.project(raw.q,uv.originalU,uv.v);sample(raw.data,raw.width,raw.height,p.x,p.y,headerPixel,0);for(let ch=0;ch<3;ch++)out[i+ch]=out[i+ch]*uv.blend+headerPixel[ch]*(1-uv.blend);}
+    // The source's white diagonal jamb can overlap the outer molding crop.
+    // Remove that trim while retaining every white insert inside the glass.
+    if(s.cut&&y<.2&&(out[i]+out[i+1]+out[i+2])/3>80&&!windowBounds[s.id]?.some(([u,v,w,h])=>(x*(s.repeat||1))%1>=u&&(x*(s.repeat||1))%1<=u+w&&y>=v&&y<=v+h)){const clean=window.DoorRealism.project(raw.q,.515,uv.v);sample(raw.data,raw.width,raw.height,clean.x,clean.y,out,i);}
+    if(s.photoId==='installation-099'&&uv.u<.11&&y>.74&&out[i+1]>out[i]+7&&out[i+1]>out[i+2]+10){const clean=window.DoorRealism.project(raw.q,.22,uv.v);sample(raw.data,raw.width,raw.height,clean.x,clean.y,out,i);}
+  }
+  function rectify(img,s,maxWidth=4096,ratio,raw=raster(img,s)) {
+    const q=raw.q;
+    const ew=Math.max(Math.hypot(q[1].x-q[0].x,q[1].y-q[0].y),Math.hypot(q[2].x-q[3].x,q[2].y-q[3].y));
+    const eh=Math.max(Math.hypot(q[3].x-q[0].x,q[3].y-q[0].y),Math.hypot(q[2].x-q[1].x,q[2].y-q[1].y));
+    // Preserve both native axes. A wide door cropped to a single opening
+    // must not lose half its vertical detail to a forced physical ratio.
+    const nw=ew*(s.repeat||1)*(s.bodyScale||1),nh=eh,scale=Math.min(1,maxWidth/nw,maxWidth/nh,Math.sqrt(3000000/(nw*nh)));
+    const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(nw*scale));cv.height=Math.max(1,Math.round(nh*scale));
     const ctx=cv.getContext('2d'),frame=ctx.createImageData(cv.width,cv.height);
     for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){
-      const v=(y+.5)/cv.height,edge=Math.max(0,(s.cut||0)-v),unit=((x+.5)/cv.width*repeats)%1,bodyScale=s.bodyScale||1,split=1-.3/bodyScale,sourceU=bodyScale>1?(unit<split?unit*.7/split:.7+(unit-split)*bodyScale):unit,frameCorner=edge&&(sourceU<edge||sourceU>1-edge),u=frameCorner?.5:Math.max(.005,Math.min(.995,sourceU)),sourceV=s.panelFill==='closed-top'&&v<.25?v+.25:s.cut?Math.max(frameCorner?.08:.025,v):v;const p=window.DoorRealism.project(q,u,sourceV),i=(y*cv.width+x)*4;sample(raw,original.width,original.height,p.x,p.y,frame.data,i);
-      // Remove the source photo's small foreground plant from plain steel.
-      // Use adjacent real material from the same row, never a drawn patch.
-      if(s.photoId==='installation-099'&&u<.11&&v>.74&&frame.data[i+1]>frame.data[i]+7&&frame.data[i+1]>frame.data[i+2]+10){const clean=window.DoorRealism.project(q,.22,v);sample(raw,original.width,original.height,clean.x,clean.y,frame.data,i);}
+      sampleSource(raw,s,(x+.5)/cv.width,(y+.5)/cv.height,frame.data,(y*cv.width+x)*4);
     }
     ctx.putImageData(frame,0,0);return cv;
   }
   function paneRegions(s,rgba,w,h) {
     if(!s.band)return [];
     if(s.layout==='side-stack')return [0,1,2,3].map(i=>({x:1-(1-.77)/(s.bodyScale||1),y:.055+i*.231,width:.155/(s.bodyScale||1),height:.155}));
-    const count=['carriage-short','grooved-short','carriage-vertical'].includes(s.family)?s.columns/2:s.columns;
-    // Photographed inserts and their reflections are protected together.
-    const detected=window.DoorDesign.glassGeometry(rgba,w,h).regions.filter(p=>p.y>=s.band[0]-.04&&p.y+p.height<=s.band[1]+.03);
-    if(s.finish==='White'&&detected.length>=count)return detected;
+    const native=byId.get(s.id)||s,count=['carriage-short','grooved-short','carriage-vertical'].includes(s.family)?native.columns/2:native.columns;
+    // A dark-pixel flood fill splits reflected sky and divided glass into
+    // unrelated rectangles. Protect each complete photographed window.
+    const measured={
+      'photo-105-0':[[.084,0,.369,.164],[.543,0,.374,.168]],
+      'photo-107-0':[[.087,.022,.358,.151],[.548,.02,.365,.155]],
+      'photo-057-0':[[.074,.035,.383,.171],[.511,.028,.403,.179]],
+      ...windowBounds
+    }[s.id];
     const start=.045,gap=.035,span=.91,width=(span-gap*(count-1))/count;
-    const bands=s.layout==='double-sunburst'?[[.015,.14],[.18,.305]]:[s.band];
-    return bands.flatMap(([a,b])=>Array.from({length:count},(_,i)=>({x:start+i*(width+gap),y:a,width,height:b-a})));
+    const bands=s.layout==='double-sunburst'?[[.015,.14],[.18,.305]]:[native.band];
+    const base=measured?measured.map(([x,y,width,height])=>({x,y,width,height})):bands.flatMap(([a,b])=>Array.from({length:count},(_,i)=>({x:start+i*(width+gap),y:a,width,height:b-a})));
+    const crop=s.cropSpan||1,repeats=s.repeat||1;
+    return Array.from({length:repeats},(_,n)=>base.filter(p=>p.x<crop).map(p=>({...p,x:(p.x/crop+n)/repeats,width:Math.min(p.width,crop-p.x)/crop/repeats}))).flat();
   }
-  function protectedPixel(s,panes,x,y,lum) {
+  function protectedPixel(s,panes,x,y,lum,hardwareCutoff=80) {
     if(panes.some(p=>x>=p.x&&x<=p.x+p.width&&y>=p.y&&y<=p.y+p.height))return true;
-    if(!s.hardware||lum>80)return false;
-    return (Math.abs(x-.5)<.075&&y>.25&&y<.67)||(x<.19||x>.81)&&[.25,.51,.73,.91].some(v=>Math.abs(y-v)<.04);
+    if(!s.hardware||lum>hardwareCutoff)return false;
+    x=(x*(s.repeat||1))%1;
+    return (Math.abs(x-.5)<.075&&y>.35&&y<.62)||(x<.24||x>.76)&&(s.hardwareRows||[.25,.51,.73,.91]).some(v=>Math.abs(y-v)<(s.hardwareBand||.025));
   }
-  function paint(rgba,w,h,c,panes) {
-    if(c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase())return;
+  function paintProfile(rgba,w,h,c,panes,field) {
+    if(c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase())return null;
     const rgb=c.color.hex.slice(1).match(/../g).map(x=>parseInt(x,16)),targetLum=(rgb[0]+rgb[1]+rgb[2])/3,samples=[];
     for(let y=Math.floor(h*.25);y<h*.94;y+=Math.max(1,Math.floor(h/80)))for(let x=0;x<w;x+=Math.max(1,Math.floor(w/100))){const i=(y*w+x)*4,lum=(rgba[i]+rgba[i+1]+rgba[i+2])/3;if(!protectedPixel(c.source,panes,x/w,y/h,lum))samples.push(lum);}
     samples.sort((a,b)=>a-b);const base=Math.max(20,samples[Math.floor(samples.length*.78)]||200);
+    return {rgb,targetLum,base,field};
+  }
+  function paintPixel(rgba,i,x,y,s,panes,profile){
+    if(!profile)return;const lum=(rgba[i]+rgba[i+1]+rgba[i+2])/3,{rgb,targetLum,base,field}=profile;
+    const broad=field?window.DoorRealism.fieldAt(field,x,y)*field.base:base;if(protectedPixel(s,panes,x,y,lum,Math.min(80,broad*.4)))return;
+    if(base<110&&targetLum>base*1.4){
+      // A black coat contains bright, almost colorless reflections. Scaling
+      // those by white albedo turns its subtle grain into clipped stripes.
+      // Change the diffuse coat while retaining bounded photographed relief.
+      const diffuse=Math.max(.025,broad/base),detail=(lum-broad)*Math.min(1.5,targetLum/base);
+      for(let ch=0;ch<3;ch++)rgba[i+ch]=Math.max(0,rgb[ch]*diffuse+detail);
+      return;
+    }
+    const shade=Math.max(.025,Math.min(1.3,lum/base));
+    // Dielectric highlights survive a dark coat. Multiplying every bright
+    // bevel by black albedo erased the photographed relief and satin finish.
+    const spec=Math.max(0,lum-base)*(.18+.75*(1-targetLum/255)),relief=Math.max(0,lum-broad)*.55*(1-targetLum/255);
+    for(let ch=0;ch<3;ch++)rgba[i+ch]=Math.max(0,rgb[ch]*shade+Math.max(spec,relief));
+  }
+  function paint(rgba,w,h,c,panes,profile=paintProfile(rgba,w,h,c,panes)) {
+    if(!profile)return;
     for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-      const i=(y*w+x)*4,lum=(rgba[i]+rgba[i+1]+rgba[i+2])/3;if(protectedPixel(c.source,panes,x/w,y/h,lum))continue;
-      const shade=Math.max(.025,Math.min(1.3,lum/base)),spec=Math.max(0,lum-base)*(.18+.75*(1-targetLum/255));
-      for(let ch=0;ch<3;ch++)rgba[i+ch]=Math.min(255,rgb[ch]*shade+spec);
+      paintPixel(rgba,(y*w+x)*4,(x+.5)/w,(y+.5)/h,c.source,panes,profile);
     }
   }
   async function prepare(d) {
     const c=normalize(d);if(!c)return null;if(d.designPreview?.key===c.key)return d.designPreview;
     let task=previews.get(c.key);
     if(!task){task=(async()=>{
-      const img=await load(c.source.url),cv=rectify(img,c.source,1600,c.height/c.width),ctx=cv.getContext('2d');
+      const img=await load(c.source.url),raw=raster(img,c.source),cv=rectify(img,c.source,4096,undefined,raw),ctx=cv.getContext('2d');
       const frame=ctx.getImageData(0,0,cv.width,cv.height),panes=paneRegions(c.source,frame.data,cv.width,cv.height);
-      paint(frame.data,cv.width,cv.height,c,panes);ctx.putImageData(frame,0,0);
-      return {key:c.key,url:cv.toDataURL('image/png'),label:[c.f.label,c.variant.label,c.color.label].join(' · '),photographic:true,
+      const small=document.createElement('canvas');small.width=Math.min(256,cv.width);small.height=Math.max(1,Math.round(small.width*cv.height/cv.width));small.getContext('2d').drawImage(cv,0,0,small.width,small.height);
+      const material=window.DoorRealism.lightingField(small,panes),painting=paintProfile(frame.data,cv.width,cv.height,c,panes,material);
+      paint(frame.data,cv.width,cv.height,c,panes,painting);ctx.putImageData(frame,0,0);
+      const preview={key:c.key,url:cv.toDataURL('image/png'),label:[c.f.label,c.variant.label,c.color.label].join(' · '),photographic:true,
         sourceId:c.source.id,sourcePhotoUrl:c.source.url,sourceCorners:c.source.corners,sourceFinish:c.source.finish,sourceMaterial:c.source.colorable?'painted-steel':'wood',
-        originalFinish:c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase(),nativeGeometry:(c.source.repeat||1)===1&&(c.source.bodyScale||1)===1&&!c.source.panelFill,glassRegions:panes,columns:c.source.columns,sections:c.source.sections};
+        originalFinish:c.finish==='original'||c.color.label.toLowerCase()===c.source.finish.toLowerCase(),nativeGeometry:(c.source.repeat||1)===1&&(c.source.bodyScale||1)===1&&!c.source.panelFill,glassRegions:panes,columns:c.source.columns,sections:c.source.sections,nativeWidth:cv.width,nativeHeight:cv.height};
+      // Non-serialized native pixels let the compositor sample the original
+      // photograph once, instead of rectifying then blurring it a second time.
+      surfaces.set(preview,{raw,source:c.source,panes,painting,material});return preview;
     })();previews.set(c.key,task);task.catch(()=>previews.delete(c.key));if(previews.size>12)previews.delete(previews.keys().next().value);}
     const preview=await task;if(choice(d)?.key===c.key)d.designPreview=preview;return preview;
   }
@@ -256,6 +322,6 @@
   legacy.overlay=d=>d?.photoDesignId?(choice(d)?.key===d.designPreview?.key?d.designPreview.url:''):original.overlay(d);
   legacy.controls=(d,idx)=>d?.photoDesignId?controls(d,idx):original.controls(d,idx);
   legacy.description=d=>d?.photoDesignId?description(d):original.description(d);
-  window.PhotoDoor={families,sources,layouts,palette,choice,normalize,prepare,rectify,sample,paint,paneRegions,protectedPixel,thumbnail,hydrate,preferred,copyDesign,description,isWide,adaptSource};
+  window.PhotoDoor={families,sources,layouts,palette,choice,normalize,prepare,rectify,sample,raster,sampleSource,paint,paintPixel,paintProfile,paneRegions,protectedPixel,thumbnail,hydrate,preferred,copyDesign,description,isWide,adaptSource,surface:p=>surfaces.get(p)};
   window.selectVisPhotoDesign=select;window.setVisPhotoOption=setOption;
 })();

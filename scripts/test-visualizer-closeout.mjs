@@ -11,6 +11,15 @@ function harness(){
  vm.createContext(c);vm.runInContext(source,c);c.visState.doors=[c.freshDoorConfig()];
  return {c,nodes,events,canvases,messages};
 }
+test('new doors default to nine feet and home examples are exactly five single and five double',async()=>{
+ const {c}=harness();assert.equal(Number(c.freshDoorConfig().width),9);assert.equal(Number(c.freshDoorConfig().customWidth),9);
+ vm.runInContext(readFileSync(new URL('../door-design-library.js',import.meta.url),'utf8'),c);vm.runInContext(readFileSync(new URL('../photo-door-library.js',import.meta.url),'utf8'),c);
+ const gallery=readFileSync(new URL('../door-gallery.js',import.meta.url),'utf8').match(/window\.EZFIX_PHOTO_LIBRARY=(\[[^\n]+\]);/)[1];c.window.EZFIX_PHOTO_LIBRARY=JSON.parse(gallery);c.window.DoorDesign.loadImage=async()=>({naturalWidth:1600,naturalHeight:1200});
+ const body={innerHTML:''};c.renderVisStep2(body);const groups=body.innerHTML.split('<section class="studio-home-examples">').slice(1);assert.equal(groups.length,2);assert(groups.every(g=>(g.match(/data-reference="/g)||[]).length===5));assert.match(groups[0],/Single garage doors/);assert.match(groups[1],/Double garage doors/);assert.equal((body.innerHTML.match(/data-reference="/g)||[]).length,10);
+ await c.window.selectVisReferenceImage('installation-017','16');assert.equal(Number(c.visState.doors[0].width),16);await c.window.selectVisReferenceImage('installation-007','9');assert.equal(Number(c.visState.doors[0].width),9);
+ c.visState.doors[0].width=10;await c.window.selectVisReferenceImage('installation-017','16');assert.equal(Number(c.visState.doors[0].width),10,'a manually entered custom width is retained');
+ const original=JSON.stringify(c.visState.doors[0].pos.corners);c.visState.doors[0].pos.corners[0].x+=2;c.window.resetVisPosition();assert.equal(JSON.stringify(c.visState.doors[0].pos.corners),original,'reset restores the actual fitted reference opening');
+});
 test('neutral photograph picker preserves existing saved catalog configurations',async()=>{
  const h=harness(),c=h.c;
  c.document.querySelectorAll=()=>[];
