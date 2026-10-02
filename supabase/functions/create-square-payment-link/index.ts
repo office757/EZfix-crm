@@ -33,7 +33,7 @@ Deno.serve(async(req)=>{
   redirectUrl.searchParams.set("token",access.token);
   redirectUrl.searchParams.set("square_return","1");
   const idempotencyKey=`inv-${inv.id}-${Number(inv.row_version)||1}-${Math.round(total*100)}`.slice(0,45);
-  const body:any={idempotency_key:idempotencyKey,quick_pay:{name:"EZfix Invoice "+inv.number,price_money:{amount:Math.round(total*100),currency:"USD"},location_id:locationId},checkout_options:{ask_for_shipping_address:false,redirect_url:redirectUrl.toString()},payment_note:"Invoice "+inv.number+" | balance "+base.toFixed(2)+" + card fee "+fee.toFixed(2)};
+  const body:any={idempotency_key:idempotencyKey,quick_pay:{name:"EZfix Invoice "+inv.number,price_money:{amount:Math.round(total*100),currency:"USD"},location_id:locationId},checkout_options:{allow_tipping:true,ask_for_shipping_address:false,redirect_url:redirectUrl.toString()},payment_note:"Invoice "+inv.number+" | balance "+base.toFixed(2)+" + card fee "+fee.toFixed(2)};
   const pre:any={}; if(inv.customer_email)pre.buyer_email=String(inv.customer_email).trim(); const phone=normalizeUsPhone(inv.customer_phone); if(phone)pre.buyer_phone_number=phone; if(Object.keys(pre).length)body.pre_populated_data=pre;
   const sq=await fetch("https://connect.squareup.com/v2/online-checkout/payment-links",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","Square-Version":SQUARE_VERSION},body:JSON.stringify(body)});
   const out=await sq.json().catch(()=>({}));
