@@ -18,6 +18,7 @@ const scripts = [
   'audit-website-intake.mjs',
   'audit-website-lead-review.mjs',
   'audit-invoice-email-link.mjs',
+  'test-document-sms.mjs',
   'square-live-integration-audit.mjs',
   'audit-ui-state.mjs',
   'build-ui-state.mjs',

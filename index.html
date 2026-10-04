@@ -10925,9 +10925,10 @@ async function emailDocument(type, id) {
   const cust = getOne('customers', doc.customerId);
   const email = doc.customerEmail || cust?.email;
   if (!email) return promptContactInfo(type, id, 'email');
-  const subject = `${type==='invoice'?'Invoice':'Estimate'} ${doc.number} from ${COMPANY.name}`;
+  const isReceipt = type==='invoice' && balanceDue(doc)<=0;
+  const subject = `${isReceipt?'Receipt':type==='invoice'?'Invoice':'Estimate'} ${doc.number} from ${COMPANY.name}`;
   let customerInvoiceUrl = null;
-  if (type==='invoice') {
+  if (type==='invoice' && !isReceipt) {
     try { customerInvoiceUrl = await createPublicInvoiceUrl(id); }
     catch(e) {
       console.error('Could not create customer invoice URL for email', e);
@@ -10938,11 +10939,17 @@ async function emailDocument(type, id) {
   let body = buildDocSummaryText(type, doc, customerInvoiceUrl);
   let htmlBody = buildDocEmailHtml(type, doc, customerInvoiceUrl);
   let attachment = null;
-  try {
+  if (type!=='invoice' || isReceipt) try {
     const pdf = await buildPdfDoc(type, doc);
     const base64 = arrayBufferToBase64(pdf.output('arraybuffer'));
     attachment = { content: base64, filename: `${doc.number}.pdf`, mimeType: 'application/pdf' };
-  } catch(e) { console.error('could not build PDF for email attachment', e); }
+  } catch(e) {
+    console.error('could not build PDF for email attachment', e);
+    if (isReceipt) {
+      toast('Receipt was not emailed because its PDF could not be prepared. Please try again.', true);
+      return;
+    }
+  }
   const sent = await tryGmailSend(email, subject, body, attachment, htmlBody, null, { entityType: col, entityId: id });
   if (!sent) return;
   logAudit('sent_email', `${type==='invoice'?'Invoice':'Estimate'} ${doc.number} sent to ${email}`, col, id, null, sent.providerMessageId||null);
@@ -10960,13 +10967,15 @@ async function emailDocument(type, id) {
   }
 }
 
-function buildDocSmsText(type, doc) {
+function buildDocSmsText(type, doc, publicInvoiceUrl=null) {
   const isInvoice = type === 'invoice';
   const balance = isInvoice ? balanceDue(doc) : estimateTotal(doc);
   const directPayUrl = isInvoice ? unwrapGoogleRedirect(doc?.paymentLink || '') : '';
   const validSquare = /^https:\/\/(?:checkout\.square\.site|square\.link)\//i.test(directPayUrl);
   const amountLabel = isInvoice ? `Balance: ${money(balance)}.` : `Estimate total: ${money(balance)}.`;
-  const payLine = validSquare && balance > 0 ? ` Pay securely: ${directPayUrl}` : '';
+  const payLine = isInvoice && publicInvoiceUrl
+    ? ` ${balance > 0 ? 'View invoice, sign & pay' : 'View paid invoice'}: ${publicInvoiceUrl}`
+    : (validSquare && balance > 0 ? ` Pay securely: ${directPayUrl}` : '');
   return `EZfix Garage Doors Inc: ${isInvoice ? 'Invoice' : 'Estimate'} ${doc.number}. ${amountLabel}${payLine} Reply HELP for help or STOP to opt out.`;
 }
 
@@ -10982,15 +10991,14 @@ async function textDocument(type, id) {
   const cust = getOne('customers', doc.customerId);
   const phone = doc.customerPhone || cust?.phone;
   if (!phone) return promptContactInfo(type, id, 'phone');
-  const body = buildDocSmsText(type, doc);
-  let e164 = String(phone||'').trim();
-  const digits = e164.replace(/\D/g,'');
-  if (!e164.startsWith('+')) e164 = digits.length===10 ? '+1'+digits : (digits.length===11 && digits.startsWith('1') ? '+'+digits : e164);
+  const e164 = normalizeToE164(phone);
   if (!/^\+[1-9]\d{6,14}$/.test(e164)) return toast('Please save a valid phone number before sending', true);
   try {
     const { data: sessionData } = await SB.auth.getSession();
     const token = sessionData?.session?.access_token;
     if (!token) throw new Error('Your CRM session expired. Please sign in again.');
+    const publicInvoiceUrl = type==='invoice' ? await createPublicInvoiceUrl(id) : null;
+    const body = buildDocSmsText(type, doc, publicInvoiceUrl);
     const res = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/send-inkbox-sms`, {
       method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`,'apikey':SUPABASE_ANON_KEY},
       body:JSON.stringify({to:e164,message:body,entity_type:col,entity_id:id,receipt_invoice_id:type==='invoice'&&invoiceTotal(doc)>0&&balanceDue(doc)<=0?id:undefined})
