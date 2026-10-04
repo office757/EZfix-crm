@@ -1,0 +1,80 @@
+/* Approved Royal Blue finish for app controls. Screen-only; never style customer documents or photos. */
+@media screen {
+  body[data-workspace-page] {
+    --royal-shine:linear-gradient(180deg,#146aff,#0751d8);
+    --royal-panel:linear-gradient(155deg,var(--ez-surface),var(--ez-soft));
+    --royal-shadow:0 4px 6px #06275405,0 12px 28px #0627540c;
+  }
+  body[data-workspace-page] .content {background:transparent}
+  body[data-workspace-page] :is(.panel,.launcher-cat,.settings-tools,.gallery-card,.office-post,.dg-card,.ashley-card,.ashley-setup,.ashley-preview,.mkt-account,.dispatch-card,.cal-side-card,.cal-week-stat,.cal-preview,.activity-panel) {
+    border-color:var(--ez-line);background:var(--ez-surface);box-shadow:var(--royal-shadow);
+  }
+  body[data-workspace-page] :is(.panel-head,.modal-foot,.cal-side-head) {
+    background:var(--royal-panel);border-color:var(--ez-line);
+  }
+  body[data-workspace-page] .panel-head h3 {color:var(--ez-ink)}
+  body[data-workspace-page] :is(.panel,.office-welcome,.ashley-setup,.mkt-wizard,.cal-side-card) {border-radius:18px}
+  body[data-workspace-page] :is(.launcher-tile,.workspace-tools .wt-tool,.office-grid>button) {
+    background:var(--royal-panel);border-color:var(--ez-line);color:var(--ez-ink);
+    box-shadow:inset 0 1px 0 #ffffff38,0 3px 10px #0b397b08;
+    transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;
+  }
+  body[data-workspace-page] :is(.launcher-tile,.workspace-tools .wt-tool,.office-grid>button):hover {
+    background:var(--ez-blue-soft);border-color:var(--ez-blue);box-shadow:0 6px 18px #0754ed18;
+  }
+  body[data-workspace-page] .office-grid :is(span,b) {color:var(--ez-muted)}
+  body[data-workspace-page] .office-welcome {
+    background:linear-gradient(125deg,#092550,#0c48a4);border-color:#2259a0;color:#fff;
+    box-shadow:inset 0 1px 0 #ffffff20,0 12px 28px #0754ed14;
+  }
+  body[data-workspace-page] .office-welcome :is(h2,h3,p,.muted) {color:#edf4ff}
+  body[data-workspace-page] :is(.pg-hero,.vga-hero) {background:var(--royal-panel);border-color:var(--ez-line);box-shadow:var(--royal-shadow)}
+  body[data-workspace-page] :is(.pg-hero,.vga-hero) :is(h2,h3) {color:var(--ez-blue)}
+  body[data-workspace-page] .office-shortcuts>button,
+  body[data-workspace-page] .office-shortcuts>span {background:var(--ez-surface);border-color:var(--ez-line);color:var(--ez-ink)}
+  body[data-workspace-page] .office-welcome :is(.btn:not(.btn-primary),button:not(.btn-primary)) {background:#ffffff14;border-color:#ffffff40;color:#fff}
+  body[data-workspace-page] .btn:not(.btn-primary):not(.btn-dark):not(.btn-ghost):not(.btn-danger) {
+    background:var(--royal-panel);border-color:var(--ez-line);color:var(--ez-ink);box-shadow:inset 0 1px 0 #ffffff30,0 2px 5px #123e7808;
+  }
+  body[data-workspace-page] .btn-dark {background:linear-gradient(155deg,#173d70,#071c3c);border-color:#204777;color:#fff}
+  body[data-workspace-page] :is(.btn,.icon-btn):focus-visible {outline:2px solid var(--ez-blue);outline-offset:3px}
+  body[data-workspace-page] :is(.doc-tabs,.doc-tabbar,.dispatch-tabs,.dg-tabs) {border-color:var(--ez-line)}
+  body[data-workspace-page] :is(.doc-tab.active,.dispatch-tabs button.active,.dg-tabs button.active) {
+    background:var(--royal-shine);border-color:#1a61e0;color:#fff;box-shadow:inset 0 1px 0 #ffffff35,0 4px 12px #0754ed22;
+  }
+  body[data-workspace-page] .ashley-tool-grid .doc-tab {
+    background:var(--royal-panel)!important;border-color:var(--ez-line)!important;box-shadow:var(--royal-shadow);color:var(--ez-ink);
+  }
+  body[data-workspace-page] .ashley-tool-grid .doc-tab.active {
+    background:var(--royal-shine)!important;border-color:#2c72f5!important;color:#fff;
+  }
+  body[data-workspace-page] .ashley-tool-grid .doc-tab:hover:not(.active) {border-color:var(--ez-blue)!important}
+  body[data-workspace-page] :is(.ashley-person,.ashley-tech,.ashley-skill,.mkt-account) {background:var(--ez-soft);border-color:var(--ez-line);color:var(--ez-ink)}
+  body[data-workspace-page] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),select,textarea) {
+    border-color:var(--ez-line);background:var(--ez-surface);color:var(--ez-ink);box-shadow:inset 0 1px 3px #07265c06;
+  }
+  body[data-workspace-page] :is(input,select,textarea):focus {border-color:var(--ez-blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--ez-blue) 16%,transparent)}
+  body[data-workspace-page] :is(input,select,textarea):disabled {background:var(--ez-soft)}
+  body[data-workspace-page] :is(input[type=checkbox],input[type=radio]) {accent-color:var(--ez-blue)}
+  body[data-workspace-page] .overlay {background:#04152d99;backdrop-filter:blur(4px)}
+  body[data-workspace-page] .modal {border:1px solid var(--ez-line);border-radius:20px;box-shadow:0 24px 70px #04152d48;background:var(--ez-surface)}
+  body[data-workspace-page] .modal-head {background:linear-gradient(115deg,#08234b,#104a9c);border-color:#2c5a92;border-radius:19px 19px 0 0;color:#fff}
+  body[data-workspace-page] .modal-head :is(h3,.icon-btn,.muted) {color:#fff}
+  body[data-workspace-page] .modal-foot {border-radius:0 0 19px 19px}
+  body[data-workspace-page] table.list thead {background:var(--royal-panel)}
+  body[data-workspace-page] table.list th {color:var(--ez-muted);border-color:var(--ez-line)}
+  body[data-workspace-page] table.list td {border-color:var(--ez-line)}
+  body[data-workspace-page] table.list tbody tr:hover {background:var(--ez-blue-soft)}
+  body[data-workspace-page] :is(.cal-week-toolbar,.cal-day-toolbar,.cal-month-toolbar) {background:var(--royal-panel);border:1px solid var(--ez-line);box-shadow:var(--royal-shadow)}
+  body[data-workspace-page] .cal-nav-group>.btn:nth-child(2) {background:var(--ez-blue-soft);border-color:var(--ez-line);color:var(--ez-ink)}
+  body[data-workspace-page] .cal-mini-day.is-today {background:var(--royal-shine);color:#fff;box-shadow:0 3px 10px #0754ed20}
+  body[data-workspace-page] :is(.cal-legend-item,.cal-week-stat,.cal-side-head) {border-color:var(--ez-line)}
+  body[data-workspace-page] .cal-title {color:var(--ez-ink)}
+  body[data-workspace-page] :is(.cal-title-sub,.cal-week-stat-label) {color:var(--ez-muted)}
+  body[data-workspace-page] .empty-state .big {color:var(--ez-blue)}
+  body[data-workspace-page] .bottom-nav {background:var(--ez-surface);border-color:var(--ez-line);box-shadow:0 -6px 24px #07275410}
+  body[data-workspace-page] .bn-item.active {background:var(--ez-blue-soft);color:var(--ez-blue)}
+  @media (prefers-reduced-motion:reduce) {
+    body[data-workspace-page] :is(.launcher-tile,.workspace-tools .wt-tool,.office-grid>button) {transition:none}
+  }
+}
