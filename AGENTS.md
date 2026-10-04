@@ -30,3 +30,5 @@ David clarified Office needs an embedded compact monthly calendar, not a Calenda
 David approved the Office phone appearance and requested improving the desktop empty space: place the compact calendar beside Office operations on desktop only, preserve phone layout, publish and refresh the downloadable source backup (September 30, 2026).
 
 David explicitly authorized a premium blue, white, black and yellow application palette on October 4, 2026. Update screen styling consistently while preserving routes, layout, permissions, editable prices, document output and garage-door photo colors. This supersedes the appearance freeze only for the requested palette.
+
+David explicitly requested replacing only the sidebar logo with the supplied SuperEZX artwork on October 4, 2026. Preserve EZfix business identity on customer documents and all other app behavior.
