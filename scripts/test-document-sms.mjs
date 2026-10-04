@@ -15,7 +15,8 @@ async function scenario({phone='+1 (774) 555-0100',paid=false,type='invoice',lin
     SB:{auth:{getSession:async()=>({data:{session:session?{access_token:'synthetic'}:null}})}},
     fetch:async(_url,args)=>{sends.push(JSON.parse(args.body));return {ok:!rejected,json:async()=>rejected?{error:'Consent required'}:{success:true,providerMessageId:'synthetic'}};},
     logAudit:(...args)=>audits.push(args),SupabaseCommunicationBridge:null};
-  vm.createContext(context);vm.runInContext(normalize+handler,context);await context.textDocument(type,'synthetic');
+  const lock=html.slice(html.indexOf('const documentDeliveryPending ='),html.indexOf('async function emailDocument('));
+  vm.createContext(context);vm.runInContext(lock+normalize+handler,context);await context.textDocument(type,'synthetic');
   return {sends,links,notices,audits};
 }
 let r=await scenario();assert.equal(r.sends.length,1);assert.equal(r.sends[0].to,'+17745550100');assert.match(r.sends[0].message,/View invoice, sign & pay: https:.*token=/);assert.match(r.sends[0].message,/STOP/);assert.equal(r.sends[0].entity_id,'synthetic');

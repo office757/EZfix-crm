@@ -10913,7 +10913,24 @@ async function openPublicInvoicePage(id){
 }
 window.openPublicInvoicePage=openPublicInvoicePage;
 
+const documentDeliveryPending = new Set();
+async function runDocumentDelivery(channel, type, id, send) {
+  const key = `${channel}:${type}:${id}`;
+  if (documentDeliveryPending.has(key)) {
+    toast('This document is already being sent. Please wait.');
+    return;
+  }
+  documentDeliveryPending.add(key);
+  try { return await send(); }
+  catch(e) {
+    console.error('Document delivery preparation failed', e);
+    toast(e?.message || 'Could not prepare this document for sending.', true);
+  } finally { documentDeliveryPending.delete(key); }
+}
 async function emailDocument(type, id) {
+  return runDocumentDelivery('email', type, id, () => emailDocumentOnce(type, id));
+}
+async function emailDocumentOnce(type, id) {
   const col = type === 'estimate' ? 'estimates' : 'invoices';
   const doc = getOne(col, id);
   if (!doc) return;
@@ -10980,6 +10997,9 @@ function buildDocSmsText(type, doc, publicInvoiceUrl=null) {
 }
 
 async function textDocument(type, id) {
+  return runDocumentDelivery('sms', type, id, () => textDocumentOnce(type, id));
+}
+async function textDocumentOnce(type, id) {
   const col = type === 'estimate' ? 'estimates' : 'invoices';
   const doc = getOne(col, id);
   if (!doc) return;

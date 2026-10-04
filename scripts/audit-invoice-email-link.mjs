@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const html=fs.readFileSync('index.html','utf8');
-const start=html.indexOf('async function emailDocument('),end=html.indexOf('\nfunction buildDocSmsText(',start);
+const start=html.indexOf('const documentDeliveryPending ='),end=html.indexOf('\nfunction buildDocSmsText(',start);
 assert.ok(start>=0&&end>start);
 async function scenario({linkFails=false,pdfFails=false,type='invoice',paid=false,markerFails=false}={}){
  const sends=[],notices=[],links=[],renders=[],pdfs=[],markers=[];
