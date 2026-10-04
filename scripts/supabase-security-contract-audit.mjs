@@ -23,11 +23,36 @@ req('Public invoice access token is hashed before lookup', /digest\s*\(\s*lower\
 req('Public invoice token requires non-revoked record', /revoked_at\s+is\s+null/i.test(sql), 'Token revocation check is missing');
 req('Public invoice token requires unexpired record', /expires_at\s*>\s*now\(\)/i.test(sql), 'Token expiry check is missing');
 
+// Customer-facing RPCs intentionally accept anonymous callers with a document token.
+// Require exact signatures and inspect each latest implementation, including wrappers.
+const publicEndpoints = new Map([
+  ['get_public_invoice_payment_page','text,text'],
+  ['get_public_estimate_signing_page','text,text'],
+  ['sign_public_invoice','text,text,text,text,text'],
+  ['sign_public_estimate','text,text,text,text,text']
+]);
 const dangerousPublicGrants = [];
 for (const m of sql.matchAll(/grant\s+execute\s+on\s+function\s+public\.([a-zA-Z0-9_]+)\s*\(([^)]*)\)\s+to\s+anon/gi)) {
-  if (m[1] !== 'get_public_invoice_payment_page') dangerousPublicGrants.push(m[1]);
+  if (publicEndpoints.get(m[1]) !== m[2].replace(/\s/g,'')) dangerousPublicGrants.push(m[1]);
 }
-req('No unexpected anonymous privileged RPC grants', dangerousPublicGrants.length===0, 'Unexpected anon grants: '+dangerousPublicGrants.join(', '));
+req('Only exact token-protected anonymous RPC signatures are granted', dangerousPublicGrants.length===0, 'Unexpected anon grants: '+dangerousPublicGrants.join(', '));
+const latest = new Map();
+for(const m of sql.matchAll(/create\s+or\s+replace\s+function\s+([a-z_]+)\.([a-z_]+)\s*\(([^)]*)\)([\s\S]*?)\bas\s+(\$[a-z_]*\$)([\s\S]*?)\5/gi)) {
+  latest.set(m[1]+'.'+m[2],{header:m[4],body:m[6]});
+}
+for(const name of publicEndpoints.keys()) {
+  let fn=latest.get('public.'+name);
+  if(name==='sign_public_invoice' && fn && /security\s+invoker/i.test(fn.header)) {
+    req('Invoice signature wrapper calls the private executor', /invoice_signing_private\.sign_public_invoice\(p_invoice_id,p_access_token,p_signer_name,p_signature_data_url,p_consent_version\)/i.test(fn.body.replace(/\s/g,'')), 'Unexpected signature executor');
+    fn=latest.get('invoice_signing_private.sign_public_invoice');
+  }
+  const body=fn?.body||'';
+  req(name+' has its own token format guard', /p_access_token\s*!~\s*'\^\[0-9a-fA-F\]\{64\}\$'/i.test(body), 'Missing token guard');
+  req(name+' hashes the token', /digest\s*\(\s*lower\s*\(\s*p_access_token\s*\)\s*,\s*'sha256'/i.test(body), 'Missing token hash');
+  req(name+' checks token revocation and expiry', /revoked_at/i.test(body)&&/expires_at/i.test(body), 'Missing token lifecycle checks');
+  req(name+' fails closed on unknown tokens', /raise exception/i.test(body)&&(/if not found/i.test(body)||/if not v_ok/i.test(body)), 'Missing rejection path');
+  req(name+' pins its executor search path', /set\s+search_path\s*(?:=|to)\s*/i.test(fn?.header||''), 'Missing executor search path');
+}
 
 console.log((checks-failures)+'/'+checks+' security contract assertions passed');
 if(failures) process.exit(1);
