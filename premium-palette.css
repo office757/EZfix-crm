@@ -1,0 +1,78 @@
+/* EZfix premium palette. Screen-only: no data, pricing, print or door-image changes. */
+@media screen {
+  :root {
+    --ez-blue:#1857d8; --ez-blue-hover:#1247b4; --ez-yellow:#f3d12f;
+    --ez-blue-soft:#edf3ff; --ez-yellow-soft:#fff8d7; --ez-chrome:#0c111b;
+    --ez-surface:#fff; --ez-soft:#f5f7fc; --ez-line:#dce3f0;
+    --ez-ink:#111827; --ez-muted:#647087;
+  }
+  :root[data-theme="dark"] {
+    --ez-blue:#77a8ff; --ez-blue-hover:#9fc1ff; --ez-blue-soft:#162b4d;
+    --ez-yellow-soft:#302b15; --ez-chrome:#080d16; --ez-surface:#141c2b;
+    --ez-soft:#101724; --ez-line:#2c3950; --ez-ink:#f4f7ff; --ez-muted:#a9b7ce;
+  }
+  @media (prefers-color-scheme:dark) {
+    :root:not([data-theme="light"]) {
+      --ez-blue:#77a8ff; --ez-blue-hover:#9fc1ff; --ez-blue-soft:#162b4d;
+      --ez-yellow-soft:#302b15; --ez-chrome:#080d16; --ez-surface:#141c2b;
+      --ez-soft:#101724; --ez-line:#2c3950; --ez-ink:#f4f7ff; --ez-muted:#a9b7ce;
+    }
+  }
+  :root, :root[data-theme="dark"], :root:not([data-theme]) {
+    --black:var(--ez-chrome); --charcoal:#1b2638; --near-black:#111b2b;
+    --orange:var(--ez-yellow); --orange-dark:#dcc01b; --orange-deep:#bea314;
+    --paper:var(--ez-soft); --paper-2:var(--ez-blue-soft); --card:var(--ez-surface);
+    --ink:var(--ez-ink); --ink-soft:var(--ez-muted); --muted:var(--ez-muted); --line:var(--ez-line);
+    --ws-ink:var(--ez-ink); --ws-muted:var(--ez-muted); --ws-surface:var(--ez-surface);
+    --ws-paper:var(--ez-soft); --ws-soft:var(--ez-blue-soft); --ws-line:var(--ez-line);
+    --ws-amber:var(--ez-yellow); --ws-amber-tint:var(--ez-yellow-soft); --ws-amber-text:var(--ez-ink);
+    --ws-blue:var(--ez-blue); --ws-blue-tint:var(--ez-blue-soft); --ws-blue-text:var(--ez-blue);
+    --ws-sage:var(--ez-blue); --ws-sage-tint:var(--ez-blue-soft); --ws-sage-text:var(--ez-blue);
+    --ws-violet:var(--ez-blue); --ws-violet-tint:var(--ez-blue-soft); --ws-violet-text:var(--ez-blue);
+    --ws-rose:var(--ez-yellow); --ws-rose-tint:var(--ez-yellow-soft); --ws-rose-text:var(--ez-ink);
+    --ws-teal:var(--ez-blue); --ws-teal-tint:var(--ez-blue-soft); --ws-teal-text:var(--ez-blue);
+    --shadow:0 2px 5px #0b1c3606,0 12px 30px #0b1c3608;
+  }
+  body,body[data-workspace-page] .main {background:var(--ez-soft);color:var(--ez-ink)}
+  .sidebar,.topbar {background:var(--ez-chrome)}
+  body[data-workspace-page] .topbar {border-bottom-color:var(--ez-yellow);box-shadow:0 5px 22px #02091724}
+  body[data-workspace-page] .nav-item {color:#c5cfe1}
+  body[data-workspace-page] .nav-item:hover {background:#1b2b45;color:#fff}
+  body[data-workspace-page] .nav-item.active {background:#1857d8;color:#fff;box-shadow:inset 3px 0 var(--ez-yellow)}
+  body[data-workspace-page] .nav-item.active .workspace-nav-icon {background:#ffffff18;border-color:#ffffff30}
+  .nav-item.nav-quick-payment,body[data-workspace-page] .nav-item.nav-quick-payment {background:var(--ez-yellow);color:#101722;box-shadow:0 5px 18px #f3d12f16}
+  body[data-workspace-page] #pageEmoji {background:#172c4b;border-color:#2e4670}
+  .btn-primary,body[data-workspace-page] #topActions .btn-primary {background:#1857d8;border-color:#1857d8;color:#fff;box-shadow:0 4px 12px #1857d822}
+  .btn-primary:hover,body[data-workspace-page] #topActions .btn-primary:hover {background:#1247b4;border-color:#1247b4;filter:none}
+  .workspace-screen :is(.panel,.stat-card,.dispatch-card,.catalog-product-card,.picker-card,.mkt-wizard,.vg-picker-card,.vg-preview-card,.vg-saved-library,.vga-hero,.pg-hero,.dg-filters,.studio-setup,.studio-library,.social-platforms article,.social-roadmap) {background:var(--ez-surface);border-color:var(--ez-line);border-top-color:var(--ws-accent,var(--ez-blue));box-shadow:var(--shadow)}
+  .workspace-screen table.list thead {background:var(--ez-blue-soft)}
+  .workspace-screen table.list th {color:var(--ez-muted)}
+  .workspace-screen :is(input,textarea,select):focus {border-color:var(--ez-blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--ez-blue) 15%,transparent)}
+  .overview-page {--overview-ink:var(--ez-ink);--overview-muted:var(--ez-muted);--overview-line:var(--ez-line);--overview-amber:var(--ez-blue);--overview-green:var(--ez-blue);color:var(--ez-ink)}
+  .overview-panel {background:var(--ez-surface);border-color:var(--ez-line);box-shadow:var(--shadow)}
+  .overview-panel-heading h2,.overview-group h3 {color:var(--ez-ink)}
+  .overview-date,.overview-hero,.overview-connections,.overview-section-icon {background:var(--ez-soft);border-color:var(--ez-line);color:var(--ez-ink)}
+  .overview-hero-featured {background:var(--ez-blue-soft);border-color:color-mix(in srgb,var(--ez-blue) 28%,var(--ez-line))}
+  .overview-hero:hover {background:var(--ez-blue-soft);border-color:var(--ez-blue)}
+  .overview-hero-icon,.overview-hero-featured .overview-hero-icon,.overview-hero-paid .overview-hero-icon {color:var(--ez-blue);background:var(--ez-surface);border-color:var(--ez-line)}
+  .overview-hero-paid>strong,.overview-hero-due>strong,.overview-stat-attention>strong {color:var(--ez-blue)}
+  .overview-page>:is(.overview-important,.overview-work),:root[data-theme="dark"] .overview-page>:is(.overview-important,.overview-work) {
+    --od-ink:var(--ez-ink);--od-muted:var(--ez-muted);--od-surface:var(--ez-surface);--od-soft:var(--ez-soft);--od-line:var(--ez-line);
+    --od-blue:var(--ez-blue);--od-blue-bg:var(--ez-blue-soft);--od-amber:var(--ez-yellow);--od-amber-bg:var(--ez-yellow-soft);
+    --od-sage:var(--ez-blue);--od-sage-bg:var(--ez-blue-soft);--od-violet:var(--ez-blue);--od-violet-bg:var(--ez-blue-soft);
+    --od-rose:var(--ez-yellow);--od-rose-bg:var(--ez-yellow-soft);--od-teal:var(--ez-blue);--od-teal-bg:var(--ez-blue-soft);
+    --od-success:var(--ez-blue);--od-warning:var(--ez-ink);--od-warning-bg:var(--ez-yellow-soft);
+  }
+  .workspace-tools {--wt-ink:var(--ez-ink);--wt-muted:var(--ez-muted);--wt-surface:var(--ez-surface);--wt-line:var(--ez-line);--wt-soft:var(--ez-soft)}
+  .workspace-tools :is(.wt-category,.wt-tone-blue,.wt-tone-sage,.wt-tone-violet,.wt-tone-teal) {--wt-accent:var(--ez-blue);--wt-accent-bg:var(--ez-blue-soft)}
+  .workspace-tools :is(.wt-tone-amber,.wt-tone-rose) {--wt-accent:var(--ez-yellow);--wt-accent-bg:var(--ez-yellow-soft)}
+  .cal-nav-group>.btn:nth-child(2) {background:var(--ez-blue-soft);border-color:var(--ez-line)}
+  .gate {background:radial-gradient(ellipse at top,#e8f0ff 0,var(--ez-soft) 60%)}
+  .gate .card {background:var(--ez-surface);border-color:var(--ez-line);box-shadow:0 18px 55px #0c234416;color:var(--ez-ink)}
+  .gate .mark {background:#0c111b;color:var(--ez-yellow)}
+  .gate :is(.sub,.brand small,.fine,.field span) {color:var(--ez-muted)}
+  .gate .field input {background:var(--ez-surface);border-color:var(--ez-line);color:var(--ez-ink)}
+  .gate .field input:focus {border-color:var(--ez-blue);box-shadow:0 0 0 3px #1857d81f}
+  .gate .btn {background:#1857d8;color:#fff;box-shadow:0 5px 15px #1857d824}
+  .gate .btn:hover {background:#1247b4}
+}
