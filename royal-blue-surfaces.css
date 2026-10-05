@@ -140,6 +140,35 @@
   body[data-workspace-page] .notif-popover-foot a {color:var(--ez-blue)}
   body[data-workspace-page] #ownerLeadAlert {border-color:var(--ez-blue)!important;background:var(--ez-surface)!important;color:var(--ez-ink)!important;box-shadow:0 24px 90px #041d4160!important}
   body[data-workspace-page] #ownerLeadAlert::backdrop {background:#04152d99;backdrop-filter:blur(4px)}
+  /* Dashboard shares the app palette, including its independently themed panels. */
+  body[data-workspace-page="dashboard"] .overview-page {
+    --overview-ink:var(--ez-ink);--overview-muted:var(--ez-muted);--overview-line:var(--ez-line);
+  }
+  body[data-workspace-page="dashboard"] .overview-page>:is(.overview-important,.overview-work) {
+    --od-ink:var(--ez-ink);--od-muted:var(--ez-muted);--od-surface:var(--ez-surface);--od-soft:var(--ez-soft);--od-line:var(--ez-line);
+    --od-success:var(--ez-blue);--od-warning:var(--ez-ink);--od-warning-bg:var(--ez-yellow-soft);
+    --od-blue:var(--ez-blue);--od-blue-bg:var(--ez-blue-soft);
+    --od-amber:var(--ez-blue);--od-amber-bg:var(--ez-blue-soft);
+    --od-sage:var(--ez-blue);--od-sage-bg:var(--ez-blue-soft);
+    --od-violet:var(--ez-blue);--od-violet-bg:var(--ez-blue-soft);
+    --od-rose:var(--ez-blue);--od-rose-bg:var(--ez-blue-soft);
+    --od-teal:var(--ez-blue);--od-teal-bg:var(--ez-blue-soft);
+    box-shadow:var(--royal-shadow);
+  }
+  body[data-workspace-page="dashboard"] .workspace-tools {--wt-ink:var(--ez-ink);--wt-muted:var(--ez-muted);--wt-line:var(--ez-line);--wt-surface:var(--ez-surface);--wt-button:var(--ez-surface);--wt-hover:var(--ez-blue-soft);--wt-focus:var(--ez-blue)}
+  body[data-workspace-page="dashboard"] .workspace-tools .wt-category {--wt-accent:var(--ez-blue);--wt-accent-bg:var(--ez-blue-soft);box-shadow:var(--royal-shadow)}
+  body[data-workspace-page="dashboard"] .overview-panel-heading {background:var(--royal-panel)}
+  body[data-workspace-page="dashboard"] .overview-hero-featured {background:linear-gradient(135deg,#092550,#104b9f);border-color:#2b65b5;color:#fff;box-shadow:inset 0 1px 0 #ffffff30,0 8px 20px #0754ed18}
+  body[data-workspace-page="dashboard"] .overview-hero-featured:hover {background:linear-gradient(135deg,#10366c,#1558b5);border-color:#5593ed}
+  body[data-workspace-page="dashboard"] .overview-hero-featured :is(.overview-hero-label,strong) {color:#fff}
+  body[data-workspace-page="dashboard"] .overview-hero-featured :is(small,.overview-row-arrow) {color:#d8e8ff}
+  body[data-workspace-page="dashboard"] .overview-hero-featured .overview-hero-icon {background:#ffffff18;color:#fff;border:1px solid #ffffff30}
+  body[data-workspace-page="dashboard"] .overview-emoji {color:var(--ez-blue);animation:none!important;transform:none!important}
+  body[data-workspace-page="dashboard"] .overview-hero-featured .overview-emoji {color:#fff}
+  body[data-workspace-page="dashboard"] .overview-date .royal-line-icon {color:var(--ez-blue)}
+  body[data-workspace-page="dashboard"] .overview-hero-due {border-top-color:var(--ez-yellow)}
+  body[data-workspace-page="dashboard"] .overview-quick-actions .overview-create-job {background:var(--royal-shine);color:#fff;border-color:var(--ez-blue);box-shadow:inset 0 1px 0 #ffffff30,0 4px 12px #0754ed18}
+  body[data-workspace-page="dashboard"] :is(.overview-hero,.overview-list-row,.overview-link,.overview-connections>summary):focus-visible {outline:2px solid var(--ez-blue);outline-offset:3px}
   @media (prefers-reduced-motion:reduce) {
     body[data-workspace-page] :is(.launcher-tile,.workspace-tools .wt-tool,.office-grid>button) {transition:none}
   }

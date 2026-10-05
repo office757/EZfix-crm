@@ -4,14 +4,14 @@ function workspaceDate(value){return fmtDate(typeof value==='string'&&/^\d{4}-\d
 function workspaceAction(page,id){return `go(${esc(JSON.stringify(page))},${esc(JSON.stringify(id||null))})`;}
 function workspaceIcon(key){
  const path=NAV.find(n=>n.key===key)?.icon||'M4 7h16M4 12h16M4 17h16';
- return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`;
+ return `<svg class="royal-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`;
 }
 const WORKSPACE_OVERVIEW_STYLES={
  invoices:{emoji:'🧾',tone:'amber'},payments:{emoji:'💵',tone:'sage'},banking:{emoji:'🏦',tone:'rose'},
  calendar:{emoji:'🗓️',tone:'blue'},revenue:{emoji:'💰',tone:'amber'},leads:{emoji:'🎯',tone:'violet'},
  jobs:{emoji:'🛠️',tone:'teal'},receptionist:{emoji:'🎧',tone:'violet'},followups:{emoji:'🔔',tone:'rose'},auditlog:{emoji:'🕒',tone:'teal'}
 };
-function workspaceOverviewEmoji(key){return `<span class="overview-emoji" aria-hidden="true">${WORKSPACE_OVERVIEW_STYLES[key]?.emoji||'📌'}</span>`;}
+function workspaceOverviewEmoji(key){return `<span class="overview-emoji" aria-hidden="true">${workspaceIcon(key==='revenue'?'invoices':key)}</span>`;}
 function workspaceRelativeDate(value){
  const day=String(value||'').slice(0,10);
  return day===todayISO()?'Today':day===dateNDaysAgo(1)?'Yesterday':workspaceDate(value);
@@ -141,10 +141,9 @@ function workspaceToolCategories(){
 }
 function renderWorkspaceTools(){
  const categories=workspaceToolCategories();
- const emojis={quickpay:'⚡',estimates:'📝',invoices:'🧾',gallery:'🖼️',visualizer:'🏡',products:'🛠️',inventory:'📦',suppliers:'🚚',ai_manager:'🧠',receptionist:'🎧',ai_system:'🤖',team:'👥',payroll:'💵',reports:'📊',banking:'🏦',socialposts:'📣',office:'🏢'};
  if(!categories.length)return '';
  return `<section class="workspace-tools" aria-labelledby="workspaceToolsTitle">
   <header class="wt-heading"><h2 id="workspaceToolsTitle">Workspace tools</h2><span aria-hidden="true"></span></header>
-  <div class="wt-grid">${categories.map(category=>`<section class="wt-category wt-tone-${category.tone}" aria-labelledby="wt-${category.id}-title"><header class="wt-category-heading"><span class="wt-category-icon" aria-hidden="true">${category.emoji}</span><h3 id="wt-${category.id}-title">${esc(category.name)}</h3></header><div class="wt-tool-list">${category.items.map(item=>`<button type="button" class="wt-tool${item.fullWidth||category.items.length<=2?' wt-tool-wide':''}" data-tool="${item.key}" onclick="${workspaceAction(item.key)}"><span class="wt-tool-icon" aria-hidden="true">${emojis[item.key]||esc(item.emoji||'🔹')}</span><span class="wt-tool-label">${esc(item.label)}</span><span class="wt-arrow" aria-hidden="true">↗</span></button>`).join('')}</div></section>`).join('')}</div>
+  <div class="wt-grid">${categories.map(category=>`<section class="wt-category wt-tone-${category.tone}" aria-labelledby="wt-${category.id}-title"><header class="wt-category-heading"><span class="wt-category-icon" aria-hidden="true">${workspaceIcon(category.items[0]?.key||'more')}</span><h3 id="wt-${category.id}-title">${esc(category.name)}</h3></header><div class="wt-tool-list">${category.items.map(item=>`<button type="button" class="wt-tool${item.fullWidth||category.items.length<=2?' wt-tool-wide':''}" data-tool="${item.key}" onclick="${workspaceAction(item.key)}"><span class="wt-tool-icon" aria-hidden="true">${workspaceIcon(item.key)}</span><span class="wt-tool-label">${esc(item.label)}</span><span class="wt-arrow" aria-hidden="true">↗</span></button>`).join('')}</div></section>`).join('')}</div>
  </section>`;
 }
