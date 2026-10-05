@@ -2,6 +2,7 @@
 (function(){
 'use strict';
 window.jobHasEstimateTechnician=function(job){
+ if(canOverrideJobWorkflow())return !!job;
  const tech=job?.technicianId&&getOne('team',job.technicianId);
  return !!(job&&!['cancelled','completed'].includes(job.status)&&tech&&tech.role==='Technician'&&techStatus(tech)==='Active'&&!tech.archivedAt);
 };

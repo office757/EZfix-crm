@@ -3,10 +3,10 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const html=fs.readFileSync('index.html','utf8');
 const source=html.slice(html.indexOf('async function signJobCompletion('),html.indexOf('window.signJobCompletion ='));
-function fixture({workflowVersion=1,ready=true,saveError=false}={}) {
+function fixture({workflowVersion=1,ready=true,saveError=false,owner=false}={}) {
  const job={id:'job',title:'Test',customerName:'Synthetic',workflowVersion,status:'work_finished'};
  const events=[],timers=[];let sign;
- const context={window:{},getOne:()=>job,SB:{rpc:async name=>{
+ const context={canOverrideJobWorkflow:()=>owner,window:{},getOne:()=>job,SB:{rpc:async name=>{
    events.push(name);if(name==='dispatch_job_ready')return {data:ready};
    if(saveError)return {error:new Error('Save denied')};return {data:null};
  }},refreshCollection:async()=>{events.push('refresh');job.status='completed';},
@@ -14,7 +14,7 @@ function fixture({workflowVersion=1,ready=true,saveError=false}={}) {
  openSignatureModal:(_title,_name,cb)=>{sign=cb;},logAudit:()=>events.push('audit'),toast:()=>events.push('toast'),closeModal:()=>events.push('close'),
  render:()=>events.push('render:'+job.status),setTimeout:fn=>timers.push(fn),promptWarrantyForJob:()=>events.push('warranty')};
  vm.createContext(context);vm.runInContext(source,context);
- return {job,events,timers,start:()=>context.signJobCompletion('job'),save:()=>sign?.('data:image/png;base64,fixture','Synthetic')};
+ return {job,events,timers,start:signature=>context.signJobCompletion('job',signature),save:()=>sign?.('data:image/png;base64,fixture','Synthetic')};
 }
 for(const workflowVersion of [1,0]) {
  const f=fixture({workflowVersion});await f.start();await f.save();
@@ -27,3 +27,7 @@ for(const workflowVersion of [1,0]) {
 }
 const unready=fixture({ready:false});await unready.start();assert.equal(await unready.save(),undefined);assert.ok(!unready.events.includes('complete_dispatch_job'));
 console.log('Job completion refresh: dispatch and legacy success, both save failures, readiness rejection PASS');
+
+const owner=fixture({owner:true,ready:false});await owner.start();assert.ok(owner.events.includes('legacy-save'));assert.ok(!owner.events.includes('dispatch_job_ready'));assert.ok(owner.events.includes('render:completed'));
+
+const signedOwner=fixture({owner:true,ready:false});await signedOwner.start(true);await signedOwner.save();assert.ok(signedOwner.events.includes('complete_dispatch_job'));assert.ok(!signedOwner.events.includes('dispatch_job_ready'));

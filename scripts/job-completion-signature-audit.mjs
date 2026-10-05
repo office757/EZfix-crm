@@ -4,7 +4,7 @@ const root=process.cwd();
 const ui=fs.readFileSync(root+'/index.html','utf8');
 const sql=fs.readFileSync(root+'/supabase/migrations/20260925080717_enforce_job_completion_signature.sql','utf8');
 let n=0;const ok=(c,m)=>{assert.ok(c,m);n++;console.log('PASS '+m)};
-ok(ui.includes("JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed')"),'non-completed Job status dropdown hides completed');
+ok(ui.includes("JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed' || canOverrideJobWorkflow())"),'non-owner unfinished Job status dropdown hides completed');
 ok(ui.includes("if (status === 'completed') return signJobCompletion(jobId)"),'generic completed status routes through signature flow');
 ok(ui.includes("completionSignature: { dataUrl, name, at: Date.now() }"),'signature flow persists completion signature');
 ok(ui.includes("await updateJobStatusWithHistory(jobId, 'completed'"),'signed completion is the canonical completed transition');

@@ -7,7 +7,7 @@ function fixture(job,tech={id:'tech',name:'Actual technician',role:'Technician',
  const calls=[],elements={};
  const values={f_title:'Repair',f_customer:'customer',f_status:job?.status||'new',f_tech_id:'tech',f_tech_name:'stale name',f_date:'2026-10-01',f_window:'8–10 AM'};
  const document={getElementById:id=>elements[id]??=({value:values[id]||'',addEventListener(){}}),querySelectorAll:()=>[]};
- const context={window:{},document,console,STORE:{jobs:job?[job]:[],team:[tech],inspections:[],estimates:[]},getOne:(col,id)=>col==='team'?(id===tech.id?tech:null):col==='customers'?{id:'customer',name:'Customer'}:col==='jobs'?job:null,showModal:m=>context.modal=m,
+ const context={canOverrideJobWorkflow:()=>false,window:{},document,console,STORE:{jobs:job?[job]:[],team:[tech],inspections:[],estimates:[]},getOne:(col,id)=>col==='team'?(id===tech.id?tech:null):col==='customers'?{id:'customer',name:'Customer'}:col==='jobs'?job:null,showModal:m=>context.modal=m,
  esc:v=>String(v||''),labelize:v=>v,customerPickerHtml:()=>'',technicianPickerHtml:()=>'',jobPhotoUploaderHtml:()=>'',handleJobPhotoInput(){},APPOINTMENT_WINDOWS:[],JOB_STATUSES:['new','completed'],CANCEL_REASONS:[],JOB_CHECKLIST_ITEMS:[],fmtDate:v=>v,
  dbSet:async(...args)=>calls.push(['set',...args]),dbAdd:async(...args)=>{calls.push(['add',...args]);return 'newjob';},logAudit(){},updateJobStatusWithHistory:async(...args)=>calls.push(['status',...args]),offerJobTechnician:async(...args)=>calls.push(['offer',...args]),syncJobAssignment:async(...args)=>calls.push(['sync',...args]),techWantsNotification:()=>false,toast:message=>calls.push(['toast',message]),closeModal:()=>calls.push(['close'])};
  vm.createContext(context);vm.runInContext(source,context);return {context,calls,values};
@@ -51,8 +51,16 @@ const websiteEdit=f.calls.find(c=>c[0]==='status')[3];assert.equal(websiteEdit.c
 for(const job of [null,{id:'job',customerId:'customer',status:'new',workflowVersion:0}]){
  f=fixture(job);f.values.f_customer='';f.context.openJobModal(job?.id);await f.context.modal.onSave();assert.ok(!f.calls.some(c=>['set','add','status'].includes(c[0])),'new/linked jobs still require a customer');
 }
-const eligibility={window:{},getOne:()=>({role:'Technician',status:'Active'}),techStatus:t=>t.status};vm.createContext(eligibility);vm.runInContext(fs.readFileSync('job-assignment.js','utf8'),eligibility);
+const eligibility={canOverrideJobWorkflow:()=>false,window:{},getOne:()=>({role:'Technician',status:'Active'}),techStatus:t=>t.status};vm.createContext(eligibility);vm.runInContext(fs.readFileSync('job-assignment.js','utf8'),eligibility);
 assert.equal(eligibility.window.jobHasEstimateTechnician({status:'new'}),false);
 assert.equal(eligibility.window.jobHasEstimateTechnician({status:'new',technicianId:'tech'}),true);
 assert.equal(eligibility.window.jobHasEstimateTechnician({status:'cancelled',technicianId:'tech'}),false);
 console.log('Job assignment: actual job-form handlers, acceptance ordering and estimate prerequisites PASS');
+
+// Owner corrections bypass operational requirements, while earlier fixtures retain staff gates.
+f=fixture({id:'job',customerId:'customer',status:'arrived',workflowVersion:1},{id:'tech',name:'No login',role:'Technician',status:'Active'});
+f.context.canOverrideJobWorkflow=()=>true;f.values.f_status='completed';f.context.openJobModal('job');
+assert.ok(f.context.modal.body.includes('value="completed"'));await f.context.modal.onSave();
+assert.equal(f.calls.find(c=>c[0]==='status')[3].technicianId,'tech');assert.ok(!f.calls.some(c=>c[0]==='offer'));
+eligibility.canOverrideJobWorkflow=()=>true;assert.equal(eligibility.window.jobHasEstimateTechnician({status:'completed'}),true);
+console.log('Owner can reassign after arrival, close without signature, and prepare estimates without a technician PASS');
