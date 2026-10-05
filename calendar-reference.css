@@ -86,3 +86,40 @@
 @media screen and (max-width:700px){body[data-workspace-page="calendar"] .topbar-row1{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}body[data-workspace-page="calendar"] .cal-reference-mobile-logo{display:block;width:108px;height:54px;object-fit:contain;grid-column:1;grid-row:1}body[data-workspace-page="calendar"] .topbar-titlewrap{grid-column:1 / -1;grid-row:2}body[data-workspace-page="calendar"] .topbar-iconrow{grid-column:2;grid-row:1}body[data-workspace-page="calendar"] .bottom-nav{background:#041a38;border-color:#244572;color:#d5e4ff;box-shadow:0 -8px 28px #00102e30}body[data-workspace-page="calendar"] .bottom-nav .bn-item{color:#d0ddf3}body[data-workspace-page="calendar"] .bottom-nav .bn-item.active{color:#34a0ff}}
 
 body[data-workspace-page="calendar"] .cal-month-date{border:0;cursor:pointer;font-family:inherit}body[data-workspace-page="calendar"] .cal-month-date:focus-visible{outline:3px solid #ffd83c;outline-offset:3px}
+/* Override the more specific workspace canvas rules that hid the white logo. */
+@media screen {
+ body[data-workspace-page="calendar"]:not([data-calendar-view="day"]) .main{background:radial-gradient(ellipse at 80% 0,#0649a3 0,transparent 65%),linear-gradient(140deg,#04152e,#032e68);min-height:100vh}
+ body[data-workspace-page="calendar"]:not([data-calendar-view="day"]) .cal-month-day.is-selected{background:linear-gradient(135deg,#0878ff,#005bec)!important;color:#fff}
+ body[data-workspace-page="calendar"] #topActions .doc-tabbar{background:#062650;border-color:#4073b3;flex:0 1 auto!important;width:auto!important}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-week-toolbar{border-radius:22px;background:#fff;padding:18px;border:1px solid #dbe7f9;box-shadow:0 12px 30px #00173730}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-title{color:#101d38;font-size:24px;font-weight:800}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-nav-group .btn{border-radius:50%;background:#f0f4fb;color:#112644;border-color:transparent}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-nav-group>.btn:nth-child(2){border-radius:20px;background:#fff;border-color:#d7e2f3}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-legend-item{background:#ffffff12;color:#e4edff;border-color:#ffffff30}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-week-grid.with-all-day{background:#fff;border-radius:22px;border-color:#e2ebf8;box-shadow:0 15px 35px #001b3930}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-dayhead.is-today{background:#e8f1ff}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-dayhead.is-today .cal-hour-num{background:#0067f4;color:#fff;box-shadow:0 3px 10px #0754ed20}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-column.is-today{background:linear-gradient(#eff6ff80,#eff6ff80),repeating-linear-gradient(to bottom,transparent 0,transparent 59px,#e0e9f5 60px)}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job{background:#d8eaff;border-color:#9fc8ff;color:#14213a;border-radius:10px}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job.tone-1,body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job.tone-3{background:#ffed9f;border-color:#ffe17b}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job.tone-2{background:#09254d;border-color:#143b6b;color:#fff}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job.tone-2 :is(.cal-hour-job-meta,.cal-hour-job-time,.cal-hour-job-address,.cal-hour-job-customer){color:#fff}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-side-card,body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-week-stat{border-radius:18px;background:#fff;border-color:#dce7f7}
+ .technician-profile-avatar{display:inline-grid!important;vertical-align:middle;overflow:hidden;flex-shrink:0;margin-right:4px}
+ .technician-profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+ .technician-profile-editor{display:flex;justify-content:center;margin:8px 0 18px}.technician-profile-editor .technician-profile-avatar{width:110px;height:110px;font-size:30px}
+ .cal-hour-job .technician-profile-avatar{width:18px;height:18px;border-width:1px;font-size:7px;margin:0 3px 0 0}
+ @media(max-width:700px){
+  body[data-workspace-page="calendar"] #topActions{flex-wrap:wrap;gap:6px}
+  body[data-workspace-page="calendar"] #topActions .doc-tabbar{flex:1 1 100%!important;width:100%!important}
+  body[data-workspace-page="calendar"] #topActions .doc-tab{flex:1;min-width:0}
+  body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-week-toolbar{padding:14px;border-radius:19px}
+  body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-title{font-size:21px}
+  body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-filter-block{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-filter-block select{min-height:38px;font-size:12px;width:100%;max-width:none}
+  body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-filter-block select:first-child{grid-column:1/-1}
+  body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-legend{gap:5px}.cal-week-toolbar~.cal-legend .cal-legend-item{font-size:10px;padding:4px 7px}
+ }
+}
+
+@media screen{body[data-workspace-page="calendar"] .cal-month-today:not(.is-selected){background:#fff!important}}
