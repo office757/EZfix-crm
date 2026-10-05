@@ -8,6 +8,8 @@ const scripts = [
   'test-customer-receipts.mjs',
   'test-business-workflows.mjs',
   'test-business-tools.mjs',
+  'test-night-functional-fixes.mjs',
+  'test-approved-appearance.mjs',
   'test-document-ai-provider.mjs',
   'test-annual-expenses.mjs',
   'test-premium-tools-payroll.mjs',

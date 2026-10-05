@@ -1,0 +1,33 @@
+{
+  "approvedCommit": "58c045ba405dd4edb8978babb6f8783e53c4ea46",
+  "approvedAt": "2026-10-05",
+  "staticHtmlShellSha256": "e05a7b4b94384dcd29a1ffd7ae34072801534c556de90db32f54c832ddb982cc",
+  "assets": {
+    "activity-history.css": "ffa41b60b1addfae53301485cb3436405b12245729d4c9f1b3cec83f34aff3db",
+    "ashley-routing.css": "c1010711fdac94472692dbd4be63a806ac5d551e13b0e05bceecd010b32a9a75",
+    "assets/ezfix-app-icon-192.png": "f55883b973137f05bc9f19199281b6d154228021ec02f1209f38a8b4f8b916ed",
+    "assets/ezfix-app-icon-512.png": "91ac41140eae79e6003540e0a5add68ce3bdfc9ba2bec3b31ec4c56e50fa5a93",
+    "assets/ezfix-app-icon.svg": "550f10ded9c4d8e8962be932782904367dbd237480d3756113075719991f24a8",
+    "assets/ezfix-invoice-logo.png": "9b55880181f2881938619b4950ad16f0b15d39b54052c03b09252aae0f7b8bcf",
+    "assets/superezx-sidebar-logo.png": "ea5b2a4ae4a9bf28485a6819e2c2be5f2e0ae7f27d282f6b45a138503b4fa9d2",
+    "assets/superezx-sidebar-logo.svg": "9fb8f64c101a41db1fafbbee6b5f29abaea23af9b14afdc514b37b9752a41faf",
+    "business-tools.css": "3e83754730fa7e8cf3f60f1b51aa45f1b79911dd961afaf055eaca558b24f8c8",
+    "calendar-premium.css": "725045169029e0fe1d60dedc53e0e5ccb59dfe096d3208e99cbdbb9742c1d671",
+    "calendar-reference.css": "3b90454de839c68e9d0520d59a783918aac26ad3b9941bdbb867ace6fdcddb08",
+    "calendar-week-day.css": "444628a673a7c2297ea35ede6178658f40246438cda4714108227f32a5c8ae4a",
+    "campaign-workspace.css": "429515aa025b0c4aacc4b9d8e44022837ca9b6187956b4133323c8cdf297108b",
+    "door-gallery.css": "148459b847a7724c338f1195b033b636faad59735688531a7da01d4f80bf8d3a",
+    "lead-dispatch.css": "52263e7e5c0a99b7a75fbcd94b8ec95118495c07cce5c2c5081e674796e6dc5e",
+    "lead-offer.css": "45238b3a90f45b4795ae52b4026cb83413d5f0388d362ce20ef5d7b880e2194b",
+    "marketing-connections-ui.css": "0fc9dedeed6fc2442cf40b3d15731696cad4dbe8aec317208df7b514537092ed",
+    "office-workspace.css": "f8d46048cff15d730b18565429b5e79617877711c1b2a6d143cc183dc4c43817",
+    "premium-palette.css": "0a18c6547b147ff0c11b57d1330073fa1182d69cf6e9c4c9b0a1afb2cfbb2f82",
+    "premium-tools.css": "f3a61271d7a27668038911411efdc189348a03a404384b6fa157a805a5a13169",
+    "premium-workspace-hub.css": "08210618ec4f858e4cbea8cd6142990f1d9cd16aa098d569c8525c322214a074",
+    "product-catalog-ui.css": "c10baab2ab7ca30472270fafd9470c35bf53e3e9c741567be20ca9bde9326fb7",
+    "royal-blue-surfaces.css": "f4b5214468261f412f048e306b8809cc6b4da4c852d22d13de6a497c55339ec3",
+    "visualizer-gallery-premium.css": "192d2a41a97ca1781bdfc8e4a8d12381fecd809b7c0c5ae35adb7d0ddb5ac040",
+    "workspace-overview.css": "5f03154954d24cb67301fcb5d07bd768f8d7df3c7ea30ca6a9877dd403f06ced",
+    "workspace-theme.css": "04de609a3662fe62692ad003977ddb7e581b30ebb4b0550ae2d04b8bb5768a3c"
+  }
+}

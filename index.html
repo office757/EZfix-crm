@@ -1997,7 +1997,7 @@ async function renderAiManagerActivity(b){
 /* ============================================================
    DASHBOARD
    ============================================================ */
-function dateNDaysAgo(n) { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
+function dateNDaysAgo(n) { const d = new Date(crmBusinessDate()+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()-n); return d.toISOString().slice(0,10); }
 function isThisMonth(dateStr) { if (!dateStr) return false; return dateStr.slice(0,7) === todayISO().slice(0,7); }
 function renderTechnicianDashboard(content, actions) {
   const today = todayISO();
@@ -4342,7 +4342,8 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
   });
   document.getElementById('f_docphoto').addEventListener('change', handleDocPhotoInput);
 }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+function crmBusinessDate(date = new Date()) { const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date).map(x=>[x.type,x.value])); return `${p.year}-${p.month}-${p.day}`; }
+function todayISO(){ return crmBusinessDate(); }
 
 /* ============================================================
    PRODUCTS & SERVICES (catalog used to quickly build line items)
@@ -4883,7 +4884,8 @@ function openExpenseModal(id) {
       const fileInput = document.getElementById('f_photo');
       if (fileInput.files && fileInput.files[0]) {
         const uploaded = await uploadReceiptPhoto(fileInput.files[0]);
-        if (uploaded) pendingPhoto = uploaded;
+        if (!uploaded) return;
+        pendingPhoto = uploaded;
       }
       const data = {
         vendor,
