@@ -10,6 +10,7 @@ const scripts = [
   'test-premium-tools-payroll.mjs',
   'test-campaign-workspace.mjs',
   'test-calendar-reference.mjs',
+  'test-technician-profiles.mjs',
   'test-crm-refresh-cache.mjs',
   'test-notification-alerts.mjs',
   'test-owner-phone-alerts.mjs',
