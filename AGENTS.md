@@ -34,3 +34,11 @@ David explicitly authorized a premium blue, white, black and yellow application 
 David explicitly requested replacing only the sidebar logo with the supplied SuperEZX artwork on October 4, 2026. Preserve EZfix business identity on customer documents and all other app behavior.
 
 October 5, 2026: David explicitly approved the current month calendar and prohibited changes to that view. Match only week/day styling to the month and fix the calendar logo there. Scope additional presentation CSS to data-calendar-view week/day.
+
+## Final appearance lock — October 5, 2026
+
+David approved the entire current appearance and explicitly prohibited any further visual changes. This supersedes all historical visual-change exceptions above. Approved baseline: production commit `58c045ba405dd4edb8978babb6f8783e53c4ea46`.
+
+Work is limited to verified functional bugs, data persistence, calculations, permissions, integration checks and release verification. Preserve every screen's layout, colors, typography, spacing, icons, navigation, logos and calendar styling. Do not redesign the Visualizer; verify its existing behavior only. Any later visual change needs David's new explicit instruction for that specific change.
+
+Night closeout tasks and evidence are tracked in `docs/night-closeout-2026-10-05.md`. Run `scripts/test-approved-appearance.mjs` before publishing. Provider tests must not send customer messages, place calls, collect payments or restore production data as part of an automated QA pass.
