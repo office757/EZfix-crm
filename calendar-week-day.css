@@ -1,0 +1,46 @@
+/* Only week and day views. The approved month view is untouched. */
+@media screen {
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .main{background:radial-gradient(ellipse at 80% 0,#0649a3 0,transparent 65%),linear-gradient(140deg,#04152e,#032e68)!important}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) :is(.cal-week-toolbar,.cal-day-toolbar){border-radius:23px;background:#fff;border:1px solid #ecf2ff;padding:18px;box-shadow:0 14px 45px #00133140}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-title{color:#101b36;font-size:24px;font-weight:800;letter-spacing:-.5px}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-title-sub{color:#52627b}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-nav-group .btn{background:#f0f3f8;color:#0c1c38;border:0;border-radius:50%;min-height:38px;min-width:38px}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-nav-group>.btn:nth-child(2){background:#fff;border:1px solid #d8dfeb;border-radius:24px;padding:8px 20px}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-filter-block select{background:#f6f9ff;color:#17253c;border-color:#d8e3f3;border-radius:12px;min-height:38px}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-reference-mobile-logo{display:block;width:142px;height:72px;max-width:100%;object-fit:contain;object-position:left center;align-self:center;flex-shrink:0;filter:drop-shadow(0 2px 6px #00122d40);background:transparent;border:0;border-radius:0;padding:0}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-board{background:#fff;color:#13213b}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] :is(.cal-hour-dayhead,.cal-hour-corner,.cal-all-day-label,.cal-hour-times){background:#fcfdff;color:#364761;border-color:#edf0f6}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-column.is-weekend{background:repeating-linear-gradient(to bottom,#fafcff 0,#fafcff 59px,#edf0f6 60px)}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-dayhead.is-today{background:#e8f1ff}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job{background:#d5eaff!important;color:#101e39!important;border:0;border-left:3px solid var(--cal-accent);border-radius:12px;box-shadow:0 3px 8px #0525520c}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job.tone-1,body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job.tone-3{background:#ffec9a!important;color:#17223a!important}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job.tone-2{background:#071f45!important;color:#fff!important}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job :is(.cal-hour-job-meta,.cal-hour-job-time,.cal-hour-job-address,.cal-hour-job-customer){color:inherit!important}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-hour-job-status{background:#ffffff35;color:inherit}
+ body[data-workspace-page="calendar"][data-calendar-view="week"] .cal-all-day-pill{background:#d5eaff;color:#101e39;border-color:#b9d8ff;border-radius:9px}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-date-strip{gap:8px;margin-top:16px}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-date-chip{background:#fff;border:1px solid #e9edf5;color:#14213c;border-radius:15px;min-height:72px;box-shadow:0 5px 16px #00133120}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-date-chip span{color:#52627b}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-date-chip.is-selected{background:linear-gradient(135deg,#0878ff,#005bec);border-color:#2b89ff;color:#fff;box-shadow:inset 0 0 0 1px #2b89ff}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-date-chip.is-selected span{color:#fff}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-view{max-width:none;margin-top:16px;padding:14px;background:#0317358c;border:1px solid #31538588;border-radius:22px;box-shadow:0 8px 25px #00133130}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-list{gap:14px}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-job{background:#fff;color:#16223a;border-color:#edf0f6;border-left-color:var(--cal-accent);border-radius:17px;padding:18px;box-shadow:0 4px 14px #00133118}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-job:nth-child(3n+1){background:#d5eaff}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-job:nth-child(3n+2){background:#ffec9a}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-job:nth-child(3n){background:#071f45;color:#fff}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-job :is(.cal-day-time,.cal-day-service,.cal-day-address,.cal-day-tech){color:inherit}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-side .btn{background:#eef4ff;color:#064ba8;border:0;border-radius:10px}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-empty{background:#fff;color:#52627b;border-color:#d8e3f3;border-radius:17px}
+ body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-create{background:linear-gradient(135deg,#ffec75,#ffe037);color:#08224b;border-color:#ffe34d;border-radius:14px;min-height:44px}
+ body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) :is(.cal-date-chip,.cal-nav-group button,.cal-day-job):focus-visible{outline:3px solid #ffd83c;outline-offset:3px}
+ @media(max-width:700px){
+  body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) :is(.cal-week-toolbar,.cal-day-toolbar){padding:14px;border-radius:19px}
+  body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-title{font-size:21px}
+  body[data-workspace-page="calendar"]:is([data-calendar-view="week"],[data-calendar-view="day"]) .cal-reference-mobile-logo{width:126px;height:64px;grid-column:1;grid-row:1}
+  body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-date-strip{gap:5px}
+  body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-date-chip{min-height:62px;border-radius:11px}
+  body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-view{padding:10px}
+  body[data-workspace-page="calendar"][data-calendar-view="day"] .cal-day-job{padding:14px 12px}
+ }
+}

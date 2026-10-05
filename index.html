@@ -783,6 +783,7 @@
 <link rel="stylesheet" href="/premium-tools.css?v=20261005-wand1">
 <link rel="stylesheet" href="/campaign-workspace.css?v=20261005-campaign1">
 <link rel="stylesheet" href="/calendar-reference.css?v=20261005-reference3">
+<link rel="stylesheet" href="/calendar-week-day.css?v=20261005-1">
 <link rel="stylesheet" href="/premium-workspace-hub.css">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
@@ -4816,7 +4817,7 @@ window.openStockAdjustModal = openStockAdjustModal;
    EXPENSES / RECEIPTS (photograph supplier receipts for parts,
    equipment, materials — stored as assets on this artifact)
    ============================================================ */
-const EXPENSE_CATEGORIES = ['Parts & materials','Equipment','Fuel/vehicle','Supplies','Other'];
+const EXPENSE_CATEGORIES = ['Parts & materials','Equipment','Fuel/vehicle','Supplies','Insurance','Rent','Utilities','Marketing','Software & subscriptions','Payroll','Professional services','Bank & processing fees','Other'];
 function renderExpenses(content, actions) {
   actions.innerHTML = `<button class="btn btn-primary" onclick="openExpenseModal()">+ New receipt</button>`;
   const list = [...STORE.expenses].sort((a,b)=>recordTimestamp(b.createdAt)-recordTimestamp(a.createdAt));
@@ -4876,7 +4877,8 @@ function openExpenseModal(id) {
       const vendor = document.getElementById('f_vendor').value.trim();
       const amount = parseFloat(document.getElementById('f_amount').value);
       if (!vendor) return toast('Vendor is required');
-      if (isNaN(amount) || amount < 0) return toast('Enter a valid amount');
+      if (!Number.isFinite(amount) || amount < 0 || !/^\d+(?:\.\d{1,2})?$/.test(document.getElementById('f_amount').value)) return toast('Enter a valid amount with up to two decimal places');
+      if (!window.AnnualExpenseUtils.validDate(document.getElementById('f_date').value)) return toast('Enter a valid receipt date');
       const fileInput = document.getElementById('f_photo');
       if (fileInput.files && fileInput.files[0]) {
         const uploaded = await uploadReceiptPhoto(fileInput.files[0]);
@@ -11310,7 +11312,7 @@ async function initUserRole() {
 <!-- EZFIX_DOOR_DESIGN_LIBRARY_V1 --><script src="/door-design-data.js"></script><script src="/door-config-options.js"></script><script src="/door-design-library.js"></script><script src="/photo-door-library.js"></script>
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
-<script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js?v=20261005-owner1"></script><script src="/workspace-overview.js?v=20261005-dashboard1"></script><script src="/receipt-archive-utils.js?v=20261005-annual1"></script><script src="/customer-receipts.js?v=20261005-refresh1"></script><script src="/social-post-composer.js?v=20261005-social1"></script><script src="/office-workspace.js?v=20261005-social1"></script><script src="/lead-dispatch.js?v=20261005-owner1"></script>
+<script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js?v=20261005-owner1"></script><script src="/workspace-overview.js?v=20261005-dashboard1"></script><script src="/receipt-archive-utils.js?v=20261005-annual1"></script><script src="/customer-receipts.js?v=20261005-refresh1"></script><script src="/annual-expense-utils.js?v=20261005-1"></script><script src="/annual-expenses.js?v=20261005-1"></script><script src="/social-post-composer.js?v=20261005-social1"></script><script src="/office-workspace.js?v=20261005-social1"></script><script src="/lead-dispatch.js?v=20261005-owner1"></script>
 <script src="/premium-tools.js?v=20261005-wand1"></script><script src="/technician-payroll.js?v=20261005-pay1"></script><script src="/campaign-workspace.js?v=20261005-campaign1"></script><script src="/workspace-theme.js?v=20261005-clarity1"></script><script src="/business-finance.js?v=20261005-bank2"></script><script src="/technician-profiles.js?v=20261005-profile1"></script>
 <script src="/phone-alerts.js"></script>
 <script src="/notification-alerts.js"></script>
