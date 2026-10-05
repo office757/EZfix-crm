@@ -119,6 +119,27 @@
   body[data-workspace-page] .ashley-tool-grid .workspace-emoji {width:34px;height:34px;border-radius:10px;background:var(--ez-blue-soft);box-shadow:inset 0 1px 0 #ffffff45}
   body[data-workspace-page] .ashley-tool-grid .doc-tab.active .workspace-emoji {background:#ffffff1c;box-shadow:inset 0 1px 0 #ffffff30}
   body[data-workspace-page] .sidebar .brand {background:radial-gradient(ellipse at 50% 10%,#1b5ad033,transparent 75%);border-bottom:1px solid #6496e322;box-shadow:0 8px 20px #001a3014}
+  /* Interface typography and notification chrome; customer document type stays intact. */
+  body[data-workspace-page] {--royal-font:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-family:var(--royal-font)}
+  body[data-workspace-page] :is(h1,h2,h3,h4,.display,button,input,select,textarea):not(.doc-sheet *) {font-family:var(--royal-font)}
+  body[data-workspace-page] .workspace-dialog .modal-head h3 {font-family:var(--royal-font)!important}
+  body[data-workspace-page] .doc-sheet {font-family:'Manrope',system-ui,-apple-system,sans-serif}
+  body[data-workspace-page] :is(.stat-card .value,.overview-hero>strong,.notif-bell-badge) {font-variant-numeric:tabular-nums}
+  body[data-workspace-page] #notifToggle .royal-line-icon {display:inline-block;vertical-align:middle;color:#fff}
+  body[data-workspace-page] .notif-popover {background:var(--ez-surface);border-color:var(--ez-line);border-radius:18px;box-shadow:0 18px 50px #071f3e30}
+  body[data-workspace-page] .notif-popover-head {background:linear-gradient(115deg,#092550,#104b9f);border-color:#2c5d9c;color:#fff}
+  body[data-workspace-page] .notif-popover-head :is(h4,.btn) {color:#fff}
+  body[data-workspace-page] .notif-icon {background:var(--ez-blue-soft);color:var(--ez-blue);border:1px solid var(--ez-line);box-shadow:inset 0 1px 0 #ffffff40}
+  body[data-workspace-page] .notif-icon .royal-line-icon {width:18px;height:18px}
+  body[data-workspace-page] .notif-row {border-color:var(--ez-line)}
+  body[data-workspace-page] .notif-row.is-unread {background:var(--ez-blue-soft)}
+  body[data-workspace-page] .notif-popover-tab.active {background:var(--royal-shine);color:#fff;box-shadow:0 3px 10px #0754ed18}
+  body[data-workspace-page] .notif-dot {background:var(--ez-blue)}
+  body[data-workspace-page] .notif-bell-badge {background:#f3d12f;color:#10213a;box-shadow:0 0 0 2px #08234b}
+  body[data-workspace-page] .notif-popover-foot {background:var(--ez-soft);border-color:var(--ez-line)}
+  body[data-workspace-page] .notif-popover-foot a {color:var(--ez-blue)}
+  body[data-workspace-page] #ownerLeadAlert {border-color:var(--ez-blue)!important;background:var(--ez-surface)!important;color:var(--ez-ink)!important;box-shadow:0 24px 90px #041d4160!important}
+  body[data-workspace-page] #ownerLeadAlert::backdrop {background:#04152d99;backdrop-filter:blur(4px)}
   @media (prefers-reduced-motion:reduce) {
     body[data-workspace-page] :is(.launcher-tile,.workspace-tools .wt-tool,.office-grid>button) {transition:none}
   }

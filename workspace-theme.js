@@ -47,12 +47,24 @@ function workspacePageSection(page) {
   const meta = page => pages[page] || ['teal', '🧰'];
   // Trusted, existing navigation artwork supplies the same outline icon family everywhere.
   const iconPages = {'🏠':'dashboard','🧰':'more','👥':'team','🎯':'leads','💬':'communications','📥':'inbox','🛠':'products','🗓':'calendar','⚡':'quickpay','💳':'quickpay','📝':'estimates','🧾':'invoices','💵':'payments','🖼':'gallery','🏡':'visualizer','🚪':'visualizer','📦':'inventory','🚚':'suppliers','🛡':'warranties','🧠':'ai_manager','AI':'ai_manager','🎧':'receptionist','🤖':'ai_system','📊':'reports','🔔':'attention','🏦':'banking','📣':'socialposts','🏢':'office','⚙':'settings','🕒':'auditlog','📋':'checklist','📞':'calls','📁':'office','🧪':'ai_system','✉':'email'};
+  Object.assign(iconPages, {'🌀':'spring','↔':'extension','📱':'phone-device','🌧':'weather','🔧':'wrench','👷':'labor','👤':'customers','💰':'payments','✅':'followups','📅':'calendar','✎':'edit','🔄':'refresh','📷':'gallery','✍':'edit','🗑':'delete','•':'inbox'});
+  const extraPaths = {
+    spring:'M3 12h3M6 7c0-3 3-3 3 0v10c0 3 3 3 3 0V7c0-3 3-3 3 0v10c0 3 3 3 3 0v-5h3',
+    extension:'M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4',
+    'phone-device':'M7 2h10v20H7zM10 18h4',
+    weather:'M12 3s7 8 7 12a7 7 0 0 1-14 0c0-4 7-12 7-12z',
+    wrench:'M14 5a5 5 0 0 0-6 6L3 16a3 3 0 0 0 5 5l5-5a5 5 0 0 0 6-6l-4 2-3-3z',
+    labor:'M4 11h16M6 11V9a6 6 0 0 1 12 0v2M10 3v5M14 3v5M7 15a5 5 0 0 0 10 0M4 22v-2l4-2M20 22v-2l-4-2',
+    edit:'M4 16v4h4L20 8l-4-4L4 16zM13 7l4 4',
+    refresh:'M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 2M18 18a8 8 0 0 1-13-2',
+    delete:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7'
+  };
   const normalizedIcon = value => String(value || '').replace(/\uFE0F/g, '').trim();
   function lineIcon(value) {
     const key = iconPages[normalizedIcon(value)];
     const mail = 'M3 5h18v14H3zM3 5l9 7 9-7';
     const fallback = 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z';
-    const path = key === 'email' ? mail : (typeof NAV !== 'undefined' && NAV.find(n => n.key === key)?.icon) || fallback;
+    const path = extraPaths[key] || (key === 'email' ? mail : (typeof NAV !== 'undefined' && NAV.find(n => n.key === key)?.icon) || fallback);
     return `<svg class="royal-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
   }
   const emoji = value => {
@@ -64,12 +76,12 @@ function workspacePageSection(page) {
   };
   function decorateIcons(root) {
     if (!root) return;
-    root.querySelectorAll('.launcher-tile-emoji,.wt-tool-icon,.wt-category-icon,.workspace-emoji').forEach(icon => {
+    root.querySelectorAll('.launcher-tile-emoji,.wt-tool-icon,.wt-category-icon,.workspace-emoji,.notif-icon').forEach(icon => {
       if (icon.closest('.doc-sheet') || icon.querySelector('svg')) return;
       const value = normalizedIcon(icon.textContent);
       if (Object.hasOwn(iconPages, value)) icon.innerHTML = lineIcon(value);
     });
-    root.querySelectorAll('.ashley-tool-grid .doc-tab').forEach(button => {
+    root.querySelectorAll('.ashley-tool-grid .doc-tab,#pickerOverlay .modal-head h3').forEach(button => {
       if (button.querySelector('svg')) return;
       const text = [...button.childNodes].find(node => node.nodeType === 3 && node.textContent.trim());
       if (!text) return;
@@ -158,9 +170,11 @@ function workspacePageSection(page) {
       const content = document.getElementById('content');
       if (content?.classList.contains('workspace-screen')) decorate(content);
       decorateIcons(content);
+      decorateIcons(document.getElementById('notifPopover'));
       document.querySelectorAll('.overlay > .modal').forEach(modal => {
         modal.classList.add('workspace-dialog');
         decorate(modal);
+        decorateIcons(modal);
       });
     });
   }
@@ -201,8 +215,8 @@ function workspacePageSection(page) {
   if (content) new MutationObserver(scheduleDecoration).observe(content, {childList: true, subtree: true});
   // Dialogs are appended separately from #content; no observer on form values or input attributes.
   new MutationObserver(records => {
-    if (records.some(record => [...record.addedNodes].some(node => node.nodeType === 1 && (node.matches('.overlay') || node.querySelector('.modal'))))) scheduleDecoration();
-  }).observe(document.body, {childList: true});
+    if (records.some(record => record.target.closest?.('.overlay,#notifPopover') || [...record.addedNodes].some(node => node.nodeType === 1 && (node.matches('.overlay') || node.querySelector('.modal'))))) scheduleDecoration();
+  }).observe(document.body, {childList: true, subtree: true});
   if (typeof route !== 'undefined') {
     renderNav();
     apply(route.page);
