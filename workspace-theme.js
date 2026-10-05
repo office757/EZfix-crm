@@ -45,13 +45,40 @@ function workspacePageSection(page) {
     'Office & AI': 'violet', 'Team & Payroll': 'rose', 'Business Workspace': 'teal'
   };
   const meta = page => pages[page] || ['teal', '🧰'];
+  // Trusted, existing navigation artwork supplies the same outline icon family everywhere.
+  const iconPages = {'🏠':'dashboard','🧰':'more','👥':'team','🎯':'leads','💬':'communications','📥':'inbox','🛠':'products','🗓':'calendar','⚡':'quickpay','💳':'quickpay','📝':'estimates','🧾':'invoices','💵':'payments','🖼':'gallery','🏡':'visualizer','🚪':'visualizer','📦':'inventory','🚚':'suppliers','🛡':'warranties','🧠':'ai_manager','AI':'ai_manager','🎧':'receptionist','🤖':'ai_system','📊':'reports','🔔':'attention','🏦':'banking','📣':'socialposts','🏢':'office','⚙':'settings','🕒':'auditlog','📋':'checklist','📞':'calls','📁':'office','🧪':'ai_system','✉':'email'};
+  const normalizedIcon = value => String(value || '').replace(/\uFE0F/g, '').trim();
+  function lineIcon(value) {
+    const key = iconPages[normalizedIcon(value)];
+    const mail = 'M3 5h18v14H3zM3 5l9 7 9-7';
+    const fallback = 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z';
+    const path = key === 'email' ? mail : (typeof NAV !== 'undefined' && NAV.find(n => n.key === key)?.icon) || fallback;
+    return `<svg class="royal-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
+  }
   const emoji = value => {
     const span = document.createElement('span');
     span.className = 'workspace-emoji';
     span.setAttribute('aria-hidden', 'true');
-    span.textContent = value;
+    span.innerHTML = lineIcon(value);
     return span;
   };
+  function decorateIcons(root) {
+    if (!root) return;
+    root.querySelectorAll('.launcher-tile-emoji,.wt-tool-icon,.wt-category-icon,.workspace-emoji').forEach(icon => {
+      if (icon.closest('.doc-sheet') || icon.querySelector('svg')) return;
+      const value = normalizedIcon(icon.textContent);
+      if (Object.hasOwn(iconPages, value)) icon.innerHTML = lineIcon(value);
+    });
+    root.querySelectorAll('.ashley-tool-grid .doc-tab').forEach(button => {
+      if (button.querySelector('svg')) return;
+      const text = [...button.childNodes].find(node => node.nodeType === 3 && node.textContent.trim());
+      if (!text) return;
+      const value = Object.keys(iconPages).find(key => key !== 'AI' && normalizedIcon(text.textContent).startsWith(key + ' '));
+      if (!value) return;
+      text.textContent = text.textContent.replace(/^(\s*)(?:[\p{Extended_Pictographic}\uFE0F]+|AI)\s*/u, '');
+      button.insertBefore(emoji(value), text);
+    });
+  }
   function headingIcon(text, fallback) {
     const rules = [
       [/payment|collected|paid|payout|commission/i, '💵'], [/invoice|receipt/i, '🧾'],
@@ -116,7 +143,7 @@ function workspacePageSection(page) {
     document.body.dataset.workspaceSection=section.id;
     shell.setAttribute('aria-label',section.title+' workspace');
     const labels={jobs:'Jobs',ai_manager:'AI Manager',expenses:'Receipts',attention:'Needs Attention'};
-    const tab=n=>`<button type="button" class="workspace-section-tab ${section.active===n.key?'is-current':''}" onclick="go('${n.key}')" ${section.active===n.key?'aria-current="page"':''}><span class="workspace-emoji" aria-hidden="true">${meta(n.key)[1]}</span><span>${esc(labels[n.key]||n.label)}</span></button>`;
+    const tab=n=>`<button type="button" class="workspace-section-tab ${section.active===n.key?'is-current':''}" onclick="go('${n.key}')" ${section.active===n.key?'aria-current="page"':''}><span class="workspace-emoji" aria-hidden="true">${lineIcon(meta(n.key)[1])}</span><span>${esc(labels[n.key]||n.label)}</span></button>`;
     shell.innerHTML=`<div class="workspace-section-heading"><div><b>${esc(section.title)}</b><p>${esc(section.description)}</p></div><button type="button" class="workspace-all-tools" onclick="go('more')">All tools <span aria-hidden="true">↗</span></button></div><nav class="workspace-section-tabs" aria-label="${esc(section.title)} pages">${section.items.map(tab).join('')}${section.related.length?'<span class="workspace-section-divider" aria-hidden="true"></span>'+section.related.map(tab).join(''):''}</nav>`;
     const active=shell.querySelector('[aria-current="page"]'),tabs=shell.querySelector('.workspace-section-tabs');
     // Keep the current section visible on a narrow screen without moving the page.
@@ -130,6 +157,7 @@ function workspacePageSection(page) {
       queued = false;
       const content = document.getElementById('content');
       if (content?.classList.contains('workspace-screen')) decorate(content);
+      decorateIcons(content);
       document.querySelectorAll('.overlay > .modal').forEach(modal => {
         modal.classList.add('workspace-dialog');
         decorate(modal);
@@ -146,7 +174,7 @@ function workspacePageSection(page) {
     content?.classList.toggle('workspace-screen', !approvedDashboard);
     const pageEmoji = document.getElementById('pageEmoji');
     if (pageEmoji) {
-      pageEmoji.textContent = icon;
+      pageEmoji.innerHTML = lineIcon(icon);
       pageEmoji.setAttribute('aria-hidden', 'true');
     }
     document.querySelectorAll('[data-workspace-nav]').forEach(button => {
@@ -157,15 +185,17 @@ function workspacePageSection(page) {
       button.dataset.workspaceTone = buttonTone;
       const currentIcon = button.querySelector('.workspace-emoji');
       if (currentIcon) {
-        if (currentIcon.textContent !== buttonIcon) currentIcon.textContent = buttonIcon;
+        const svg = lineIcon(buttonIcon);
+        if (currentIcon.innerHTML !== svg) currentIcon.innerHTML = svg;
       } else button.querySelector('svg')?.replaceWith(emoji(buttonIcon));
     });
     renderPageNavigation(page);
+    decorateIcons(document.getElementById('workspacePageNavigation'));
     scheduleDecoration();
   }
   window.EZFIXWorkspaceTheme = {
     apply,
-    navIcon: page => `<span class="workspace-nav-icon" aria-hidden="true"><span class="workspace-emoji">${meta(page)[1]}</span></span>`
+    navIcon: page => `<span class="workspace-nav-icon" aria-hidden="true"><span class="workspace-emoji">${lineIcon(meta(page)[1])}</span></span>`
   };
   const content = document.getElementById('content');
   if (content) new MutationObserver(scheduleDecoration).observe(content, {childList: true, subtree: true});
