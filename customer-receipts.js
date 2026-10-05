@@ -2,9 +2,10 @@
 /* Customer receipt PDFs are created server-side, including when the CRM is closed. */
 (function(){
  const pending=new Map();
+ const retryAfter=new Map();
  const archiveState={year:String(new Date().getFullYear()),search:'',exporting:false};
  const archive=()=>window.ReceiptArchiveUtils;
- const paid=doc=>invoiceTotal(doc)>0&&balanceDue(doc)<=0;
+ const paid=doc=>!doc.deletedAt&&invoiceTotal(doc)>0&&balanceDue(doc)<=0;
  const eligible=()=>CAN_EDIT&&!isTechnicianView()&&!isMarketingManager();
  async function ensure(id){
   if(!eligible())throw new Error('Receipt access requires office staff.');
@@ -13,15 +14,23 @@
    const {data,error}=await SB.functions.invoke('archive-customer-receipts',{body:{invoice_id:id}});
    if(error||!data?.ok)throw error||new Error('Receipt generation failed.');
    if(!data.asset)throw new Error('The receipt PDF is being prepared. Please try again shortly.');
-   await refreshCollection('invoices');
+   // Read the changed invoice only; annual exports must not reload every invoice per PDF.
+   const {data:row,error:readError}=await SB.from('invoices').select('*').eq('id',id).maybeSingle();
+   if(readError)throw readError;
+   if(!row||!paid(fromDbRow(row)))throw new Error('This invoice is no longer eligible for a final receipt.');
+   const current=(STORE.invoices||[]).find(doc=>String(doc.id)===String(id));
+   if(current&&Number(row.row_version||0)<Number(current.rowVersion||0))throw new Error('The invoice changed while preparing its receipt. Please retry.');
+   replaceStoreRecord('invoices',row);
+   retryAfter.delete(id);
    return data.asset;
-  })();
-  pending.set(id,task);task.finally(()=>pending.delete(id)).catch(()=>{});return task;
+  })().catch(error=>{retryAfter.set(id,Date.now()+60000);throw error;});
+  pending.set(id,task);task.finally(()=>{pending.delete(id);queueMicrotask(sync);}).catch(()=>{});return task;
  }
  function sync(){
   if(!eligible())return;
   for(const doc of STORE.invoices||[]){
-   if(paid(doc)&&!doc.customerReceiptPdf){
+   if(pending.size>=2)break;
+   if(paid(doc)&&!doc.customerReceiptPdf&&!pending.has(doc.id)&&(retryAfter.get(doc.id)||0)<=Date.now()){
     ensure(doc.id).then(()=>{if(route.page==='expenses')renderPreserveScroll();}).catch(e=>console.error('Customer receipt archive',e));
    }
   }
