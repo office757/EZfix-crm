@@ -32,3 +32,5 @@ David approved the Office phone appearance and requested improving the desktop e
 David explicitly authorized a premium blue, white, black and yellow application palette on October 4, 2026. Update screen styling consistently while preserving routes, layout, permissions, editable prices, document output and garage-door photo colors. This supersedes the appearance freeze only for the requested palette.
 
 David explicitly requested replacing only the sidebar logo with the supplied SuperEZX artwork on October 4, 2026. Preserve EZfix business identity on customer documents and all other app behavior.
+
+October 5, 2026: David explicitly approved the current month calendar and prohibited changes to that view. Match only week/day styling to the month and fix the calendar logo there. Scope additional presentation CSS to data-calendar-view week/day.
