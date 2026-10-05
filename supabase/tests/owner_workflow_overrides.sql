@@ -30,7 +30,7 @@ begin
  update public.jobs set technician_id=null where id=jid;
  if exists(select 1 from public.lead_offers where lead_id=lid and status='pending') then raise exception 'Stale offer not cancelled';end if;
  update public.jobs set technician_id=tech_id,status='new' where id=jid;
- if not exists(select 1 from public.leads where id=lid and assigned_technician_id=tech_id) then raise exception 'Linked lead not synchronized';end if;
+ if not exists(select 1 from public.leads where id=lid and assigned_technician_id=tech_id and assignment_status='assigned') then raise exception 'Linked lead not synchronized';end if;
  perform public.complete_dispatch_job(jid,jsonb_build_object('name','Synthetic signature test','dataUrl','data:image/png;base64,'||repeat('A',120)));
  if not exists(select 1 from public.jobs where id=jid and status='completed' and app_data->'completion_signature' is not null) then raise exception 'Optional owner signature unavailable';end if;
  update public.jobs set status='new' where id=jid;

@@ -8861,7 +8861,7 @@ function renderJobDetail(content, id) {
 
   // Smart next action — derived strictly from real linked record state, never invented.
   let smartAction = null;
-  if (!j.technicianId && !linkedEstimate) {
+  if (!j.technicianId && !linkedEstimate && !canOverrideJobWorkflow()) {
     smartAction = { text:'Assign a technician before creating an estimate.', btn:'Assign technician', fn:`openJobModal('${id}')` };
   } else if (!linkedEstimate) {
     smartAction = { text:'No estimate yet for this job.', btn:'+ Create Estimate', fn:`createEstimateFromJob('${id}')` };
@@ -9650,7 +9650,7 @@ function openJobModal(id, presetCustomerId, options = {}) {
         </label>
       </div>
       <label class="field"><span class="lbl">Technician</span>${technicianPickerHtml(j?.technicianId, j?.technician, 'f_tech')}</label>
-      ${j?.workflowVersion===1?'<p class="muted">Changing the technician sends a five-minute offer. The current assignment is released when the offer is saved; the new technician is assigned after accepting. Reassignment is available before arrival.</p>':''}
+      ${j?.workflowVersion===1?(canOverrideJobWorkflow()?'<p class="muted">Owner: technician changes take effect immediately, including after arrival. Pending offers are cancelled.</p>':'<p class="muted">Changing the technician sends a five-minute offer. The current assignment is released when the offer is saved; the new technician is assigned after accepting. Reassignment is available before arrival.</p>'):''}
       ${jobPhotoUploaderHtml()}
       <label class="field"><span class="lbl">Status</span>
         <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed' || canOverrideJobWorkflow()).map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
