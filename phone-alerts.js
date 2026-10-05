@@ -26,7 +26,7 @@
    const {data:saved,error:saveError}=await SB.from('push_subscriptions').upsert({team_id:memberId,endpoint:subscription.endpoint,subscription:subscription.toJSON()},{onConflict:'endpoint'}).select('id,team_id');
    if(saveError||!saved?.some(row=>row.team_id===memberId))throw new Error('Device registration was not confirmed. Please retry.');
    if(!sameMember(memberId))throw new Error('Your account changed. Enable alerts again after signing in.');
-   const message=IS_OWNER?'Phone alerts enabled for future new leads on this device.':'Phone alerts enabled for your lead offers on this device.';
+   const message=IS_OWNER?'Phone alerts enabled for future new leads and recorded payments on this device.':'Phone alerts enabled for your lead offers on this device.';
    status(message);toast(message);
    const hint=document.getElementById('dispatchPushHint');if(hint)hint.textContent=message;
   }catch(error){status(error.message||'Phone alerts could not be enabled.');toast(error.message||'Phone alerts could not be enabled.',true);}
@@ -37,14 +37,14 @@
  renderNotifPopover=function(...args){const result=base.apply(this,args);const pop=document.getElementById('notifPopover');if(pop&&allowed()){
   const wrap=document.createElement('div');wrap.className='panel-body pad';
   const button=document.createElement('button');button.type='button';button.className='btn btn-sm';button.textContent='🔔 Enable phone alerts';button.onclick=enable;
-  const hint=document.createElement('div');hint.id='phoneAlertsStatus';hint.className='muted';hint.style.fontSize='12px';hint.textContent=IS_OWNER?'New leads, even when EZfix is closed.':'Your lead offers, even when EZfix is closed.';
+  const hint=document.createElement('div');hint.id='phoneAlertsStatus';hint.className='muted';hint.style.fontSize='12px';hint.textContent=IS_OWNER?'New leads and recorded payments, even when EZfix is closed.':'Your lead offers, even when EZfix is closed.';
   wrap.append(button,hint);pop.prepend(wrap);
  }return result;};
  // Keep the existing technician button on the same verified enrollment path.
  if(window.Dispatch)window.Dispatch.enablePush=enable;
  function openLeadLink(){
-  if(location.hash!=='#new-leads'||!dbReady||!CURRENT_TEAM_MEMBER)return;
-  if(IS_OWNER&&!isTechnicianView()){history.replaceState(history.state,'',location.pathname+location.search);go('leads');}
+  if(!['#new-leads','#payments'].includes(location.hash)||!dbReady||!CURRENT_TEAM_MEMBER)return;
+  if(IS_OWNER&&!isTechnicianView()){const page=location.hash==='#payments'?'payments':'leads';history.replaceState(history.state,'',location.pathname+location.search);go(page);}
  }
  window.addEventListener('hashchange',openLeadLink);
  const baseRender=render;render=function(...args){const result=baseRender.apply(this,args);openLeadLink();return result;};

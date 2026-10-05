@@ -14,6 +14,7 @@ const scripts = [
   'test-crm-refresh-cache.mjs',
   'test-notification-alerts.mjs',
   'test-owner-phone-alerts.mjs',
+  'test-premium-workspace-hub.mjs',
   'build-notification-alerts.mjs',
   'test-public-routes.mjs',
   'audit-public-routes.mjs',

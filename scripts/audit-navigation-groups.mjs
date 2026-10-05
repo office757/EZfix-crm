@@ -21,7 +21,9 @@ check('Owner sidebar stays open with nested Team and Banking tools',()=>{
 });
 check('Ashley owns business tool entry points without changing staff access',()=>{
  const ashley=section('function renderAiReceptionist(', 'function ashleyChannelIcon(');
- for(const key of ['socialposts','settings'])assert.ok(ashley.includes(`onclick="go('${key}')"`));
+ assert.ok(ashley.includes(`onclick="go('settings')"`));
+ assert.ok(ashley.includes("receptionistState.subview='campaigns'"));
+ assert.ok(readFileSync(new URL('../premium-workspace-hub.js',import.meta.url),'utf8').includes(`onclick="go('socialposts')"`));
  assert.ok(ashley.includes('Ashley Settings'));
  assert.ok(fixture('office').run('sidebarNavItems().map(n=>n.key)').includes('socialposts'));
  assert.equal(fixture('owner').run('sidebarNavItems().map(n=>n.key).at(-1)'), 'settings');assert.ok(!fixture('owner').run('sidebarNavItems().map(n=>n.key)').includes('socialposts'));for(const role of ['technician','marketing'])for(const key of ['socialposts','settings'])assert.ok(!fixture(role).run('sidebarNavItems().map(n=>n.key)').includes(key));
