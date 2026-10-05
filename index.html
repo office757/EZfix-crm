@@ -783,6 +783,7 @@
 <link rel="stylesheet" href="/premium-tools.css?v=20261005-wand1">
 <link rel="stylesheet" href="/campaign-workspace.css?v=20261005-campaign1">
 <link rel="stylesheet" href="/calendar-reference.css?v=20261005-reference3">
+<link rel="stylesheet" href="/premium-workspace-hub.css">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
@@ -2062,11 +2063,11 @@ function renderModuleLauncherHtml() {
         return `
         <div class="launcher-cat">
           <div class="launcher-cat-head" style="background:${meta.header}">
-            <span style="font-size:16px">${meta.emoji}</span> ${esc(cat.name.toUpperCase())}
+            <span class="menu-category-icon">${workspaceIcon(cat.items[0]?.key||'more')}</span> ${esc(cat.name)}
           </div>
           <div class="launcher-tiles${meta.paired?' launcher-tiles-paired':''}${meta.centered?' launcher-tiles-centered':''}">
             ${cat.items.map(n=>`<button class="launcher-tile${n.fullWidth?' launcher-tile-wide':''}" onclick="go('${n.key}')" aria-label="${esc(n.label)}">
-              <span class="launcher-tile-emoji" aria-hidden="true">${n.emoji||'•'}</span>
+              <span class="launcher-tile-emoji" aria-hidden="true">${workspaceIcon(n.key)}</span>
               <span class="launcher-tile-label">${n.label}</span>
             </button>`).join('')}
           </div>
@@ -2077,7 +2078,7 @@ function renderModuleLauncherHtml() {
 }
 function renderMoreScreen(content, actions) {
   actions.innerHTML = '';
-  content.innerHTML = renderModuleLauncherHtml();
+  content.innerHTML = `<section class="premium-menu"><header class="premium-hub-heading"><span>YOUR WORKSPACE</span><h2>Everything in one place</h2><p>Your daily tools, organized around the way you work.</p></header>${renderModuleLauncherHtml()}</section>`;
 }
 function renderMarketingDashboard(content, actions) {
   actions.innerHTML = '';
@@ -7999,21 +8000,21 @@ function renderAiReceptionist(content, actions) {
   actions.innerHTML = '';
   const health = TelephonyAdapter.healthCheck();
   content.innerHTML = `
-    <div class="doc-tabbar ashley-tool-grid">
-      <button class="doc-tab ${receptionistState.subview==='manager'?'active':''}" onclick="receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';render()">🧠 AI Manager</button>
-      <button class="doc-tab ${receptionistState.subview==='test'?'active':''}" onclick="receptionistState.subview='test'; render()">🧪 Test Simulator</button>
+    <header class="premium-hub-heading ashley-heading"><span>ASHLEY WORKSPACE</span><h2>One team. One workspace.</h2><p>Conversations, campaigns and business controls.</p></header><div class="doc-tabbar ashley-tool-grid"><div class="ashley-group-label">Business &amp; campaigns</div><button class="doc-tab ${receptionistState.subview==='campaigns'?'active':''}" onclick="receptionistState.subview='campaigns';render()">${workspaceIcon('socialposts')} Campaign Manager</button>
+      <button class="doc-tab ${receptionistState.subview==='manager'?'active':''}" onclick="receptionistState.subview='manager';if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';render()">🧠 Business AI</button>
+      <div class="ashley-group-label">Communication &amp; assistant</div><button class="doc-tab ${receptionistState.subview==='test'?'active':''}" onclick="receptionistState.subview='test'; render()">🧪 Test Simulator</button>
       <button class="doc-tab ${receptionistState.subview==='assistant'?'active':''}" onclick="receptionistState.subview='assistant'; render()">🧠 Internal Assistant</button>
       <button class="doc-tab ${receptionistState.subview==='calls'?'active':''}" onclick="receptionistState.subview='calls'; render()">📋 Call History</button>
       <button class="doc-tab ${receptionistState.subview==='phone'?'active':''}" onclick="receptionistState.subview='phone'; render()">📞 Phone Connection</button>
       ${[['all','All messages'],['unread','Unread'],['whatsapp','WhatsApp'],['email','Gmail'],['sms','SMS']].map(([key,label])=>`<button class="doc-tab ${receptionistState.subview===key?'active':''}" onclick="openAshleyChannel('${key}')">${ashleyChannelIcon(key)} ${label}</button>`).join('')}
-      <button class="doc-tab ${receptionistState.subview==='diagnostics'?'active':''}" onclick="receptionistState.subview='diagnostics';render()">📁 System Diagnostics</button>
-      <button class="doc-tab" onclick="go('socialposts')">📣 Social Media</button>
+      <div class="ashley-group-label">Setup &amp; diagnostics</div><button class="doc-tab ${receptionistState.subview==='diagnostics'?'active':''}" onclick="receptionistState.subview='diagnostics';render()">📁 System Diagnostics</button>
       <button class="doc-tab" onclick="go('settings')">⚙️ Business Settings</button>
       <button class="doc-tab ${receptionistState.subview==='settings'?'active':''}" onclick="receptionistState.subview='settings'; render()">🎧 Ashley Settings</button>
     </div>
     <div style="margin-top:16px" id="receptionistBody"></div>
   `;
   const body = document.getElementById('receptionistBody');
+  if(receptionistState.subview==='campaigns')return renderAshleyCampaignHub(body);
   if(receptionistState.subview==='diagnostics')return renderAshleyDiagnostics(body,actions);
   if(receptionistState.subview==='manager'){if(aiManagerState.subview==='receptionist')aiManagerState.subview='overview';return renderAiManager(body,actions);}
   if (['whatsapp','email','sms','all','unread'].includes(receptionistState.subview)) return renderAshleyChannel(body, actions);
@@ -11313,6 +11314,7 @@ async function initUserRole() {
 <script src="/premium-tools.js?v=20261005-wand1"></script><script src="/technician-payroll.js?v=20261005-pay1"></script><script src="/campaign-workspace.js?v=20261005-campaign1"></script><script src="/workspace-theme.js?v=20261005-clarity1"></script><script src="/business-finance.js?v=20261005-bank2"></script><script src="/technician-profiles.js?v=20261005-profile1"></script>
 <script src="/phone-alerts.js"></script>
 <script src="/notification-alerts.js"></script>
+<script src="/premium-workspace-hub.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>
 </body>
 </html>

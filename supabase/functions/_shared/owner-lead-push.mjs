@@ -3,6 +3,7 @@ export function allowedOwnerPushEndpoint(value){
  try{const u=new URL(value);return u.protocol==='https:'&&!u.port&&!u.username&&!u.password&&((u.hostname==='fcm.googleapis.com'&&u.pathname.startsWith('/fcm/send/'))||(u.hostname==='updates.push.services.mozilla.com'&&u.pathname.startsWith('/wpush/'))||u.hostname==='web.push.apple.com');}catch{return false;}
 }
 export function ownerPushPayload(row){
+ if(row.kind==='owner_payment')return {kind:'owner_payment',event_id:row.id,expires_at:row.expires_at,title:'EZfix payment recorded',body:'A payment was recorded. Open EZfix to review your payment records.'};
  return {kind:'owner_lead',event_id:row.id,expires_at:row.expires_at,title:'New EZfix lead',body:'A new lead is ready for review. Open EZfix to see the details.'};
 }
 export async function deliverOwnerLeadPush(row,{eligible,send,finish,removeSubscription,now=Date.now}){
