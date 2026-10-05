@@ -1,0 +1,88 @@
+/* The supplied reference: navy canvas, centered white month panel and bottom agenda. */
+@media screen {
+ body[data-workspace-page="calendar"]{--cal-ref-navy:#041b3e;--cal-ref-blue:#0061f2}
+ body[data-workspace-page="calendar"] .main{background:radial-gradient(ellipse at 80% 0,#0649a3 0,transparent 65%),linear-gradient(140deg,#04152e,#032e68);min-height:100vh}
+ body[data-workspace-page="calendar"] .topbar{background:transparent;border:0;box-shadow:none;display:flex;align-items:center;gap:18px;padding:26px 26px 18px}
+ body[data-workspace-page="calendar"] .topbar-row1{flex:1;gap:18px;min-width:0}
+ body[data-workspace-page="calendar"] #pageTitle{font-size:38px;font-weight:800;letter-spacing:-1.2px;color:#fff;line-height:1.15}
+ body[data-workspace-page="calendar"] #pageEmoji,body[data-workspace-page="calendar"] #pageSub,body[data-workspace-page="calendar"] #workspacePageNavigation{display:none!important}
+ body[data-workspace-page="calendar"] #topActions{width:auto;display:flex;gap:12px;flex-wrap:nowrap;margin:0;align-items:center}
+ body[data-workspace-page="calendar"] #topActions .doc-tabbar{background:#031c4050;border:1px solid #6798df55;border-radius:19px;overflow:hidden;padding:0;gap:0}
+ body[data-workspace-page="calendar"] #topActions .doc-tab{background:transparent;color:#e3eeff;min-height:48px;padding:0 22px;border-radius:17px;font-size:13px;box-shadow:none}
+ body[data-workspace-page="calendar"] #topActions .doc-tab.active{background:linear-gradient(145deg,#0088ff,#005aeb);color:#fff;box-shadow:inset 0 0 0 1px #30a2ff}
+ body[data-workspace-page="calendar"] #topActions>.btn{min-height:48px;border-radius:19px;background:#ffffff0a;border-color:#6b94d155;color:#fff;font-weight:750;padding:0 19px}
+ body[data-workspace-page="calendar"] #topActions>.btn-primary{background:linear-gradient(135deg,#ffec75,#ffe037);color:#08224b;border-color:#ffe34d;padding:0 24px;box-shadow:inset 0 1px 0 #fff7c1,0 7px 22px #ffdb2820}
+ body[data-workspace-page="calendar"] .content{padding:0 26px 28px;max-width:none}
+ body[data-workspace-page="calendar"] .cal-summary-strip{gap:16px;margin:0 0 18px}
+ body[data-workspace-page="calendar"] .cal-summary{padding:20px;border-radius:21px;min-height:104px;box-sizing:border-box;box-shadow:inset 0 1px 0 #ffffff20,0 8px 22px #00133140}
+ body[data-workspace-page="calendar"] .cal-summary strong{font-size:34px;font-weight:800}
+ body[data-workspace-page="calendar"] .cal-summary.blue{background:linear-gradient(125deg,#007fff,#0060f4)}
+ body[data-workspace-page="calendar"] .cal-summary.navy{background:linear-gradient(125deg,#0c1b2e,#020914)}
+ body[data-workspace-page="calendar"] .cal-summary.yellow{background:linear-gradient(125deg,#ffeb7b,#ffe039)}
+ .cal-reference-filter{max-width:160px;min-height:24px!important;padding:0!important;background:transparent!important;color:#e3eeff!important;border:0!important;font-size:10px!important;margin-top:5px;box-shadow:none!important}.cal-reference-filter option{color:#11213b;background:#fff}
+ body[data-workspace-page="calendar"] .cal-month-layout{margin-top:0!important;gap:16px;display:grid;grid-template-columns:minmax(0,1fr)}
+ body[data-workspace-page="calendar"] .cal-month-shell{padding:12px 14px 14px;border-radius:23px;background:#fff;box-shadow:0 14px 45px #00133140;border:1px solid #ecf2ff;overflow:hidden;min-width:0}
+ .cal-reference-monthbar{display:grid;grid-template-columns:90px minmax(0,1fr) 130px;align-items:center;gap:8px;padding:3px 8px 12px}
+ .cal-reference-arrow{border:0;background:#f0f3f8;color:#0c1c38;border-radius:50%;width:38px;height:38px;font-size:28px;display:grid;place-items:center;cursor:pointer;font-family:inherit}
+ .cal-reference-monthlabel{position:relative;justify-self:center;font-size:22px;font-weight:800;letter-spacing:-.5px;color:#101b36;cursor:pointer}
+ .cal-reference-monthlabel>span>span{font-size:17px;margin-left:8px;display:inline-block}
+ .cal-reference-monthlabel input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+ .cal-reference-monthlabel:focus-within{outline:3px solid #89b5ff;outline-offset:5px;border-radius:5px}
+ .cal-reference-monthactions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+ .cal-reference-today{border:1px solid #d8dfeb;background:#fff;color:#101b36;border-radius:24px;padding:9px 20px;font:600 12px 'Manrope',system-ui,sans-serif;cursor:pointer}
+ body[data-workspace-page="calendar"] .cal-month-grid{min-width:0;width:100%;background:#fff;border:1px solid #e9edf5;border-radius:14px;overflow:hidden;gap:0;grid-template-columns:repeat(7,minmax(0,1fr))}
+ body[data-workspace-page="calendar"] .cal-month-weekday{font-size:12px;font-weight:600;padding:11px 5px;background:#fcfdff;color:#364761;border-bottom:1px solid #edf0f6}
+ body[data-workspace-page="calendar"] .cal-month-day{min-height:clamp(96px,8.5vw,128px);padding:8px 10px;background:#fff;border-radius:0;border-right:1px solid #edf0f6;border-bottom:1px solid #edf0f6;box-shadow:none;color:#13213b}
+ body[data-workspace-page="calendar"] .cal-month-head{margin-bottom:4px;min-height:24px;align-items:center}
+ body[data-workspace-page="calendar"] .cal-month-date{font-size:14px;font-weight:750;color:#14213c;width:auto;height:auto;line-height:1.4;background:transparent;margin:0;padding:0;border-radius:0}
+ body[data-workspace-page="calendar"] .cal-day-add{opacity:0;background:transparent;color:#0754dc;transition:opacity .15s}
+ body[data-workspace-page="calendar"] .cal-month-day:hover .cal-day-add,body[data-workspace-page="calendar"] .cal-day-add:focus-visible{opacity:1}
+ body[data-workspace-page="calendar"] .cal-month-day.is-selected{background:linear-gradient(135deg,#0878ff,#005bec);border-radius:12px;color:#fff;opacity:1!important;box-shadow:inset 0 0 0 1px #2b89ff}
+ body[data-workspace-page="calendar"] .cal-month-day.is-selected .cal-month-date,body[data-workspace-page="calendar"] .cal-month-day.is-selected .cal-day-add{color:#fff}
+ body[data-workspace-page="calendar"] .cal-month-day.cal-month-today:not(.is-selected) .cal-month-date{color:#0060f0;text-decoration:underline;text-underline-offset:4px}
+ body[data-workspace-page="calendar"] .cal-month-events .cal-job-card{background:#d5eaff;color:#101e39;padding:5px 7px;border-radius:9px;border:0;box-shadow:none;min-height:0;margin-top:4px}
+ body[data-workspace-page="calendar"] .cal-month-events .cal-job-card.cal-job-tone-1{background:#ffec9a!important;color:#17223a!important}
+ body[data-workspace-page="calendar"] .cal-month-events .cal-job-card.cal-job-tone-2{background:#071f45!important;color:#fff!important}
+ body[data-workspace-page="calendar"] .cal-month-events .cal-job-card .cal-job-time{font-size:10px;line-height:1.25;font-weight:650;color:inherit}
+ body[data-workspace-page="calendar"] .cal-month-events .cal-job-card .cal-job-title{font-size:10px;line-height:1.25;color:inherit;margin-top:2px}
+ body[data-workspace-page="calendar"] .cal-month-events .cal-job-name,body[data-workspace-page="calendar"] .cal-month-events .cal-job-tech{display:none}
+ body[data-workspace-page="calendar"] .cal-agenda{grid-template-columns:180px minmax(0,1fr);background:#0317358c;border:1px solid #31538588;border-radius:22px;box-shadow:0 8px 25px #00133130;min-width:0}
+ body[data-workspace-page="calendar"] .cal-agenda-head{display:block;padding:22px 18px;background:transparent;border:0}
+ .cal-reference-selectedlabel{color:#edf4ff;font-weight:650;font-size:12px;margin-bottom:9px}
+ body[data-workspace-page="calendar"] .cal-agenda-title{color:#fff;font-size:19px;font-weight:800;line-height:1.35}
+ body[data-workspace-page="calendar"] .cal-agenda-sub{color:#d7e6ff;font-size:11px;line-height:1.5;margin:8px 0}
+ body[data-workspace-page="calendar"] .cal-agenda-head>.btn{display:none}
+ body[data-workspace-page="calendar"] .cal-agenda-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:14px;padding:10px;max-height:none;overflow:visible}
+ body[data-workspace-page="calendar"] .cal-agenda-job{display:grid;position:relative;grid-template-columns:68px minmax(0,1fr);gap:10px;align-items:start;border-radius:17px;padding:16px 38px 14px 14px;background:#fff;color:#16223a;min-height:130px;box-shadow:inset 0 1px 0 #ffffff35}
+ body[data-workspace-page="calendar"] .cal-agenda-featured{background:linear-gradient(130deg,#087aff,#0057f0);color:#fff}
+ .cal-reference-timeslot{font-size:12px;font-weight:700;line-height:1.65;padding-right:9px;border-right:1px solid #bacbe655;min-height:74px}
+ .cal-reference-jobdetail{min-width:0}.cal-reference-techrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+ .cal-reference-avatar{display:grid;place-items:center;flex-shrink:0;background:#eef3fd;border:2px solid #fff9;border-radius:50%;width:34px;height:34px;color:#073b80;font-size:11px;font-weight:800}
+ .cal-reference-person strong{display:block;font-size:11px;font-weight:750;line-height:1.25}.cal-reference-person small{display:block;font-size:9px;line-height:1.5;opacity:.75}
+ .cal-reference-status{display:inline-flex;align-items:center;gap:4px;border-radius:10px;font-size:9px;font-weight:650;padding:5px 7px;white-space:nowrap;color:#064179;background:#d2eefe;line-height:1}
+ .cal-reference-status i{height:5px;width:5px;background:#087bf0;border-radius:50%}.cal-reference-status.yellow{background:#fff0a5;color:#674d00}.cal-reference-status.yellow i{background:#dca300}.cal-reference-status.navy{background:#0c2950;color:#fff}
+ .cal-reference-jobtitle{font-size:14px;line-height:1.3;font-weight:800;margin:7px 0 4px}
+ body[data-workspace-page="calendar"] .cal-agenda-job .cal-agenda-customer{font-size:11px;font-weight:500;color:inherit;opacity:.9}
+ body[data-workspace-page="calendar"] .cal-agenda-job .cal-agenda-meta{font-size:10px;color:inherit;opacity:.85}
+ .cal-reference-address{display:flex;gap:4px;align-items:flex-start;margin-top:4px;line-height:1.5}.cal-reference-address svg{width:12px;height:12px;flex-shrink:0;margin-top:1px}
+ .cal-reference-jobopen{position:absolute;right:10px;top:calc(50% - 14px);width:28px;height:28px;border:0;border-radius:50%;display:grid;place-items:center;background:#075bf0;color:#fff;font-size:22px;cursor:pointer}
+ .cal-agenda-featured .cal-reference-jobopen{background:#fff;color:#0055d8}
+ body[data-workspace-page="calendar"] .cal-agenda-job .cal-agenda-actions{margin:8px 0 0;gap:5px}
+ body[data-workspace-page="calendar"] .cal-agenda-actions .btn{font-size:10px;padding:2px 7px;min-height:23px;background:#eef4ff;border:0;color:#064ba8;border-radius:8px}
+ .cal-reference-fab{display:none}
+ body[data-workspace-page="calendar"] :is(.cal-reference-arrow,.cal-reference-today,.cal-reference-jobopen,.cal-reference-fab):focus-visible{outline:3px solid #ffd83c;outline-offset:3px}
+ @media(max-width:1150px){body[data-workspace-page="calendar"] .topbar{display:block}body[data-workspace-page="calendar"] #topActions{margin-top:14px;justify-content:space-between}body[data-workspace-page="calendar"] #pageTitle{font-size:32px}body[data-workspace-page="calendar"] .cal-agenda{grid-template-columns:140px minmax(0,1fr)}body[data-workspace-page="calendar"] .cal-summary{padding:16px;gap:10px}}
+ @media(max-width:700px){
+  body[data-workspace-page="calendar"] .topbar{padding:18px 16px 14px}body[data-workspace-page="calendar"] #pageTitle{font-size:28px}body[data-workspace-page="calendar"] #topActions{gap:8px}body[data-workspace-page="calendar"] #topActions .doc-tab{min-height:38px;padding:0 17px;font-size:12px}body[data-workspace-page="calendar"] #topActions>.btn{min-height:38px;flex:0 0 auto;padding:0 14px}body[data-workspace-page="calendar"] #topActions>.btn-primary{display:none}
+  body[data-workspace-page="calendar"] .content{padding:0 14px 100px}body[data-workspace-page="calendar"] .cal-summary-strip{gap:7px;margin-bottom:14px}body[data-workspace-page="calendar"] .cal-summary{min-height:74px;padding:12px 9px;border-radius:15px}.cal-reference-filter{max-width:90px;font-size:9px!important}body[data-workspace-page="calendar"] .cal-summary strong{font-size:25px}body[data-workspace-page="calendar"] .cal-summary-icon{display:none}body[data-workspace-page="calendar"] .cal-summary span:not(.cal-summary-icon){font-size:10px}
+  body[data-workspace-page="calendar"] .cal-month-shell{padding:10px 8px 13px;border-radius:19px}.cal-reference-monthbar{grid-template-columns:35px minmax(0,1fr) 78px;padding:2px 2px 10px;gap:3px}.cal-reference-monthlabel{font-size:17px}.cal-reference-monthlabel>span>span{font-size:13px;margin-left:4px}.cal-reference-arrow{width:31px;height:31px;font-size:24px}.cal-reference-today{padding:6px 9px;font-size:10px}.cal-reference-monthactions{gap:4px}
+  body[data-workspace-page="calendar"] .cal-month-grid{border:0;border-radius:0}body[data-workspace-page="calendar"] .cal-month-weekday{background:#fff;border:0;font-size:10px;padding:6px 1px;color:#5a647a}body[data-workspace-page="calendar"] .cal-month-day{min-height:46px;padding:6px 2px;border:0;text-align:center;border-radius:11px}body[data-workspace-page="calendar"] .cal-month-head{min-height:22px;justify-content:center;margin:0}body[data-workspace-page="calendar"] .cal-month-date{font-size:12px}body[data-workspace-page="calendar"] .cal-day-add{display:none}body[data-workspace-page="calendar"] .cal-month-events{display:flex;justify-content:center;align-items:center;gap:3px;min-height:7px}
+  body[data-workspace-page="calendar"] .cal-month-events .cal-job-card{width:5px;height:5px;min-height:5px;margin:0;padding:0;background:#4a8df2;border-radius:50%}body[data-workspace-page="calendar"] .cal-month-events .cal-job-card>*{display:none}body[data-workspace-page="calendar"] .cal-more{font-size:8px;color:inherit}body[data-workspace-page="calendar"] .cal-month-day.is-selected .cal-month-date{text-decoration:none}
+  body[data-workspace-page="calendar"] .cal-agenda{display:block;background:transparent;border:0;border-radius:0;box-shadow:none}body[data-workspace-page="calendar"] .cal-agenda-head{padding:0 2px 9px;display:flex;justify-content:space-between}.cal-reference-selectedlabel{font-size:15px;margin:0}.cal-reference-selectedlabel::after{content:" · Jobs"}body[data-workspace-page="calendar"] .cal-agenda-title{font-size:12px;font-weight:600;margin-top:6px}body[data-workspace-page="calendar"] .cal-agenda-sub{display:none}body[data-workspace-page="calendar"] .cal-agenda-body{padding:0;grid-template-columns:1fr;gap:10px}body[data-workspace-page="calendar"] .cal-agenda-job{min-height:125px;border-radius:17px;grid-template-columns:68px minmax(0,1fr);padding:16px 38px 14px 14px;gap:10px}.cal-reference-fab{display:grid;place-items:center;position:fixed;right:20px;bottom:88px;z-index:25;border:0;background:linear-gradient(135deg,#ffeb6a,#ffdc29);color:#071b38;width:56px;height:56px;border-radius:50%;font-size:35px;box-shadow:0 7px 24px #000f2d45;cursor:pointer}
+ }
+ @media(prefers-reduced-motion:reduce){body[data-workspace-page="calendar"] .cal-day-add{transition:none}}
+}
+.cal-reference-mobile-logo{display:none}
+@media screen and (max-width:700px){body[data-workspace-page="calendar"] .topbar-row1{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}body[data-workspace-page="calendar"] .cal-reference-mobile-logo{display:block;width:108px;height:54px;object-fit:contain;grid-column:1;grid-row:1}body[data-workspace-page="calendar"] .topbar-titlewrap{grid-column:1 / -1;grid-row:2}body[data-workspace-page="calendar"] .topbar-iconrow{grid-column:2;grid-row:1}body[data-workspace-page="calendar"] .bottom-nav{background:#041a38;border-color:#244572;color:#d5e4ff;box-shadow:0 -8px 28px #00102e30}body[data-workspace-page="calendar"] .bottom-nav .bn-item{color:#d0ddf3}body[data-workspace-page="calendar"] .bottom-nav .bn-item.active{color:#34a0ff}}
+
+body[data-workspace-page="calendar"] .cal-month-date{border:0;cursor:pointer;font-family:inherit}body[data-workspace-page="calendar"] .cal-month-date:focus-visible{outline:3px solid #ffd83c;outline-offset:3px}
