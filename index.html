@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="/crm-refresh-cache.js?v=20261005-owner1"></script>
 <script src="/assets/vendor/jspdf-2.5.1.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -1149,13 +1150,9 @@ async function uploadAsset(file, folder='misc') {
   if(signError) throw signError;
   return {id:`${ASSET_BUCKET}/${path}`,url:data.signedUrl,path};
 }
+const signedAssetCache=CrmRefresh.createAssetCache({sign:async path=>{const {data,error}=await SB.storage.from(ASSET_BUCKET).createSignedUrl(path,3600);if(error)throw error;return data?.signedUrl;}});
 async function refreshSignedAssetUrls(value){
-  if(!value || typeof value!=='object') return;
-  if(typeof value.id==='string' && value.id.startsWith(ASSET_BUCKET+'/')){
-    const path=value.id.slice(ASSET_BUCKET.length+1); const {data}=await SB.storage.from(ASSET_BUCKET).createSignedUrl(path,3600); if(data?.signedUrl)value.url=data.signedUrl;
-  }
-  if(Array.isArray(value)){ for(const x of value) await refreshSignedAssetUrls(x); }
-  else { for(const x of Object.values(value)) if(x&&typeof x==='object') await refreshSignedAssetUrls(x); }
+  await signedAssetCache.refresh(value,ASSET_BUCKET);
 }
 function camelToSnake(k){ return k.replace(/[A-Z]/g,m=>'_'+m.toLowerCase()); }
 function snakeToCamel(k){ return k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase()); }
@@ -1214,7 +1211,7 @@ function allowedCollectionsForRole(member){
 }
 async function initDb(){
   setSyncState(false,'Connecting…');
-  const session=await requireSession(); if(!session){ dbReady=false; setSyncState(false,'Sign in required'); await showAuthGate(); return; }
+  const session=await requireSession(); signedAssetCache.setContext(session?.user?.id||''); if(!session){ dbReady=false; setSyncState(false,'Sign in required'); await showAuthGate(); return; }
   try{
     const member=await resolveCurrentTeamMember();
     if(!member) throw new Error('CRM access not assigned.');
@@ -1226,8 +1223,10 @@ async function initDb(){
     restoreUiState(); validateRestoredRoute(); render();
     // Supabase is authoritative. localStorage is deliberately not loaded or written.
     const channel=SB.channel('ezfix-crm-live');
-    for(const col of allowedCollections){ const table=TABLE_MAP[col]; channel.on('postgres_changes',{event:'*',schema:'public',table},async()=>{try{await refreshCollection(col);renderPreserveScroll();}catch(e){console.error('realtime refresh',col,e);}}); }
-    if(member.role!=='marketing_manager') channel.on('postgres_changes',{event:'*',schema:'public',table:'settings'},async()=>{try{await refreshSettings();renderPreserveScroll();}catch(e){console.error(e);}});
+    const realtimeRefresh=CrmRefresh.createRealtimeScheduler({refresh:key=>key==='settings'?refreshSettings():refreshCollection(key),render:renderPreserveScroll,onError:e=>console.error('realtime refresh',e)});
+    for(const col of allowedCollections){ const table=TABLE_MAP[col]; channel.on('postgres_changes',{event:'*',schema:'public',table},()=>realtimeRefresh.schedule(col)); }
+    if(member.role!=='marketing_manager') channel.on('postgres_changes',{event:'*',schema:'public',table:'settings'},()=>realtimeRefresh.schedule('settings'));
+    unsub.push(()=>realtimeRefresh.dispose());
     channel.subscribe((status)=>{ window.__crmRealtimeConnected = status==='SUBSCRIBED'; if(window.RealtimeChannel) window.RealtimeChannel.connected = window.__crmRealtimeConnected; });
     unsub.push(()=>SB.removeChannel(channel));
   }catch(e){ console.error('Supabase init failed',e); dbReady=false; setSyncState(false,'Supabase unavailable'); toast('Could not load CRM data from Supabase. No local writes are allowed.',true); }
@@ -2521,10 +2520,15 @@ async function convertEstimateToJob(estId, silent) {
   return jobId;
 }
 window.convertEstimateToJob = convertEstimateToJob;
-async function signJobCompletion(jobId) {
+async function signJobCompletion(jobId, requireSignature=false) {
   const j = getOne('jobs', jobId);
   if (!j) return;
-  if(j.workflowVersion===1){const {data,error}=await SB.rpc('dispatch_job_ready',{p_job_id:jobId});if(error||data!==true)return toast(error?.message||'Collect full payment and deliver the receipt before closing this job.',true);}
+  if(canOverrideJobWorkflow()&&!requireSignature){
+    await updateJobStatusWithHistory(jobId,'completed');
+    logAudit('owner_job_closed',`Owner closed job "${j.title}"; payment and receipt status unchanged`,'jobs',jobId);
+    toast('Job closed by owner'); render(); return;
+  }
+  if(j.workflowVersion===1&&!canOverrideJobWorkflow()){const {data,error}=await SB.rpc('dispatch_job_ready',{p_job_id:jobId});if(error||data!==true)return toast(error?.message||'Collect full payment and deliver the receipt before closing this job.',true);}
   openSignatureModal('Job completion — customer signature', j.customerName, async (dataUrl, name) => {
     if(j.workflowVersion===1){const {error}=await SB.rpc('complete_dispatch_job',{p_job_id:jobId,p_signature:{dataUrl,name}});if(error)throw error;await refreshCollection('jobs');}
     else await updateJobStatusWithHistory(jobId, 'completed', { completionSignature: { dataUrl, name, at: Date.now() } });
@@ -9649,7 +9653,7 @@ function openJobModal(id, presetCustomerId, options = {}) {
       ${j?.workflowVersion===1?'<p class="muted">Changing the technician sends a five-minute offer. The current assignment is released when the offer is saved; the new technician is assigned after accepting. Reassignment is available before arrival.</p>':''}
       ${jobPhotoUploaderHtml()}
       <label class="field"><span class="lbl">Status</span>
-        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed').map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
+        <select id="f_status" onchange="document.getElementById('cancelReasonWrap').style.display=this.value==='cancelled'?'block':'none'">${JOB_STATUSES.filter(s=>s!=='completed' || j?.status==='completed' || canOverrideJobWorkflow()).map(s=>`<option value="${s}" ${j?.status===s?'selected':''}>${labelize(s)}</option>`).join('')}</select>
       </label>
       <div id="cancelReasonWrap" style="display:${j?.status==='cancelled'?'block':'none'}">
         <label class="field"><span class="lbl">Cancellation reason</span>
@@ -9703,7 +9707,7 @@ function openJobModal(id, presetCustomerId, options = {}) {
           <button type="button" class="btn btn-sm" onclick="setJobStatus('${j.id}','on_the_way'); closeModal()">🚗 On My Way</button>
           <button type="button" class="btn btn-sm" onclick="setJobStatus('${j.id}','arrived'); closeModal()">📍 Arrived</button>
           <button type="button" class="btn btn-sm" onclick="setJobStatus('${j.id}','work_in_progress'); closeModal()">🔧 Start Work</button>
-          <button type="button" class="btn btn-sm btn-primary" onclick="signJobCompletion('${j.id}')">✍ Complete & Sign</button>
+          <button type="button" class="btn btn-sm btn-primary" onclick="signJobCompletion('${j.id}',true)">✍ Complete & Sign</button>
           ${j.status==='completed' ? `<button type="button" class="btn btn-sm" onclick="sendReviewRequest('${j.id}')">${['sent','prepared'].includes(j.reviewStatus)?'⭐ Review request prepared ✓':'⭐ Send review request'}</button>` : ''}
         </div>
       </div>
@@ -9724,14 +9728,14 @@ function openJobModal(id, presetCustomerId, options = {}) {
       const cust = customerId ? getOne('customers', customerId) : {name:j.customerName};
       if (!cust) return toast('Please select an existing customer');
       const newStatus = document.getElementById('f_status').value;
-      if(newStatus==='completed' && j?.status!=='completed')return toast('Use Complete & Sign to finish this job with the customer signature.',true);
+      if(newStatus==='completed' && j?.status!=='completed' && !canOverrideJobWorkflow())return toast('Use Complete & Sign to finish this job with the customer signature.',true);
       const statusChanged = !j || j.status !== newStatus;
       const newTechId = document.getElementById('f_tech_id').value;
       const selectedTech = getOne('team',newTechId);
       const newTech = selectedTech?.name || document.getElementById('f_tech_name').value.trim();
-      if(options.requireTechnician && !newTechId)return toast('Assign a technician before creating an estimate',true);
+      if(options.requireTechnician && !newTechId && !canOverrideJobWorkflow())return toast('Assign a technician before creating an estimate',true);
       const techChanged = newTech !== (j?.technician||'') || newTechId !== (j?.technicianId||'');
-      const needsOffer = j?.workflowVersion===1 && techChanged;
+      const needsOffer = j?.workflowVersion===1 && techChanged && !canOverrideJobWorkflow();
       if(needsOffer && (!selectedTech || !selectedTech.authUserId))return toast('Select a technician with Login Access before sending an offer.',true);
       if(needsOffer && !['new','scheduled','confirmed','technician_assigned','on_the_way'].includes(newStatus))return toast('Reassign the technician before arrival.',true);
       const newDate = document.getElementById('f_date').value;
@@ -11248,6 +11252,7 @@ function renderViewAsOptions() {
   sel.value = VIEW_AS;
 }
 function isTechnicianView() { return CURRENT_TEAM_MEMBER?.role==='technician' || (IS_OWNER && !!VIEW_AS); }
+function canOverrideJobWorkflow() { return IS_OWNER && CURRENT_TEAM_MEMBER?.role==='owner' && !isTechnicianView(); }
 async function signOutCrm() {
   try {
     try {
@@ -11258,6 +11263,7 @@ async function signOutCrm() {
     }
     } catch(e) { console.warn('Push subscription cleanup failed during sign out',e); }
     await SB.auth.signOut();
+    signedAssetCache.clear();
     CURRENT_TEAM_MEMBER=null; IS_OWNER=false; CAN_EDIT=false; VIEW_AS='';
     try { localStorage.removeItem('ezfix_view_as'); } catch(e) {}
     dbReady=false; STORE.customers=[]; STORE.leads=[]; STORE.jobs=[]; STORE.estimates=[]; STORE.invoices=[]; STORE.team=[];
@@ -11287,7 +11293,7 @@ async function initUserRole() {
 <!-- EZFIX_DOOR_DESIGN_LIBRARY_V1 --><script src="/door-design-data.js"></script><script src="/door-config-options.js"></script><script src="/door-design-library.js"></script><script src="/photo-door-library.js"></script>
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
-<script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js"></script><script src="/workspace-overview.js?v=20261005-dashboard1"></script><script src="/receipt-archive-utils.js?v=20261005-annual1"></script><script src="/social-post-composer.js?v=20261005-social1"></script><script src="/office-workspace.js?v=20261005-social1"></script><script src="/lead-dispatch.js"></script>
+<script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js?v=20261005-owner1"></script><script src="/workspace-overview.js?v=20261005-dashboard1"></script><script src="/receipt-archive-utils.js?v=20261005-annual1"></script><script src="/social-post-composer.js?v=20261005-social1"></script><script src="/office-workspace.js?v=20261005-social1"></script><script src="/lead-dispatch.js?v=20261005-owner1"></script>
 <script src="/workspace-theme.js?v=20261005-clarity1"></script><script src="/business-finance.js?v=20261005-bank1"></script>
 <script src="/phone-alerts.js"></script>
 <script src="/notification-alerts.js"></script>

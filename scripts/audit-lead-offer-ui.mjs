@@ -69,7 +69,7 @@ await test('a different offer fragment reloads the page instead of reusing the o
 
 function app({ready=true,role='technician'}={}){
  const events={},refreshes=[],navigation=[],renders=[];
- const ctx={console,dbReady:ready,CURRENT_TEAM_MEMBER:{id:'tech-test',role},route:{page:'dashboard',id:null},STORE:{leadOffers:[]},location:{hash:'#lead-offers',pathname:'/crm',search:''},
+ const ctx={canOverrideJobWorkflow:()=>false,console,dbReady:ready,CURRENT_TEAM_MEMBER:{id:'tech-test',role},route:{page:'dashboard',id:null},STORE:{leadOffers:[]},location:{hash:'#lead-offers',pathname:'/crm',search:''},
   document:{hidden:false,querySelector:()=>null,getElementById:()=>null,createElement:()=>({}),head:{append(){}},body:{append(){}},addEventListener:(event,fn)=>events[event]=fn},
   window:{addEventListener:(event,fn)=>events[event]=fn},setInterval(){},isMarketingManager:()=>ctx.CURRENT_TEAM_MEMBER.role==='marketing_manager',isTechnicianView:()=>true,
   render(){renders.push(ctx.route.page);},renderDashboard(){},renderJobDetail(){},createInvoiceFromJob(){},renderLeads(){},refreshCollection:async name=>{refreshes.push(name);},
