@@ -169,6 +169,27 @@
   body[data-workspace-page="dashboard"] .overview-hero-due {border-top-color:var(--ez-yellow)}
   body[data-workspace-page="dashboard"] .overview-quick-actions .overview-create-job {background:var(--royal-shine);color:#fff;border-color:var(--ez-blue);box-shadow:inset 0 1px 0 #ffffff30,0 4px 12px #0754ed18}
   body[data-workspace-page="dashboard"] :is(.overview-hero,.overview-list-row,.overview-link,.overview-connections>summary):focus-visible {outline:2px solid var(--ez-blue);outline-offset:3px}
+  /* Keep Quick Payment yellow; give its item action a separate blue emphasis. */
+  body[data-workspace-page] .nav-quick-payment .workspace-emoji {color:#10213a}
+  body[data-workspace-page="quickpay"] #qpAddItem,
+  body[data-workspace-page="quickpay"] #pickerOverlay .btn-primary {background:var(--royal-shine);color:#fff;border-color:#0754db;box-shadow:inset 0 1px 0 #ffffff35,0 4px 12px #0754ed20}
+  body[data-workspace-page="quickpay"] #qpAddItem:hover,
+  body[data-workspace-page="quickpay"] #pickerOverlay .btn-primary:hover {background:linear-gradient(180deg,#0959e8,#0646bf);border-color:#0646bf}
+  body[data-workspace-page] .topbar-icon-btn .royal-line-icon {color:#fff;display:inline-block;vertical-align:middle}
+  body[data-workspace-page] .search-box>svg {color:var(--ez-blue)}
+  body[data-workspace-page] #pickerOverlay .search-box {max-width:none;min-width:0}
+  body[data-workspace-page] #pickerOverlay .launcher-tile {display:flex;align-items:center;gap:12px;min-height:76px;padding:13px 14px;text-align:left}
+  body[data-workspace-page] #pickerOverlay .launcher-tile-emoji {width:44px;height:44px;flex:0 0 44px;box-sizing:border-box;padding:8px;background:var(--royal-shine);color:#fff;border:1px solid #4b86f0;border-radius:12px;box-shadow:inset 0 1px 0 #ffffff35,0 3px 8px #0754ed16}
+  body[data-workspace-page] #pickerOverlay .launcher-tile-emoji .royal-line-icon {width:28px;height:28px;stroke-width:1.9}
+  body[data-workspace-page] #pickerOverlay .launcher-tile-label {font-size:13px;font-weight:650;line-height:1.45;color:var(--ez-ink);overflow-wrap:anywhere}
+  body[data-workspace-page] #pickerOverlay .picker-card {border-color:var(--ez-line);background:var(--ez-surface);border-radius:12px;padding:14px;box-shadow:0 2px 8px #07265c06}
+  body[data-workspace-page] #pickerOverlay .picker-card:hover {border-color:var(--ez-blue);background:var(--ez-blue-soft)}
+  body[data-workspace-page] #pickerOverlay .picker-card-top {align-items:flex-start;line-height:1.45}
+  body[data-workspace-page] #pickerOverlay .picker-card-price {color:var(--ez-blue)}
+  body[data-workspace-page] #pickerOverlay .picker-favorite {display:inline-flex;align-items:center;gap:5px;color:var(--ez-muted)}
+  body[data-workspace-page] #pickerOverlay .picker-favorite .royal-line-icon {width:16px;height:16px}
+  body[data-workspace-page] #pickerOverlay .picker-card-bottom {gap:12px;margin-top:8px}
+  body[data-workspace-page] #pickerOverlay .picker-card-bottom .btn {background:var(--ez-blue-soft);border-color:var(--ez-line);color:var(--ez-blue);font-weight:700;min-height:36px}
   @media (prefers-reduced-motion:reduce) {
     body[data-workspace-page] :is(.launcher-tile,.workspace-tools .wt-tool,.office-grid>button) {transition:none}
   }
