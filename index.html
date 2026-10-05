@@ -4279,7 +4279,7 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
         <label class="field"><span class="lbl">Date</span><input type="date" id="f_date" value="${e?.date || todayISO()}"></label>
       </div>
       <label class="field"><span class="lbl">Line items</span></label>
-      ${window.PremiumTools ? PremiumTools.documentMarkup('estimate', e?.jobId || presetJobId || '') : ''}
+      ${window.PremiumTools ? PremiumTools.documentMarkup('estimate', e?.convertedJobId || e?.jobId || presetJobId || '') : ''}
       <div id="liWrap">${lineItemsHtml()}</div>
       <label class="field" style="margin-top:12px"><span class="lbl">Notes (shown on estimate)</span><textarea id="f_notes">${esc(e?.notes)}</textarea></label>
       <label class="field"><span class="lbl">Option label <span class="muted" style="font-weight:400">(optional — for multi-option estimates like Good/Better/Premium)</span></span>
