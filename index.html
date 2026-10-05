@@ -778,7 +778,7 @@
 <link rel="stylesheet" href="/activity-history.css">
 <link rel="icon" type="image/png" sizes="192x192" href="/assets/ezfix-app-icon-192.png?v=2"><link rel="apple-touch-icon" sizes="180x180" href="/assets/ezfix-apple-touch-icon.png?v=2">
 <link rel="stylesheet" href="/premium-palette.css?v=20261004-royal1">
-<link rel="stylesheet" href="/royal-blue-surfaces.css?v=20261005-dashboard1">
+<link rel="stylesheet" href="/royal-blue-surfaces.css?v=20261005-clarity1">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
@@ -893,7 +893,7 @@
             </button>
             <div id="notifPopover" class="notif-popover" style="display:none" role="region" aria-label="Notifications panel"></div>
           </div>
-          <button class="topbar-icon-btn" onclick="openGlobalSearch()" title="Search everything" aria-label="Search everything">🔍</button>
+          <button class="topbar-icon-btn" onclick="openGlobalSearch()" title="Search everything" aria-label="Search everything"><svg class="royal-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
         </div>
       </div>
       <div class="topbar-sub" id="pageSub" style="display:none"></div>
@@ -1574,7 +1574,7 @@ function renderQuickPay(content, actions){
       <div class="panel"><div class="panel-body pad">
         <div class="muted" style="font-weight:700">QUICK PAYMENT</div>
         <div id="qpAmountDisplay" style="font-size:64px;font-weight:800;letter-spacing:-3px;margin:12px 0">$0.00</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0"><b>Products & Services</b><button class="btn btn-sm btn-primary" onclick="quickPayAddLine()">+ Add Item</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0"><b>Products & Services</b><button class="btn btn-sm btn-primary" id="qpAddItem" onclick="quickPayAddLine()">+ Add Item</button></div>
         <div id="qpLines"></div>
         <div class="grid2"><label class="field"><span class="lbl">Parts cost</span><input id="qpPartsCost" type="number" min="0" step=".01" inputmode="decimal" placeholder="0.00"></label><label class="field"><span class="lbl">Parts belong to</span><select id="qpPartsOwner"><option value="company">Company</option><option value="technician">Technician</option></select></label></div>
         <label class="field"><span class="lbl">Invoice note</span><input id="qpNote" placeholder="Optional note for customer"></label>
@@ -4016,7 +4016,7 @@ function renderProductPicker() {
   const term = pickerState.search.toLowerCase().trim();
   body.innerHTML = `
     <div class="search-box" style="margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input id="pickerSearchInput" placeholder="🔍 Search products & services..." value="${esc(pickerState.search)}" oninput="pickerState.search=this.value; pickerState.view='search'; renderProductPickerKeepFocus()">
+      <input id="pickerSearchInput" placeholder="Search products & services..." value="${esc(pickerState.search)}" oninput="pickerState.search=this.value; pickerState.view='search'; renderProductPickerKeepFocus()">
     </div>
   `;
   if (term) {
@@ -4032,8 +4032,8 @@ function renderProductPicker() {
     const items = activeProducts.filter(p=>categoryIdOf(p)===pickerState.categoryId).sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0) || a.name.localeCompare(b.name));
     const products=items.filter(p=>catalogItemType(p)==='product'), labor=items.filter(p=>catalogItemType(p)==='labor');
     body.innerHTML += `<button class="btn btn-sm" style="margin-bottom:10px" onclick="pickerState.view='categories'; renderProductPicker()">← Categories</button>`;
-    if(products.length) body.innerHTML += renderPickerItemList(products, `${cat?cat.emoji+' '+cat.label:'Items'} — PRODUCTS`);
-    if(labor.length) body.innerHTML += renderPickerItemList(labor, `${cat?cat.emoji+' '+cat.label:'Items'} — LABOR`);
+    if(products.length) body.innerHTML += renderPickerItemList(products, `${cat?'<span class="workspace-emoji" aria-hidden="true">'+cat.emoji+'</span> '+esc(cat.label):'Items'} — PRODUCTS`);
+    if(labor.length) body.innerHTML += renderPickerItemList(labor, `${cat?'<span class="workspace-emoji" aria-hidden="true">'+cat.emoji+'</span> '+esc(cat.label):'Items'} — LABOR`);
     body.innerHTML += pickerCustomItemButton();
     return;
   }
@@ -4050,7 +4050,7 @@ function renderProductPicker() {
     </div>
   `;
   const favorites = activeProducts.filter(p=>p.favorite);
-  if (favorites.length) body.innerHTML += renderPickerItemList(favorites, '⭐ Favorites');
+  if (favorites.length) body.innerHTML += renderPickerItemList(favorites, '<span class="workspace-emoji" aria-hidden="true">⭐</span> Favorites');
   body.innerHTML += pickerCustomItemButton();
 }
 function renderProductPickerKeepFocus() {
@@ -4066,7 +4066,7 @@ function renderPickerItemList(items, heading) {
       ${items.length ? items.map(p=>`<div class="picker-card" onclick="pickItemFromPicker('${p.id}')">
         <div class="picker-card-top"><b>${esc(p.name)}</b>${p.rate?`<span class="picker-card-price">${money(p.rate)}</span>`:'<span class="picker-card-price muted">$—</span>'}</div>
         <div class="muted" style="font-size:12.5px;margin:2px 0 6px">${esc((p.details||'').slice(0,110))}${(p.details||'').length>110?'…':''}</div>
-        <div class="picker-card-bottom">${p.favorite?'<span>⭐ Favorite</span>':'<span></span>'}<button class="btn btn-sm" onclick="event.stopPropagation(); pickItemFromPicker('${p.id}')">+ Add</button></div>
+        <div class="picker-card-bottom">${p.favorite?'<span class="picker-favorite"><span class="workspace-emoji" aria-hidden="true">⭐</span> Favorite</span>':'<span></span>'}<button class="btn btn-sm" onclick="event.stopPropagation(); pickItemFromPicker('${p.id}')">+ Add</button></div>
       </div>`).join('') : `<div class="muted" style="padding:20px 4px;text-align:center">No items in this category yet.</div>`}
     </div>
   `;
@@ -4557,7 +4557,7 @@ function renderProducts(content, actions) {
     const items = active.filter(p=>categoryIdOf(p)===catalogPageState.categoryId).sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0) || a.name.localeCompare(b.name));
     content.innerHTML = productSearchBarHtml() + `
       <button class="btn btn-sm" style="margin-bottom:12px" onclick="catalogPageState.view='categories'; renderPreserveScroll()">← Categories</button>
-      ${renderCatalogProductCards(items, `${cat?cat.emoji+' '+cat.label:'Items'}`, true)}
+      ${renderCatalogProductCards(items, `${cat?'<span class="workspace-emoji" aria-hidden="true">'+cat.emoji+'</span> '+esc(cat.label):'Items'}`, true)}
     `;
     return;
   }
@@ -11288,7 +11288,7 @@ async function initUserRole() {
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
 <script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js"></script><script src="/workspace-overview.js?v=20261005-dashboard1"></script><script src="/office-workspace.js"></script><script src="/lead-dispatch.js"></script>
-<script src="/workspace-theme.js?v=20261004-items2"></script>
+<script src="/workspace-theme.js?v=20261005-clarity1"></script>
 <script src="/phone-alerts.js"></script>
 <script src="/notification-alerts.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>

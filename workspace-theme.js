@@ -47,8 +47,9 @@ function workspacePageSection(page) {
   const meta = page => pages[page] || ['teal', '🧰'];
   // Trusted, existing navigation artwork supplies the same outline icon family everywhere.
   const iconPages = {'🏠':'dashboard','🧰':'more','👥':'team','🎯':'leads','💬':'communications','📥':'inbox','🛠':'products','🗓':'calendar','⚡':'quickpay','💳':'quickpay','📝':'estimates','🧾':'invoices','💵':'payments','🖼':'gallery','🏡':'visualizer','🚪':'visualizer','📦':'inventory','🚚':'suppliers','🛡':'warranties','🧠':'ai_manager','AI':'ai_manager','🎧':'receptionist','🤖':'ai_system','📊':'reports','🔔':'attention','🏦':'banking','📣':'socialposts','🏢':'office','⚙':'settings','🕒':'auditlog','📋':'checklist','📞':'calls','📁':'office','🧪':'ai_system','✉':'email'};
-  Object.assign(iconPages, {'🌀':'spring','↔':'extension','📱':'phone-device','🌧':'weather','🔧':'wrench','👷':'labor','👤':'customers','💰':'payments','✅':'followups','📅':'calendar','✎':'edit','🔄':'refresh','📷':'gallery','✍':'edit','🗑':'delete','•':'inbox'});
+  Object.assign(iconPages, {'🌀':'spring','↔':'extension','📱':'phone-device','🌧':'weather','🔧':'wrench','👷':'labor','👤':'customers','💰':'payments','✅':'followups','📅':'calendar','✎':'edit','🔄':'refresh','📷':'gallery','✍':'edit','🗑':'delete','•':'inbox','⭐':'favorite'});
   const extraPaths = {
+    favorite:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z',
     spring:'M3 12h3M6 7c0-3 3-3 3 0v10c0 3 3 3 3 0V7c0-3 3-3 3 0v10c0 3 3 3 3 0v-5h3',
     extension:'M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4',
     'phone-device':'M7 2h10v20H7zM10 18h4',
