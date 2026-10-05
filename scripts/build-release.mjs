@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const scripts = [
   'build-app-icons.mjs',
   'test-customer-receipts.mjs',
+  'test-business-workflows.mjs',
   'test-notification-alerts.mjs',
   'test-owner-phone-alerts.mjs',
   'build-notification-alerts.mjs',
