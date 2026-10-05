@@ -781,6 +781,8 @@
 <link rel="stylesheet" href="/premium-palette.css?v=20261004-royal1">
 <link rel="stylesheet" href="/royal-blue-surfaces.css?v=20261005-polish2">
 <link rel="stylesheet" href="/premium-tools.css?v=20261005-wand1">
+<link rel="stylesheet" href="/campaign-workspace.css?v=20261005-campaign1">
+<link rel="stylesheet" href="/calendar-reference.css?v=20261005-reference2">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
@@ -883,6 +885,7 @@
   <div class="main">
     <div class="topbar">
       <div class="topbar-row1">
+        <img class="cal-reference-mobile-logo" src="/assets/superezx-sidebar-logo.png" alt="SuperEZX">
         <div class="topbar-titlewrap">
           <button class="hamburger" id="sidebarToggle" onclick="openSidebar()" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
           <span class="topbar-emoji" id="pageEmoji"></span>
@@ -9226,11 +9229,12 @@ function renderCalendarMonth(content) {
   const year = cursor.getFullYear(), month = cursor.getMonth();
   const firstOfMonth = new Date(year, month, 1);
   const startGrid = new Date(firstOfMonth); startGrid.setDate(startGrid.getDate() - firstOfMonth.getDay());
-  const cells = Array.from({length:42}, (_,i) => { const d = new Date(startGrid); d.setDate(startGrid.getDate()+i); return d; });
+  const gridSize = Math.ceil((firstOfMonth.getDay()+new Date(year,month+1,0).getDate())/7)*7;
+  const cells = Array.from({length:gridSize}, (_,i) => { const d = new Date(startGrid); d.setDate(startGrid.getDate()+i); return d; });
   const today = todayISO();
   const techFilter = isTechnicianView() ? '' : (searchTerms.calendarTech || '');
   const techOptions = calendarTechFilterOptions();
-  const jobsForDay = dStr => STORE.jobs.filter(j=>j.scheduledDate===dStr && jobMatchesTechFilter(j, techFilter))
+  const jobsForDay = dStr => STORE.jobs.filter(j=>!j.deletedAt && j.scheduledDate===dStr && jobMatchesTechFilter(j, techFilter))
     .filter(j => !isTechnicianView() || technicianOwnsJob(j)).sort(calendarJobTimeOrder);
   const monthLabel = cursor.toLocaleDateString('en-US', { month:'long', year:'numeric' });
   const selectedDate = searchTerms.calendarSelectedDate || today;
@@ -9243,23 +9247,16 @@ function renderCalendarMonth(content) {
   content.innerHTML = `
     <div class="cal-summary-strip" aria-label="Today's schedule summary">
       <div class="cal-summary blue"><span class="cal-summary-icon" aria-hidden="true">${window.PremiumTools ? PremiumTools.icon('calendar') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="5"/></svg>'}</span><div><strong>${todayJobs.length}</strong><span>Jobs today</span></div></div>
-      <div class="cal-summary navy"><span class="cal-summary-icon" aria-hidden="true">${window.PremiumTools ? PremiumTools.icon('team') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="5"/></svg>'}</span><div><strong>${calendarTechCount}</strong><span>Technicians today</span></div></div>
+      <div class="cal-summary navy"><span class="cal-summary-icon" aria-hidden="true">${window.PremiumTools ? PremiumTools.icon('team') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="5"/></svg>'}</span><div><strong>${calendarTechCount}</strong><span>Technicians today</span>${!isTechnicianView()&&techOptions.length?`<select class="cal-reference-filter" aria-label="Filter calendar by technician" onchange="searchTerms.calendarTech=this.value;saveUiState();render()"><option value="">All technicians</option>${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`:''}</div></div>
       <div class="cal-summary yellow"><span class="cal-summary-icon" aria-hidden="true">${window.PremiumTools ? PremiumTools.icon('clock') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="5"/></svg>'}</span><div><strong>${pendingCount}</strong><span>Pending today</span></div></div>
-    </div>
-    <div class="toolbar cal-friendly-toolbar" style="justify-content:space-between">
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-sm" onclick="shiftCalendarMonth(-1)">← Prev</button>
-        <button class="btn btn-sm" onclick="calendarMonthCursor=todayISO().slice(0,7)+'-01'; saveUiState(); render()">Today</button>
-        <button class="btn btn-sm" onclick="shiftCalendarMonth(1)">Next →</button>
-        <h3 style="margin:0;font-size:16px">${monthLabel}</h3>
-      </div>
-      ${!isTechnicianView() && techOptions.length ? `<select style="width:auto" onchange="searchTerms.calendarTech=this.value; saveUiState(); render()">
-        <option value="">All technicians</option>
-        ${techOptions.map(o=>`<option value="${esc(o.value)}" ${techFilter===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}
-      </select>` : ''}
     </div>
     <div class="cal-month-layout" style="margin-top:14px">
       <div class="cal-month-shell">
+      <div class="cal-reference-monthbar">
+        <button class="cal-reference-arrow" aria-label="Previous month" onclick="shiftCalendarMonth(-1)">‹</button>
+        <label class="cal-reference-monthlabel"><span>${esc(monthLabel)} <span aria-hidden="true">⌄</span></span><input type="month" aria-label="Choose calendar month" value="${calendarMonthCursor.slice(0,7)}" onchange="if(this.value){calendarMonthCursor=this.value+'-01';searchTerms.calendarSelectedDate=calendarMonthCursor;saveUiState();render()}"></label>
+        <div class="cal-reference-monthactions"><button class="cal-reference-today" onclick="calendarMonthCursor=todayISO().slice(0,7)+'-01';searchTerms.calendarSelectedDate=todayISO();saveUiState();render()">Today</button><button class="cal-reference-arrow" aria-label="Next month" onclick="shiftCalendarMonth(1)">›</button></div>
+      </div>
       <div class="cal-month-grid">
       ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="cal-month-weekday">${d}</div>`).join('')}
       ${cells.map(d => {
@@ -9272,12 +9269,12 @@ function renderCalendarMonth(content) {
         const isSelected = dStr === selectedDate;
         return `<div class="clickable cal-month-day ${isToday?'cal-month-today':''} ${isSelected?'is-selected':''}" onclick="selectCalendarDay('${dStr}')" style="${inMonth?'':'opacity:.42'}">
           <div class="cal-month-head">
-            <div class="cal-month-date">${d.getDate()}</div>
+            <button class="cal-month-date" aria-label="Select ${dStr}" aria-pressed="${isSelected}" onclick="event.stopPropagation();selectCalendarDay('${dStr}')">${d.getDate()}</button>
             ${!isTechnicianView() ? `<button class="cal-day-add" title="Add job" aria-label="Add job on ${dStr}" onclick="event.stopPropagation();openJobModalForDate('${dStr}')">+</button>` : ''}
           </div>
           <div class="cal-month-events">
-            ${shown.map((j,idx)=>`<div class="cal-job-card cal-job-tone-${idx%4}" style="--cal-accent:${jobStatusAccent(j.status)}" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();openCalendarJobPreview(\'${j.id}\')}" onclick="event.stopPropagation();openCalendarJobPreview('${j.id}')">
-              ${calendarPhotoThumbnail(j)}<div class="cal-job-time">${esc(j.appointmentWindow||'Time TBD')}</div>
+            ${shown.map((j,idx)=>`<div class="cal-job-card cal-job-tone-${['completed','cancelled'].includes(j.status)?2:['waiting_for_parts','on_the_way'].includes(j.status)?1:0}" style="--cal-accent:${jobStatusAccent(j.status)}" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();openCalendarJobPreview(\'${j.id}\')}" onclick="event.stopPropagation();openCalendarJobPreview('${j.id}')">
+              <div class="cal-job-time">${esc(j.appointmentWindow||'Time TBD')}</div>
               <div class="cal-job-name">${esc(j.customerName||'Customer')}</div>
               <div class="cal-job-title">${esc(j.title||'Garage door service')}</div>
               <div class="cal-job-tech">👷 ${esc(j.technician||'Unassigned')}</div>
@@ -9291,7 +9288,7 @@ function renderCalendarMonth(content) {
       <aside class="cal-agenda" aria-label="Selected day schedule">
         <div class="cal-agenda-head">
           <div>
-            <div class="cal-agenda-title">${selectedObj.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
+            <div class="cal-reference-selectedlabel">Selected day</div><div class="cal-agenda-title">${selectedObj.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</div>
             <div class="cal-agenda-sub">${selectedJobs.length ? selectedJobs.length+' scheduled job'+(selectedJobs.length===1?'':'s') : 'No jobs scheduled'}</div>
           </div>
           ${!isTechnicianView()?`<button class="btn btn-sm btn-primary" onclick="openJobModalForDate('${selectedDate}')">+ Job</button>`:''}
@@ -9299,22 +9296,25 @@ function renderCalendarMonth(content) {
         <div class="cal-agenda-body">
           ${selectedJobs.length ? selectedJobs.map(j=>{
             const cust=getOne('customers',j.customerId);
+            const techName=j.technician||'Unassigned';
+            const initials=techName.split(/\s+/).filter(Boolean).slice(0,2).map(n=>n[0]).join('').toUpperCase();
+            const statusTone=['on_the_way','waiting_for_parts'].includes(j.status)?'yellow':['completed','cancelled'].includes(j.status)?'navy':'blue';
             return `<div class="cal-agenda-job ${j===selectedJobs[0]?'cal-agenda-featured':''}">
-              ${calendarPhotoThumbnail(j)}<div class="cal-agenda-time">${esc(j.appointmentWindow||'Time TBD')}</div>
-              <div class="cal-agenda-customer">${esc(j.customerName||j.title||'Job')}</div>
-              <div class="cal-agenda-meta">${esc(j.title||'Garage door service')}</div>
-              ${cust?.address?`<div class="cal-agenda-meta">📍 ${esc(cust.address)}</div>`:''}
-              <div class="cal-agenda-meta">👷 ${esc(j.technician||'Unassigned')} · ${labelize(j.status)}</div>
-              <div class="cal-agenda-actions">
-                ${cust?.phone?`<a class="btn btn-sm" href="tel:${esc(cust.phone)}">Call</a>`:''}
-                ${cust?.phone?`<a class="btn btn-sm" href="sms:${esc(cust.phone)}">Text</a>`:''}
-                <button class="btn btn-sm" onclick="openCalendarJobPreview('${j.id}')">Preview</button>
+              <div class="cal-reference-timeslot">${esc(j.appointmentWindow||'Time TBD')}</div>
+              <div class="cal-reference-jobdetail">
+                <div class="cal-reference-techrow"><span class="cal-reference-avatar" aria-hidden="true">${esc(initials)}</span><div class="cal-reference-person"><strong>${esc(techName)}</strong><small>Technician</small></div><span class="cal-reference-status ${statusTone}"><i aria-hidden="true"></i>${esc(labelize(j.status||'scheduled'))}</span></div>
+                <div class="cal-reference-jobtitle">${esc(j.title||'Garage door service')}</div>
+                <div class="cal-agenda-customer">${esc(j.customerName||cust?.name||'Customer')}</div>
+                ${cust?.address?`<div class="cal-agenda-meta cal-reference-address"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2"/></svg>${esc(cust.address)}</div>`:''}
+                <div class="cal-agenda-actions">${cust?.phone?`<a class="btn btn-sm" href="tel:${esc(cust.phone)}">Call</a><a class="btn btn-sm" href="sms:${esc(cust.phone)}">Text</a>`:''}</div>
               </div>
+              <button class="cal-reference-jobopen" aria-label="Preview ${esc(j.title||'job')}" onclick="openCalendarJobPreview('${j.id}')">›</button>
             </div>`;
           }).join('') : `<div class="muted" style="padding:24px 8px;text-align:center">No jobs for this day.</div>`}
         </div>
       </aside>
     </div>
+    ${!isTechnicianView()?`<button class="cal-reference-fab" aria-label="Add new job" onclick="openJobModalForDate('${selectedDate}')">+</button>`:''}
   `;
 }
 function selectCalendarDay(dateStr){
@@ -9327,6 +9327,8 @@ function shiftCalendarMonth(n) {
   const d = new Date(calendarMonthCursor+'T00:00:00');
   d.setMonth(d.getMonth()+n);
   calendarMonthCursor = payrollDateKey(d).slice(0,7)+'-01';
+  const selectedDay = new Date((searchTerms.calendarSelectedDate||todayISO())+'T00:00:00').getDate();
+  searchTerms.calendarSelectedDate=payrollDateKey(new Date(d.getFullYear(),d.getMonth(),Math.min(selectedDay,new Date(d.getFullYear(),d.getMonth()+1,0).getDate())));
   saveUiState();
   render();
 }
@@ -11306,7 +11308,7 @@ async function initUserRole() {
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
 <script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js?v=20261005-owner1"></script><script src="/workspace-overview.js?v=20261005-dashboard1"></script><script src="/receipt-archive-utils.js?v=20261005-annual1"></script><script src="/social-post-composer.js?v=20261005-social1"></script><script src="/office-workspace.js?v=20261005-social1"></script><script src="/lead-dispatch.js?v=20261005-owner1"></script>
-<script src="/premium-tools.js?v=20261005-wand1"></script><script src="/technician-payroll.js?v=20261005-pay1"></script><script src="/workspace-theme.js?v=20261005-clarity1"></script><script src="/business-finance.js?v=20261005-bank1"></script>
+<script src="/premium-tools.js?v=20261005-wand1"></script><script src="/technician-payroll.js?v=20261005-pay1"></script><script src="/campaign-workspace.js?v=20261005-campaign1"></script><script src="/workspace-theme.js?v=20261005-clarity1"></script><script src="/business-finance.js?v=20261005-bank1"></script>
 <script src="/phone-alerts.js"></script>
 <script src="/notification-alerts.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>

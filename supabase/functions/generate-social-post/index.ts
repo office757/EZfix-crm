@@ -11,12 +11,17 @@ Deno.serve(async req=>{
   const {data:{user},error}=await scoped.auth.getUser();if(error||!user)return reply({ok:false,error:'Unauthorized'},401);
   const db=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
   const {data:member,error:me}=await db.from('team').select('id,role,status').eq('auth_user_id',user.id).maybeSingle();
-  if(me||member?.status!=='active'||!['owner','admin','office','dispatcher'].includes(member.role))return reply({ok:false,error:'Office access required'},403);
+  if(me||member?.status!=='active'||!['owner','admin','office','dispatcher','marketing_manager'].includes(member.role))return reply({ok:false,error:'Office access required'},403);
   const key=Deno.env.get('OPENAI_API_KEY');if(!key)return reply({ok:false,configured:false,error:'AI generation needs the server AI connection. Your draft has not changed.'},503);
-  const input=await req.json();const topic=String(input.topic||'').trim(),notes=String(input.notes||'').trim(),platform=String(input.platform||'google_business');
+  const input=await req.json();
+  if(member.role==='marketing_manager'||input.campaign_id){
+   const {data:campaign,error:campError}=await db.from('content_campaigns').select('id,created_by,status').eq('id',String(input.campaign_id||'')).maybeSingle();
+   if(campError||!campaign||campaign.status!=='active'||(member.role==='marketing_manager'&&campaign.created_by!==member.id))return reply({ok:false,error:'Your active campaign is required.'},403);
+  }
+  const topic=String(input.topic||'').trim(),notes=String(input.notes||'').trim(),platform=String(input.platform||'google_business');
   if(!topic||topic.length>250||notes.length>1500||!['google_business','instagram','facebook'].includes(platform))return reply({ok:false,error:'Enter a topic and select a supported platform.'},400);
   const {count,error:ce}=await db.from('audit_log').select('id',{head:true,count:'exact'}).eq('action','social_ai_generation').eq('created_by_team_id',member.id).gte('created_at',new Date(Date.now()-3600000).toISOString());
-  if(ce)throw ce;if(Number(count)>=6)return reply({ok:false,error:'Hourly generation limit reached. Use an existing draft or try later.'},429);
+  if(ce)throw ce;if(member.role!=='owner'&&Number(count)>=6)return reply({ok:false,error:'Hourly generation limit reached. Use an existing draft or try later.'},429);
   const {error:le}=await db.from('audit_log').insert({id:crypto.randomUUID(),action:'social_ai_generation',summary:'Social post generation requested',entity_type:'social_posts',source:'app_client',created_by_team_id:member.id,details:{platform,image_requested:input.generate_image===true}});if(le)throw le;
   const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:Deno.env.get('OPENAI_SOCIAL_TEXT_MODEL')||'gpt-4.1-mini',store:false,instructions:socialInstructions(platform),input:JSON.stringify({topic,notes}),text:{format:{type:'json_object'}},max_output_tokens:1200}),signal:AbortSignal.timeout(45000)});
   if(!res.ok)return reply({ok:false,error:'AI text generation is unavailable. Your current draft has been kept.'},502);

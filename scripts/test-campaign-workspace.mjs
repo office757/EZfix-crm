@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';
+import {socialInstructions,parseSocialDraft,imagePrompt} from '../supabase/functions/_shared/social-content.mjs';
+function writer({role='owner',status='active',campaign={id:'campaign-a',created_by:'actor',status:'active'},count=0}={}){
+ let handler;const requests=[];
+ const query=table=>({select(){return this},eq(){return this},gte(){return this},maybeSingle:async()=>({data:table==='team'?{id:'actor',role,status}:campaign,error:null}),then(resolve){resolve({count,error:null});},insert:async()=>({error:null})});
+ const client={auth:{getUser:async()=>({data:{user:{id:'user'}}})},from:query};
+ const source=readFileSync(new URL('../supabase/functions/generate-social-post/index.ts',import.meta.url),'utf8').replace(/^import.*\n/gm,'');
+ vm.runInContext(stripTypeScriptTypes(source),vm.createContext({Response,Request,AbortSignal,crypto:globalThis.crypto,Uint8Array,socialInstructions,parseSocialDraft,imagePrompt,createClient:()=>client,Deno:{env:{get:k=>k==='OPENAI_API_KEY'?'server-only':'https://test.invalid'},serve:h=>handler=h},fetch:async(url,init)=>{requests.push(url);return Response.json({output:[{content:[{type:'output_text',text:JSON.stringify({title:'Spring repair',caption:'Professional garage door spring service. '.repeat(20)})}]}]});}}));
+ return {requests,call:body=>handler(new Request('https://test.invalid',{method:'POST',headers:{Authorization:'Bearer signed-user','Content-Type':'application/json'},body:JSON.stringify(body)}))};
+}
+const input={topic:'Garage door springs',notes:'Campaign brief',platform:'facebook',generate_image:false,campaign_id:'campaign-a'};
+test('marketing content writer requires its own active campaign',async()=>{for(const campaign of [null,{id:'campaign-a',created_by:'another',status:'active'},{id:'campaign-a',created_by:'actor',status:'archived'}]){const h=writer({role:'marketing_manager',campaign});assert.equal((await h.call(input)).status,403);assert.equal(h.requests.length,0);}const h=writer({role:'marketing_manager'});assert.equal((await h.call(input)).status,200);});
+test('technician and inactive marketing accounts cannot generate',async()=>{for(const options of [{role:'technician'},{role:'marketing_manager',status:'inactive'}]){const h=writer(options);assert.equal((await h.call(input)).status,403);assert.equal(h.requests.length,0);}});
+test('owner can generate a campaign draft without hourly workflow limits',async()=>{const h=writer({count:100});const result=await(await h.call(input)).json();assert.equal(result.ok,true);assert(result.caption.length>300);assert.equal(h.requests.length,1);});
+test('other roles retain a bounded generation allowance',async()=>{const h=writer({role:'marketing_manager',count:6});assert.equal((await h.call(input)).status,429);assert.equal(h.requests.length,0);});
+test('campaign browser module parses and does not perform automatic publication',()=>{const source=readFileSync(new URL('../campaign-workspace.js',import.meta.url),'utf8');new vm.Script(source);assert.match(source,/review_content_campaign_post/);assert.match(source,/campaignPublishedConfirmed/);assert.doesNotMatch(source,/graph\.facebook|googleapis\.com|api\.instagram/);});
