@@ -780,6 +780,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/assets/ezfix-app-icon-192.png?v=2"><link rel="apple-touch-icon" sizes="180x180" href="/assets/ezfix-apple-touch-icon.png?v=2">
 <link rel="stylesheet" href="/premium-palette.css?v=20261004-royal1">
 <link rel="stylesheet" href="/royal-blue-surfaces.css?v=20261005-polish2">
+<link rel="stylesheet" href="/premium-tools.css?v=20261005-wand1">
 <!-- EZFIX_CALENDAR_PREMIUM_BEGIN -->
 <style id="ezfix-calendar-premium">
 /* Calendar-only presentation. Keep the existing 60px/hour geometry and all handlers. */
@@ -4278,6 +4279,7 @@ function openEstimateModal(id, presetCustomerId, presetJobId, presetItems) {
         <label class="field"><span class="lbl">Date</span><input type="date" id="f_date" value="${e?.date || todayISO()}"></label>
       </div>
       <label class="field"><span class="lbl">Line items</span></label>
+      ${window.PremiumTools ? PremiumTools.documentMarkup('estimate', e?.jobId || presetJobId || '') : ''}
       <div id="liWrap">${lineItemsHtml()}</div>
       <label class="field" style="margin-top:12px"><span class="lbl">Notes (shown on estimate)</span><textarea id="f_notes">${esc(e?.notes)}</textarea></label>
       <label class="field"><span class="lbl">Option label <span class="muted" style="font-weight:400">(optional — for multi-option estimates like Good/Better/Premium)</span></span>
@@ -5637,7 +5639,7 @@ function renderPayrollTechCardHtml(c) {
   const { key, name, memberId, unlinked, jobs, rows, totalRevenue, totalMaterial, totalReimbursement, profit, commission, commissionPct, payout } = c;
   return `
     <div class="panel" style="margin-bottom:18px">
-      <div class="panel-head"><div><h3>${esc(name)}</h3>${unlinked?'<span class="muted">Legacy assignment — review technician identity</span>':STORE.team.filter(m=>m.name===name).length>1?`<span class="muted">Team ID: ${esc(memberId)}</span>`:''}</div><span class="muted">${jobs.length} job(s)</span></div>
+      <div class="panel-head"><div><h3>${esc(name)}</h3>${unlinked?'<span class="muted">Legacy assignment — review technician identity</span>':STORE.team.filter(m=>m.name===name).length>1?`<span class="muted">Team ID: ${esc(memberId)}</span>`:''}</div><div class="payroll-card-actions"><span class="muted">${jobs.length} job(s)</span>${memberId?`<button class="btn btn-sm btn-primary" onclick="TechnicianPayroll.open('${esc(memberId)}')">Technician file & payments</button>`:''}</div></div>
       <div class="panel-body">
         ${rows.length ? rows.map(r=>`
           <div class="clickable" style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:flex-start" onclick="go('jobs','${r.job.id}')">
@@ -9233,8 +9235,17 @@ function renderCalendarMonth(content) {
   const monthLabel = cursor.toLocaleDateString('en-US', { month:'long', year:'numeric' });
   const selectedDate = searchTerms.calendarSelectedDate || today;
   const selectedJobs = jobsForDay(selectedDate);
+  const todayJobs = jobsForDay(today);
+  const calendarMetricJobs = STORE.jobs.filter(j=>!j.deletedAt && jobMatchesTechFilter(j,techFilter) && (!isTechnicianView() || technicianOwnsJob(j)));
+  const calendarTechCount = new Set(todayJobs.map(j=>j.technicianId||j.technician).filter(Boolean)).size;
+  const pendingCount = calendarMetricJobs.filter(j=>j.scheduledDate===today && !['completed','cancelled','canceled'].includes(j.status)).length;
   const selectedObj = new Date(selectedDate+'T00:00:00');
   content.innerHTML = `
+    <div class="cal-summary-strip" aria-label="Today's schedule summary">
+      <div class="cal-summary blue"><span class="cal-summary-icon" aria-hidden="true">${window.PremiumTools ? PremiumTools.icon('calendar') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="5"/></svg>'}</span><div><strong>${todayJobs.length}</strong><span>Jobs today</span></div></div>
+      <div class="cal-summary navy"><span class="cal-summary-icon" aria-hidden="true">${window.PremiumTools ? PremiumTools.icon('team') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="5"/></svg>'}</span><div><strong>${calendarTechCount}</strong><span>Technicians today</span></div></div>
+      <div class="cal-summary yellow"><span class="cal-summary-icon" aria-hidden="true">${window.PremiumTools ? PremiumTools.icon('clock') : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="5"/></svg>'}</span><div><strong>${pendingCount}</strong><span>Pending today</span></div></div>
+    </div>
     <div class="toolbar cal-friendly-toolbar" style="justify-content:space-between">
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn btn-sm" onclick="shiftCalendarMonth(-1)">← Prev</button>
@@ -9252,7 +9263,7 @@ function renderCalendarMonth(content) {
       <div class="cal-month-grid">
       ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="cal-month-weekday">${d}</div>`).join('')}
       ${cells.map(d => {
-        const dStr = d.toISOString().slice(0,10);
+        const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         const inMonth = d.getMonth() === month;
         const isToday = dStr === today;
         const dJobs = jobsForDay(dStr);
@@ -9288,7 +9299,7 @@ function renderCalendarMonth(content) {
         <div class="cal-agenda-body">
           ${selectedJobs.length ? selectedJobs.map(j=>{
             const cust=getOne('customers',j.customerId);
-            return `<div class="cal-agenda-job">
+            return `<div class="cal-agenda-job ${j===selectedJobs[0]?'cal-agenda-featured':''}">
               ${calendarPhotoThumbnail(j)}<div class="cal-agenda-time">${esc(j.appointmentWindow||'Time TBD')}</div>
               <div class="cal-agenda-customer">${esc(j.customerName||j.title||'Job')}</div>
               <div class="cal-agenda-meta">${esc(j.title||'Garage door service')}</div>
@@ -9315,7 +9326,7 @@ window.selectCalendarDay=selectCalendarDay;
 function shiftCalendarMonth(n) {
   const d = new Date(calendarMonthCursor+'T00:00:00');
   d.setMonth(d.getMonth()+n);
-  calendarMonthCursor = d.toISOString().slice(0,7)+'-01';
+  calendarMonthCursor = payrollDateKey(d).slice(0,7)+'-01';
   saveUiState();
   render();
 }
@@ -9893,6 +9904,7 @@ function openInvoiceModal(id, presetCustomerId, presetJobId, presetItems) {
         <select id="f_job">${jobOptionsForCustomer(inv?.customerId || presetCustomerId, inv?.jobId || presetJobId)}</select>
       </label>
       <label class="field"><span class="lbl">Line items</span></label>
+      ${window.PremiumTools ? PremiumTools.documentMarkup('invoice', inv?.jobId || presetJobId || '') : ''}
       <div id="liWrap">${lineItemsHtml()}</div>
       <label class="field" style="margin-top:12px"><span class="lbl">Due terms</span><input type="text" id="f_due" value="${esc(inv?.dueTerm || 'On Receipt')}"></label>
       <label class="field"><span class="lbl">Square Payment Link <span class="muted" style="font-weight:400">(this invoice only)</span></span><input type="url" id="f_payment_link" value="${esc(inv?.paymentLink || '')}" placeholder="https://checkout.square.site/..."><span class="muted" style="font-size:12px">PAY NOW opens Square directly — no CRM redirect.</span></label>
@@ -11294,7 +11306,7 @@ async function initUserRole() {
 <!-- EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY --><script src="/visualizer-gallery-premium.js" data-ezfix-vg="v1"></script><!-- /EZFIX_VISUALIZER_GALLERY_PREMIUM_V1_BODY -->
 <!-- EZFIX_MARKETING_CONNECTION_UI_V1_BODY --><script src="/marketing-connections-ui.js" data-ezfix-marketing-ui="v1"></script><!-- /EZFIX_MARKETING_CONNECTION_UI_V1_BODY -->
 <script src="/activity-history.js"></script><script src="/technician-earnings.js"></script><script src="/job-assignment.js?v=20261005-owner1"></script><script src="/workspace-overview.js?v=20261005-dashboard1"></script><script src="/receipt-archive-utils.js?v=20261005-annual1"></script><script src="/social-post-composer.js?v=20261005-social1"></script><script src="/office-workspace.js?v=20261005-social1"></script><script src="/lead-dispatch.js?v=20261005-owner1"></script>
-<script src="/workspace-theme.js?v=20261005-clarity1"></script><script src="/business-finance.js?v=20261005-bank1"></script>
+<script src="/premium-tools.js?v=20261005-wand1"></script><script src="/technician-payroll.js?v=20261005-pay1"></script><script src="/workspace-theme.js?v=20261005-clarity1"></script><script src="/business-finance.js?v=20261005-bank1"></script>
 <script src="/phone-alerts.js"></script>
 <script src="/notification-alerts.js"></script>
 <script src="/door-gallery.js" data-door-gallery="v1"></script>

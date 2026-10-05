@@ -7,6 +7,7 @@ const scripts = [
   'build-app-icons.mjs',
   'test-customer-receipts.mjs',
   'test-business-workflows.mjs',
+  'test-premium-tools-payroll.mjs',
   'test-crm-refresh-cache.mjs',
   'test-notification-alerts.mjs',
   'test-owner-phone-alerts.mjs',
