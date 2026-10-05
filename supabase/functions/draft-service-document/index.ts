@@ -5,13 +5,25 @@ const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers});if(req.method!=='POST')return reply({ok:false,error:'Method not allowed'},405);
  try{
+  const input=await req.json();
+  const diagnostic=input.validate_only===true&&!!Deno.env.get('EZFIX_CALL_SYNC_CRON_TOKEN')&&req.headers.get('x-ezfix-cron-token')===Deno.env.get('EZFIX_CALL_SYNC_CRON_TOKEN');
+  if(diagnostic){
+   const key=Deno.env.get('OPENAI_API_KEY');if(!key)return reply({ok:false,configured:false},503);
+   const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
+   const {data:catalog,error}=await db.from('products').select('id,name,details,rate,taxable').eq('active',true).limit(500);if(error)throw error;
+   const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-4.1-mini',store:false,instructions:draftInstructions(),input:'Return the result as JSON.\n'+JSON.stringify({description:'Make me for garage replacement',type:'invoice',catalog}),text:{format:{type:'json_object'}},max_output_tokens:2200}),signal:AbortSignal.timeout(45000)});
+   const result=await res.json().catch(()=>({}));if(!res.ok)return reply({ok:false,status:res.status,code:result.error?.code||null,type:result.error?.type||null},502);
+   const text=(result.output||[]).flatMap((o:any)=>o.content||[]).filter((c:any)=>c.type==='output_text').map((c:any)=>c.text).join('');
+   const draft=parseDocumentDraft(text,catalog||[]);
+   return reply({ok:true,status:res.status,catalog_count:catalog?.length||0,items_count:draft.items.length,warnings_count:draft.warnings.length,unpriced_items:draft.items.filter((x:any)=>x.rate===0).length});
+  }
   const auth=req.headers.get('Authorization')||'',url=Deno.env.get('SUPABASE_URL')!;
   if(!auth.startsWith('Bearer '))return reply({ok:false,error:'Unauthorized'},401);
   const scoped=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:auth}},auth:{persistSession:false}}),{data:{user},error:authError}=await scoped.auth.getUser();
   if(authError||!user)return reply({ok:false,error:'Unauthorized'},401);
   const db=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}}),{data:member,error:me}=await db.from('team').select('id,status,role').eq('auth_user_id',user.id).maybeSingle();
   if(me||member?.status!=='active'||!['owner','admin','office','dispatcher','technician'].includes(member.role))return reply({ok:false,error:'Access denied'},403);
-  const input=await req.json(),description=String(input.description||'').trim();if(!description||description.length>2500||!['invoice','estimate'].includes(input.type))return reply({ok:false,error:'Describe the service in up to 2500 characters.'},400);
+  const description=String(input.description||'').trim();if(!description||description.length>2500||!['invoice','estimate'].includes(input.type))return reply({ok:false,error:'Describe the service in up to 2500 characters.'},400);
   if(member.role==='technician'){
    const {data:job}=await db.from('jobs').select('id,technician_id,deleted_at').eq('id',String(input.job_id||'')).maybeSingle();
    if(!job||job.deleted_at||job.technician_id!==member.id)return reply({ok:false,error:'Assigned job required'},403);
@@ -21,8 +33,11 @@ Deno.serve(async req=>{
   if(member.role!=='owner'&&Number(count)>=20)return reply({ok:false,error:'Generation limit reached. Try again later.'},429);
   const {data:catalog,error:pe}=await db.from('products').select('id,name,details,rate,taxable').eq('active',true).limit(500);if(pe)throw pe;
   const {error:ae}=await db.from('audit_log').insert({id:crypto.randomUUID(),action:'document_ai_generation',summary:'Service document draft requested',entity_type:'jobs',entity_id:input.job_id||null,source:'app_client',created_by_team_id:member.id});if(ae)throw ae;
-  const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-4.1-mini',store:false,instructions:draftInstructions(),input:JSON.stringify({description,type:input.type,catalog}),text:{format:{type:'json_object'}},max_output_tokens:2200}),signal:AbortSignal.timeout(45000)});
-  if(!res.ok)return reply({ok:false,error:'AI generation is temporarily unavailable. Your current document is unchanged.'},502);
+  const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-4.1-mini',store:false,instructions:draftInstructions(),input:'Return the result as JSON.\n'+JSON.stringify({description,type:input.type,catalog}),text:{format:{type:'json_object'}},max_output_tokens:2200}),signal:AbortSignal.timeout(45000)});
+  if(!res.ok){
+   const failure=await res.json().catch(()=>({}));console.error('Document draft provider failure',JSON.stringify({status:res.status,type:failure.error?.type||null,code:failure.error?.code||null,request_id:res.headers.get('x-request-id')}));
+   return reply({ok:false,error:'AI generation is temporarily unavailable. Please retry. Your current document is unchanged.'},502);
+  }
   const result=await res.json(),text=(result.output||[]).flatMap((o:any)=>o.content||[]).filter((c:any)=>c.type==='output_text').map((c:any)=>c.text).join('');
   return reply({ok:true,...parseDocumentDraft(text,catalog||[])});
  }catch(e){console.error('Document draft failed',e);return reply({ok:false,error:'Could not prepare the draft. Your current document is unchanged.'},500);}
