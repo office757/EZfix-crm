@@ -17,8 +17,8 @@
 <div class="wrap"><div id="app"><div class="empty">Loading…</div></div></div>
 <div id="overlay" class="overlay"><div class="modal"><div class="modal-head"><b id="modalTitle">Team member</b><button class="btn" onclick="closeModal()">✕</button></div><div id="modalBody" class="modal-body"></div><div class="modal-foot"><button class="btn" onclick="closeModal()">Cancel</button><button id="saveBtn" class="btn btn-primary" onclick="saveMember()">Save</button></div></div></div>
 <script>
-const SUPABASE_URL='https://fylbalenuqpovwncwbah.supabase.co';
-const SUPABASE_KEY='sb_publishable_Z7x_Vq2PDHAdxwpPElxE-A_qCv3iusF';
+const SUPABASE_URL='https://mrtxrlmtuautyvzycvhm.supabase.co';
+const SUPABASE_KEY='sb_publishable_ziLuMWf1Sxh2MeVP7XMWIA_NGrREh6s';
 const SB=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{detectSessionInUrl:true,persistSession:true}});
 let caller=null, members=[], editing=null;
 const NOTIFY=[['newLead','New Lead Assigned'],['newJob','New Job Assigned'],['scheduleChange','Job Schedule Changed'],['jobCancelled','Job Cancelled'],['customerMessage','Customer Message'],['estimateApproved','Estimate Approved'],['paymentReceived','Payment Received'],['ownerMessage','Owner/Dispatcher Message']];
