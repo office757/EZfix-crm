@@ -982,7 +982,7 @@ const unsub = [];
 let route = { page: "dashboard", id: null };
 let searchTerms = {};
 let globalSearchQuery = '';
-const UI_STATE_KEY='ezfix_crm_ui_state_v1';
+const UI_STATE_KEY='superezx_dev_ui_state_v1';
 /* EZFIX_UI_STATE_SAVE_V1_START */
 function saveUiState(){
   try{
@@ -1086,8 +1086,9 @@ window.addEventListener('unhandledrejection', function(e) {
   console.error('unhandledrejection', e.reason);
 });
 
-/* ---------- production Supabase data adapter ---------- */
+/* ---------- SuperEZX Development isolated Supabase data adapter ---------- */
 const SUPABASE_PROJECT_URL = 'https://mrtxrlmtuautyvzycvhm.supabase.co';
+if (!location.hostname.includes('superezx-development') && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') { throw new Error('SuperEZX development environment mismatch'); }
 const SUPABASE_ANON_KEY = 'sb_publishable_ziLuMWf1Sxh2MeVP7XMWIA_NGrREh6s';
 const SB = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
@@ -1238,7 +1239,7 @@ async function initDb(){
     unsub.push(()=>SB.removeChannel(channel));
   }catch(e){ console.error('Supabase init failed',e); dbReady=false; setSyncState(false,'Supabase unavailable'); toast('Could not load CRM data from Supabase. No local writes are allowed.',true); }
 }
-const LS_KEY='ezfix_crm_store_v1';
+const LS_KEY='superezx_dev_store_v1';
 function loadLocalStore(){} // production: localStorage is never authoritative
 function saveLocalStore(){} // production: no business-data writes to localStorage
 async function dbAdd(col,data){
@@ -11255,11 +11256,11 @@ let CAN_EDIT = true; // default true when the capability isn't available (e.g. l
 let IS_OWNER = false;
 let CURRENT_TEAM_MEMBER = null;
 let VIEW_AS = '';
-try { VIEW_AS = localStorage.getItem('ezfix_view_as') || ''; } catch(e) {}
+try { VIEW_AS = localStorage.getItem('superezx_dev_view_as') || ''; } catch(e) {}
 function setViewAs(name) {
   if (!IS_OWNER) return;
   VIEW_AS = name;
-  try { localStorage.setItem('ezfix_view_as', name); } catch(e) {}
+  try { localStorage.setItem('superezx_dev_view_as', name); } catch(e) {}
   render();
 }
 window.setViewAs = setViewAs;
@@ -11287,7 +11288,7 @@ async function signOutCrm() {
     await SB.auth.signOut();
     signedAssetCache.clear();
     CURRENT_TEAM_MEMBER=null; IS_OWNER=false; CAN_EDIT=false; VIEW_AS='';
-    try { localStorage.removeItem('ezfix_view_as'); } catch(e) {}
+    try { localStorage.removeItem('superezx_dev_view_as'); } catch(e) {}
     dbReady=false; STORE.customers=[]; STORE.leads=[]; STORE.jobs=[]; STORE.estimates=[]; STORE.invoices=[]; STORE.team=[];
     location.reload();
   } catch(e) { toast('Unable to sign out. Please try again.', true); }
@@ -11303,7 +11304,7 @@ async function initUserRole() {
     CURRENT_TEAM_MEMBER=member||null;
     CAN_EDIT=!!member; IS_OWNER=member?.role==='owner';
     const roleName=member?.role==='owner'?'Owner':member?.role==='admin'?'Admin':member?.role==='dispatcher'?'Dispatcher':member?.role==='office'?'Office':member?.role==='technician'?'Technician':member?.role==='marketing_manager'?'Marketing Manager':'Unassigned';
-    if(!IS_OWNER){ VIEW_AS=''; try{localStorage.removeItem('ezfix_view_as');}catch(e){} }
+    if(!IS_OWNER){ VIEW_AS=''; try{localStorage.removeItem('superezx_dev_view_as');}catch(e){} }
     if(roleLabelEl) roleLabelEl.textContent=member ? `You: ${member.name || 'User'} • ${roleName}` : 'Access not assigned';
     const signOutBtn=document.getElementById('signOutBtn'); if(signOutBtn) signOutBtn.style.display=member?'block':'none';
     renderNav();
