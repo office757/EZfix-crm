@@ -39,11 +39,46 @@
         <label class="field"><span>Email</span><input id="email" name="email" type="email" inputmode="email" autocomplete="username" required></label>
         <label class="field"><span>Password</span><input id="password" name="password" type="password" autocomplete="current-password" required></label>
         <button class="btn" id="loginBtn" type="submit">Sign in securely</button>
+        <button class="btn" id="createOwnerBtn" type="button" style="margin-top:10px;background:#17181a;color:#fff">Create Owner Account</button>
         <div class="msg" id="loginMsg" role="alert">${esc(message)}</div>
       </form>
       <div class="fine">Sessions are handled by Supabase Auth. Passwords are never stored in the CRM page.</div>
     </main>`;
     const form = document.getElementById('loginForm');
+    document.getElementById('createOwnerBtn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('createOwnerBtn');
+      const msg = document.getElementById('loginMsg');
+      msg.textContent = '';
+      if (email.toLowerCase() !== 'superezxinc@gmail.com') {
+        msg.textContent = 'Owner setup is restricted to the approved SuperEZX owner email.';
+        return;
+      }
+      if (password.length < 12) {
+        msg.textContent = 'Choose a password with at least 12 characters.';
+        return;
+      }
+      btn.disabled = true;
+      try {
+        const { data, error } = await client.auth.signUp({ email, password });
+        if (error) throw error;
+        if (data?.session?.user) {
+          const { error: bootstrapError } = await client.rpc('bootstrap_superezx_dev_owner');
+          if (bootstrapError) throw bootstrapError;
+          await boot();
+        } else {
+          msg.style.color = '#1f6f3d';
+          msg.textContent = 'Account created. Check your email to confirm it, then sign in here.';
+        }
+      } catch (err) {
+        msg.style.color = '#b3261e';
+        msg.textContent = err?.message || 'Could not create the owner account.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const email = document.getElementById('email').value.trim();
@@ -97,7 +132,11 @@
       if (error) throw error;
       const session = data?.session;
       if (!session?.user) { renderLogin(); return; }
-      const member = await loadTeamMember(session.user.id);
+      let member = await loadTeamMember(session.user.id);
+      if (!member && String(session.user.email || '').toLowerCase() === 'superezxinc@gmail.com') {
+        const { error: bootstrapError } = await client.rpc('bootstrap_superezx_dev_owner');
+        if (!bootstrapError) member = await loadTeamMember(session.user.id);
+      }
       if (!member) {
         await client.auth.signOut();
         renderLogin('This account is not linked to an active SuperEZX development team profile.');
