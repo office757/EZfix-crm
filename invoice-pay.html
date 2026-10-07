@@ -28,8 +28,8 @@ table.doc-items{width:100%;border-collapse:collapse;margin-bottom:10px}table.doc
 <div id="signBox" class="signbox"><div class="eyebrow">CUSTOMER ACKNOWLEDGEMENT</div><input id="signerName" type="text" autocomplete="name" placeholder="Full name"><canvas id="sigPad" class="sigpad"></canvas><div class="signrow"><input id="termsConsent" type="checkbox"><label for="termsConsent">I acknowledge this invoice and agree to the service agreement and refund policy provided by EZfix Garage Doors Inc.</label></div><button id="signBtn" class="signbtn" type="button">SIGN & ACCEPT</button><div id="signStatus" class="signstatus"></div></div><div class="paybox"><a id="payBtn" class="paybtn hidden" rel="noopener noreferrer">PAY NOW</a><span id="paid" class="paid hidden">PAID IN FULL</span><div id="payNotice" class="notice"></div></div>
 </div></div></main>
 <script>
-const SUPABASE_URL='https://fylbalenuqpovwncwbah.supabase.co';
-const PUBLISHABLE_KEY='sb_publishable_Z7x_Vq2PDHAdxwpPElxE-A_qCv3iusF';
+const SUPABASE_URL='https://mrtxrlmtuautyvzycvhm.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_ziLuMWf1Sxh2MeVP7XMWIA_NGrREh6s';
 const params=new URLSearchParams(location.search),invoiceId=params.get('invoice'),token=params.get('token');
 const $=id=>document.getElementById(id),money=n=>'$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
