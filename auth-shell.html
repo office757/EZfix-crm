@@ -46,6 +46,7 @@
         <button class="btn" id="loginBtn" type="submit">Sign in securely</button>
         <button class="btn" id="createOwnerBtn" type="button" style="margin-top:10px">Create Owner Account</button>
         <button class="btn" id="forgotPasswordBtn" type="button" style="margin-top:10px;background:#fff;color:#17181a;border:1px solid #d8d5cf">Forgot Password</button>
+        <button class="btn" id="forgotPasswordBtn" type="button" style="margin-top:10px;background:#fff;color:#17181a;border:1px solid #d8d5cf">Forgot Password</button>
         <div class="msg" id="loginMsg" role="alert">${esc(message)}</div>
       </form>
       <div class="fine">Sessions are handled by Supabase Auth. Passwords are never stored in the CRM page.</div>
@@ -90,6 +91,29 @@
         btn.disabled = false;
       }
     });
+    document.getElementById('forgotPasswordBtn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const msg = document.getElementById('loginMsg');
+      const btn = document.getElementById('forgotPasswordBtn');
+      msg.textContent = '';
+      if (!email) {
+        msg.textContent = 'Enter your email first, then tap Forgot Password.';
+        return;
+      }
+      btn.disabled = true;
+      try {
+        const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/auth-shell' });
+        if (error) throw error;
+        msg.style.color = '#1f6f3d';
+        msg.textContent = 'Password reset email sent. Open the email and follow the link.';
+      } catch (err) {
+        msg.style.color = '#b3261e';
+        msg.textContent = 'Could not send the password reset email.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     document.getElementById('createOwnerBtn').addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
