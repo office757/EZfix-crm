@@ -54,6 +54,13 @@
     const passwordInput = document.getElementById('password');
     const togglePasswordBtn = document.getElementById('togglePasswordBtn');
     togglePasswordBtn.addEventListener('click', () => {
+      const visible = passwordInput.type === 'text';
+      passwordInput.type = visible ? 'password' : 'text';
+      togglePasswordBtn.textContent = visible ? 'Show' : 'Hide';
+    });
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+    togglePasswordBtn.addEventListener('click', () => {
       const showing = passwordInput.type === 'text';
       passwordInput.type = showing ? 'password' : 'text';
       togglePasswordBtn.textContent = showing ? 'Show' : 'Hide';
