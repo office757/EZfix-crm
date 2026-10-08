@@ -20,4 +20,13 @@ for(let n=0;n<50;n++)scheduler.schedule('jobs');scheduler.schedule('invoices');a
 const flush=timers.shift()();await new Promise(r=>setImmediate(r));scheduler.schedule('jobs');release();await flush;
 assert.deepEqual(calls,['jobs','invoices']);assert.equal(renders,1);assert.equal(timers.length,1);await timers.shift()();assert.deepEqual(calls,['jobs','invoices','jobs']);assert.equal(renders,2);
 scheduler.dispose();scheduler.schedule('jobs');assert.equal(timers.length,0);
+
+let recoverRuns=0, recoverRenders=0, recoverErrorCalls=0;
+const recoverTimers=[];
+const recovery=createRealtimeScheduler({setTimer:f=>{recoverTimers.push(f);return recoverTimers.length;},clearTimer(){},refresh:async()=>{recoverRuns++;if(recoverRuns===1)throw Error('temporary offline');},render:()=>recoverRenders++,onError:()=>{recoverErrorCalls++;throw Error('notification failed');}});
+recovery.schedule('dashboard');await recoverTimers.shift()();
+assert.equal(recoverRenders,0,'failed refresh must not render stale dashboard');
+assert.equal(recoverErrorCalls,1);
+recovery.schedule('dashboard');assert.equal(recoverTimers.length,1,'scheduler must recover after an error handler throws');
+await recoverTimers.shift()();assert.equal(recoverRenders,1);recovery.dispose();
 console.log('Asset cache: 80 references produce 12 requests, zero repeat requests; expiry, session clear, retries, concurrency cap PASS. Realtime burst and in-flight trailing refresh PASS.');

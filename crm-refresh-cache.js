@@ -34,8 +34,10 @@ function createRealtimeScheduler({refresh,render,onError=()=>{},delay=180,setTim
  function arm(){if(!disposed&&!busy&&timer===null&&pending.size)timer=setTimer(flush,delay);}
  async function flush(){timer=null;if(disposed)return;busy=true;const keys=[...pending];pending.clear();
   const results=await Promise.allSettled(keys.map(key=>Promise.resolve().then(()=>refresh(key))));
-  results.forEach(r=>{if(r.status==='rejected')onError(r.reason);});
-  if(!disposed)render();busy=false;arm();
+  try {
+   results.forEach(r=>{if(r.status==='rejected'){try{onError(r.reason);}catch(error){console.error('CRM realtime error handler failed',error);}}});
+   if(!disposed&&results.some(r=>r.status==='fulfilled'))render();
+  } finally {busy=false;arm();}
  }
  return {schedule,dispose(){disposed=true;pending.clear();if(timer!==null)clearTimer(timer);timer=null;}};
 }
