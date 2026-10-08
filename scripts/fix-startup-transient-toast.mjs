@@ -17,11 +17,14 @@ const crmStartupAt=Date.now();
 function reportUnexpectedCrmError(source,error) {
   console.error(source,error);
   if(Date.now()-crmStartupAt<8000) {
+    // Let the asynchronous initial data load finish before deciding whether
+    // a transient background rejection actually prevented CRM startup.
     setTimeout(()=>{
-      // Do not alarm staff for an error that did not prevent CRM startup.
-      // Genuine failed startup still has its own visible Supabase failure message.
-      if(!dbReady) toast('Something went wrong. Please try again.',true);
-    },1500);
+      if(dbReady) return;
+      // initDb already reports a failed Supabase load explicitly; avoid a
+      // second generic message for the same failed initialization.
+      console.warn('CRM startup did not reach ready state after background error',source);
+    },10000);
     return;
   }
   toast('Something went wrong. Please try again.',true);
