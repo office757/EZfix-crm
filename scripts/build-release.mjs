@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 // Run sequentially: failed tests stop the build, and transforms keep their order.
 const scripts = [
   'build-app-icons.mjs',
+  'fix-startup-unhandled.mjs',
   'test-customer-receipts.mjs',
   'test-business-workflows.mjs',
   'test-call-sync-transcripts.mjs',

@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const path = new URL('../index.html', import.meta.url);
+const original = fs.readFileSync(path, 'utf8');
+const before = '(async()=>{ await initDb(); if(await requireSession()) await initUserRole(); })();';
+const after = `(async()=>{ try { await initDb(); if(dbReady && CURRENT_TEAM_MEMBER) await initUserRole(); } catch(e) { console.error('CRM startup failed', e); dbReady=false; setSyncState(false,'Startup unavailable'); } })();`;
+assert.equal(original.split(before).length - 1, 1, 'Expected exactly one EZfix startup entrypoint');
+const updated = original.replace(before, after);
+assert(updated.includes(after) && !updated.includes(before));
+fs.writeFileSync(path, updated);
+console.log('EZfix startup guard applied; repeated session check removed.');
